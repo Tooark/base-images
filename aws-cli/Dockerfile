@@ -40,9 +40,9 @@ RUN set -eux; \
   fi; \
   AWSCLI_URL="https://awscli.amazonaws.com/${AWSCLI_ZIP}"; \
   curl -fsSL "$AWSCLI_URL" -o /tmp/awscliv2.zip; \
-  # (Opcional) validar com checksum quando versão estiver definida:
+  # Valida com checksum quando versão estiver definida:
   if [ -n "${AWSCLI_VERSION}" ]; then \
-    # Ajuste a origem conforme seu processo de confiança
+    # Ajusta a origem
     curl -fsSL "https://awscli.amazonaws.com/${AWSCLI_ZIP}.sha256" -o /tmp/awscliv2.zip.sha256; \
     echo "$(cat /tmp/awscliv2.zip.sha256)  /tmp/awscliv2.zip" | sha256sum -c -; \
   fi; \
