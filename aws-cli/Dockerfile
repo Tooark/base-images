@@ -79,8 +79,10 @@ COPY --from=builder /opt/bin/aws /usr/local/bin/aws
 # Copia possíveis bibliotecas e binários que o instalador possa ter colocado em /usr/local
 COPY --from=builder /usr/local /usr/local
 
-# Usuário não-root
-RUN adduser -D -s /bin/sh app && chown -R app:app /usr/local
+# Usuário não-root (comando compatível com Debian)
+# use useradd/adduser não interativo para Debian: cria conta sem senha
+RUN adduser --disabled-password --gecos "" app || useradd -m -s /bin/sh app \
+  && chown -R app:app /usr/local
 USER app
 
 # Definir o entrypoint para o comando aws
