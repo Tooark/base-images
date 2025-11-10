@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.19
 
 # Argumento para definir a imagem base (padrão: debian:bookworm-slim)
-ARG BASE_IMAGE=debian:bookworm-slim
+ARG BASE_IMAGE=debian:13-slim
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
