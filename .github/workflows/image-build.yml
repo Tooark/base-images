@@ -1,0 +1,107 @@
+name: Build and Push Docker Images
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/Dockerfile"
+      - "**/VERSION"
+      - ".github/workflows/image-build.yml"
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - aws-cli
+          # - gcp
+          # - sonarqube
+          # - terraform
+          # - terraform-aws
+          # - terraform-aws-gcp-clis
+          # - terraform-gcp
+          # - trivy
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # need full history to compute diffs between commits
+          fetch-depth: 0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Extract version from VERSION file
+        id: version
+        run: |
+          # If the file ./<image>/VERSION exists, use its contents (trim spaces/new lines).
+          if [ -f ./${{ matrix.image }}/VERSION ]; then
+            VERSION=$(cat ./${{ matrix.image }}/VERSION | tr -d ' \t\r\n')
+          else
+            # use short commit SHA (first 7 chars) as version instead of "latest"
+            if [ -n "${GITHUB_SHA:-}" ]; then
+              VERSION=$(echo "${GITHUB_SHA}" | cut -c1-7)
+            else
+              VERSION="latest"
+            fi
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up support for more platforms with QEMU
+        uses: docker/setup-buildx-action@v3
+
+      - name: Check if image folder changed
+        id: changes
+        run: |
+          # If previous SHA is missing (new branch/initial commit), treat as changed
+          if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # List changed files between previous commit and current
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || true)
+
+          echo "$CHANGED_FILES" | grep -E "^${{ matrix.image }}/" >/dev/null 2>&1 && echo "changed=true" >> $GITHUB_OUTPUT || echo "changed=false" >> $GITHUB_OUTPUT
+
+      - name: Build and push image (buildx)
+        if: ${{ steps.changes.outputs.changed == 'true' }}
+        run: |
+          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            -t $IMAGE_NAME:${{ steps.version.outputs.version }} \
+            -t $IMAGE_NAME:latest \
+            ./${{ matrix.image }} --push
+
+      - name: Create and push tag
+        if: ${{ steps.changes.outputs.changed == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ matrix.image }}-${{ steps.version.outputs.version }}"
+
+          # don't fail if tag already exists
+          if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+            echo "Tag $TAG_NAME already exists, skipping"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+
+          # push the tag using the repo credentials available in the runner
+          git push origin refs/tags/$TAG_NAME
