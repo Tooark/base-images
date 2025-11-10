@@ -43,7 +43,7 @@ RUN set -eux; \
   curl -fsSL "$AWSCLI_URL" -o /tmp/awscliv2.zip; \
   unzip /tmp/awscliv2.zip -d /tmp; \
   /tmp/aws/install --install-dir /opt/aws-cli --bin-dir /opt/bin; \
-  rm -rf /tmp/aws /tmp/awscliv2.zip /tmp/awscliv2.zip.sha256 || true
+  rm -rf /tmp/aws /tmp/awscliv2.zip || true
 
 ############################
 # Stage 2: runtime mínimo  #
@@ -66,17 +66,14 @@ RUN apt-get update \
 # Garantir falha em pipe e shell mais estrita (use bash)
 SHELL ["/bin/bash", "-e", "-o", "pipefail", "-c"]
 
-# Copia o que foi instalado
+# Copia apenas o necessário do builder para o runtime
 COPY --from=builder /opt/aws-cli /usr/local/aws-cli
 COPY --from=builder /opt/bin/aws /usr/local/bin/aws
 
-# Copia possíveis bibliotecas e binários que o instalador possa ter colocado em /usr/local
-COPY --from=builder /usr/local /usr/local
-
 # Usuário não-root (comando compatível com Debian)
-# use useradd/adduser não interativo para Debian: cria conta sem senha
+# Utiliza useradd/adduser não interativo para Debian: cria conta sem senha
 RUN adduser --disabled-password --gecos "" app || useradd -m -s /bin/sh app \
-  && chown -R app:app /usr/local
+  && chown -R app:app /usr/local/aws-cli /usr/local/bin/aws || true
 USER app
 
 # Definir o entrypoint para o comando aws
