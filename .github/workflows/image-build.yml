@@ -2,6 +2,7 @@ name: Build and Push Docker Images
 
 permissions:
   contents: write
+  packages: write
 
 on:
   push:
@@ -44,7 +45,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract version from VERSION file
         id: version
