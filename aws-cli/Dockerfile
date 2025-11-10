@@ -71,7 +71,7 @@ COPY --from=builder /opt/aws-cli /usr/local/aws-cli
 
 # Cria um symlink em /usr/local/bin apontando para o binário dentro da árvore do aws-cli
 # Não copia o binário diretamente, pois isso quebra o carregamento das libs (erro PYI-7)
-RUN ln -s /opt/aws-cli/v2/current/bin/aws /usr/local/bin/aws
+RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
 
 # Usuário não-root (comando compatível com Debian)
 # Utiliza useradd/adduser não interativo para Debian: cria conta sem senha
