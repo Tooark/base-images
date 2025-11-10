@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1.19
 
 # Argumento para definir a imagem base (padrão: alpine:3.22)
-ARG BASE_IMAGE=alpine:3.22
+ARG BASE_IMAGE=alpine:3.22 
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
-ARG AWSCLI_VERSION="" # ex: 2.31.32; vazio = latest
+ARG AWSCLI_VERSION=""
 
 ############################
 # Stage 1: build / install #
