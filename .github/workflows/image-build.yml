@@ -10,6 +10,12 @@ on:
       - "**/Dockerfile"
       - "**/VERSION"
       - ".github/workflows/image-build.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/Dockerfile"
+      - "**/VERSION"
+      - ".github/workflows/image-build.yml"
 
 jobs:
   build-and-push:
