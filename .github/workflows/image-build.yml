@@ -86,7 +86,10 @@ jobs:
       - name: Build and push image (buildx)
         if: ${{ steps.changes.outputs.changed == 'true' }}
         run: |
-          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          # Garantir que o owner do repo esteja em minúsculas (GHCR exige nomes lowercase)
+          IMAGE_OWNER="${{ github.repository_owner }}"
+          IMAGE_OWNER_LOWER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
+          IMAGE_NAME=ghcr.io/$IMAGE_OWNER_LOWER/${{ matrix.image }}
           docker buildx build --platform linux/amd64,linux/arm64 \
             -t $IMAGE_NAME:${{ steps.version.outputs.version }} \
             -t $IMAGE_NAME:latest \
