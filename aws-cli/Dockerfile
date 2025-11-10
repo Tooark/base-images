@@ -74,8 +74,11 @@ RUN apk add --no-cache ca-certificates libc6-compat bash \
 COPY --from=builder /opt/aws-cli /usr/local/aws-cli
 COPY --from=builder /opt/bin/aws /usr/local/bin/aws
 
+# Copia possíveis bibliotecas e binários que o instalador possa ter colocado em /usr/local
+COPY --from=builder /usr/local /usr/local
+
 # Usuário não-root
-RUN adduser -D -s /bin/sh app && chown -R app:app /usr/local/aws-cli
+RUN adduser -D -s /bin/sh app && chown -R app:app /usr/local
 USER app
 
 # Definir o entrypoint para o comando aws
