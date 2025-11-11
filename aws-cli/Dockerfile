@@ -13,14 +13,14 @@ ARG PACKAGE_VERSION=""
 # Definição da imagem builder com suporte multi-arquitetura
 FROM ${BASE_IMAGE} AS builder
 
-# Instala dependências mínimas e bash
+# Instala dependências mínimas
 # hadolint ignore=DL3008
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl unzip bash \
+  && apt-get install -y --no-install-recommends ca-certificates curl unzip \
   && rm -rf /var/lib/apt/lists/*
 
-# Garante que falhas em pipe e shell mais estrita
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+# Garante shell mais estrita (dash não suporta -o pipefail)
+SHELL ["/bin/sh", "-eu", "-c"]
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
@@ -51,6 +51,9 @@ RUN set -eux; \
 # Definição da imagem runtime com suporte multi-arquitetura
 FROM ${BASE_IMAGE} AS runtime
 
+# Reexpõe o ARG neste estágio para uso
+ARG PACKAGE_VERSION=""
+
 # Metadados da imagem
 LABEL org.opencontainers.image.title="aws-cli" \
   org.opencontainers.image.description="Base image with embedded AWS CLI v2 for Linux/amd64 and Linux/arm64" \
@@ -61,12 +64,12 @@ LABEL org.opencontainers.image.title="aws-cli" \
 # Instala dependências mínimas
 # hadolint ignore=DL3008
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates bash \
+  && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
   && update-ca-certificates
 
-# Garante que falhas em pipe e shell mais estrita
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+# Garante shell mais estrita (dash não suporta -o pipefail)
+SHELL ["/bin/sh", "-eu", "-c"]
 
 # Copia apenas o necessário do builder para o runtime
 COPY --from=builder /usr/local/aws-cli /usr/local/aws-cli
