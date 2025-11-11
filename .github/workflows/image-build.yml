@@ -90,11 +90,11 @@ jobs:
           IMAGE_OWNER="${{ github.repository_owner }}"
           IMAGE_OWNER_LOWER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
           IMAGE_NAME=ghcr.io/$IMAGE_OWNER_LOWER/${{ matrix.image }}
-          # Se existir ./<image>/VERSION, passe como build-arg AWSCLI_VERSION
+          # Se existir ./<image>/VERSION, passe como build-arg PACKAGE_VERSION
           BUILD_ARGS=""
           if [ -f ./${{ matrix.image }}/VERSION ]; then
-            AWSCLI_VER=$(cat ./${{ matrix.image }}/VERSION | tr -d ' \t\r\n')
-            BUILD_ARGS="--build-arg AWSCLI_VERSION=${AWSCLI_VER}"
+            PACKAGE_VER=$(cat ./${{ matrix.image }}/VERSION | tr -d ' \t\r\n')
+            BUILD_ARGS="--build-arg PACKAGE_VERSION=${PACKAGE_VER}"
           fi
 
           docker buildx build --platform linux/amd64,linux/arm64 \
