@@ -5,7 +5,7 @@ ARG BASE_IMAGE=debian:12-slim
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
-ARG AWSCLI_VERSION=""
+ARG PACKAGE_VERSION=""
 
 ############################
 # Stage 1: build / install #
@@ -24,14 +24,14 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
-ARG AWSCLI_VERSION
+ARG PACKAGE_VERSION
 
 # Monta a URL do CLI e, se versão definida, baixa a versão específica
 RUN set -eux; \
-  if [ -n "${AWSCLI_VERSION}" ]; then \
+  if [ -n "${PACKAGE_VERSION}" ]; then \
     case "${TARGETARCH}" in \
-      "arm64")  AWSCLI_ZIP="awscli-exe-linux-aarch64-${AWSCLI_VERSION}.zip" ;; \
-      *)        AWSCLI_ZIP="awscli-exe-linux-x86_64-${AWSCLI_VERSION}.zip" ;; \
+      "arm64")  AWSCLI_ZIP="awscli-exe-linux-aarch64-${PACKAGE_VERSION}.zip" ;; \
+      *)        AWSCLI_ZIP="awscli-exe-linux-x86_64-${PACKAGE_VERSION}.zip" ;; \
     esac; \
   else \
     case "${TARGETARCH}" in \
@@ -52,10 +52,11 @@ RUN set -eux; \
 FROM ${BASE_IMAGE} AS runtime
 
 # Metadados da imagem
-LABEL org.opencontainers.image.title="aws-cli-base" \
+LABEL org.opencontainers.image.title="aws-cli" \
   org.opencontainers.image.description="Base image with embedded AWS CLI v2 for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
-  org.opencontainers.image.licenses="MIT"
+  org.opencontainers.image.licenses="MIT" \
+  org.opencontainers.image.version="${PACKAGE_VERSION}"
 
 # Instala dependências mínimas
 # hadolint ignore=DL3008
