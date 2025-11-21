@@ -17,7 +17,7 @@ Substitua os números de versão acima pelo valor correspondente à sua build.
 | Ferramenta / item    | Versão / observação                                 | ARG (build)       |
 | -------------------- | --------------------------------------------------- | ----------------- |
 | Debian (imagem base) | `debian:12-slim` (padrão)                           | `BASE_IMAGE`      |
-| AWS CLI (v2)         | Versão definida pela tag da imagem (ex.: `2.32.2`) | `PACKAGE_VERSION` |
+| AWS CLI (v2)         | Versão definida pela tag da imagem (ex.: `2.32.2`) | `AWSCLI_VERSION` |
 | Binário disponível   | `aws` (em `/usr/local/bin`)                         | N/A               |
 | Pacote de runtime    | `ca-certificates`                                   | N/A               |
 | Usuário padrão       | `app` (não-root), HOME: `/home/app`                 | N/A               |
@@ -88,7 +88,7 @@ Isso mostrará a versão do `aws` e listará a versão do pacote `ca-certificate
 A imagem é construída para linux/amd64 e linux/arm64. O `Dockerfile` detecta `TARGETARCH` e baixa o instalador adequado do AWS CLI v2 para a arquitetura alvo.
 
 - Imagem base configurável via `--build-arg BASE_IMAGE` (padrão: `debian:12-slim`).
-- Versão do AWS CLI definida via `--build-arg PACKAGE_VERSION` (obrigatório no build).
+- Versão do AWS CLI definida via `--build-arg AWSCLI_VERSION` (obrigatório no build).
 
 ## Notas de build (opcional)
 
@@ -99,7 +99,7 @@ $version = "2.32.2"
 $short = ($version -split '\\.')[0..1] -join '.'
 
 docker build `
-	--build-arg PACKAGE_VERSION=$version `
+	--build-arg AWSCLI_VERSION=$version `
 	-t aws-cli:$version `
 	-t aws-cli:$short `
 	-t aws-cli:latest `

@@ -17,7 +17,7 @@ Substitua os números de versão acima pelo valor correspondente à sua build.
 | Ferramenta / item    | Versão / observação                                 | ARG (build)       |
 | -------------------- | --------------------------------------------------- | ----------------- |
 | Debian (imagem base) | `debian:12-slim` (padrão)                           | `BASE_IMAGE`      |
-| Google Cloud SDK     | Versão definida pela tag da imagem (ex.: `548.0.0`) | `PACKAGE_VERSION` |
+| Google Cloud SDK     | Versão definida pela tag da imagem (ex.: `548.0.0`) | `GCLOUD_VERSION` |
 | Binários disponíveis | `gcloud`, `gsutil`, `bq` (em `/usr/local/bin`)      | N/A               |
 | Pacotes de runtime   | `ca-certificates`, `bash`, `python3`                | N/A               |
 | Usuário padrão       | `app` (não-root), HOME: `/home/app`                 | N/A               |
@@ -104,7 +104,7 @@ docker run --rm --entrypoint sh gcloud-cli:latest -c "gcloud --version; gsutil -
 A imagem é construída para linux/amd64 e linux/arm64. O `Dockerfile` detecta `TARGETARCH` e baixa o artefato adequado do Google Cloud SDK para a arquitetura alvo.
 
 - Imagem base configurável via `--build-arg BASE_IMAGE` (padrão: `debian:12-slim`).
-- Versão do SDK definida via `--build-arg PACKAGE_VERSION` (obrigatório no build).
+- Versão do SDK definida via `--build-arg GCLOUD_VERSION` (obrigatório no build).
 
 ## Notas de build (opcional)
 
@@ -115,7 +115,7 @@ $version = "548.0.0"
 $short = ($version -split '\\.')[0..1] -join '.'
 
 docker build `
-	--build-arg PACKAGE_VERSION=$version `
+	--build-arg GCLOUD_VERSION=$version `
 	-t gcloud-cli:$version `
 	-t gcloud-cli:$short `
 	-t gcloud-cli:latest `
