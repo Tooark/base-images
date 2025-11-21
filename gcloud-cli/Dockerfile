@@ -69,8 +69,9 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && update-ca-certificates
 
-# Garante shell mais estrita
-SHELL ["/bin/bash", "-eu", "pipefail", "-c"]
+# Garante shell mais estrita (ativando -e -u e pipefail corretamente)
+# Forma correta: colocar pipefail como opção (-o pipefail) ou agrupar -euo pipefail
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Copia o Google Cloud SDK do builder para o runtime
 COPY --from=builder /opt/google-cloud-sdk /opt/google-cloud-sdk
