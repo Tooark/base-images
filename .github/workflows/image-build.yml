@@ -9,14 +9,15 @@ on:
     branches: [main]
     paths:
       - "**/Dockerfile"
-      - "**/VERSION"
       - ".github/workflows/image-build.yml"
+      - "versions.env"
   pull_request:
     branches: [main]
     paths:
       - "**/Dockerfile"
-      - "**/VERSION"
       - ".github/workflows/image-build.yml"
+      - "versions.env"
+  workflow_dispatch:
 
 jobs:
   build-and-push:
@@ -25,20 +26,67 @@ jobs:
       matrix:
         image:
           - aws-cli
-          # - gcp
+          - gcloud-cli
+          - terraform-aws-gcp
+          # - kubectl
           # - sonarqube
           # - terraform
           # - terraform-aws
           # - terraform-aws-gcp-clis
           # - terraform-gcp
           # - trivy
-
+    env:
+      REGISTRY: ghcr.io/tooark
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # need full history to compute diffs between commits
           fetch-depth: 0
+
+      - name: Load versions
+        run: |
+          set -eu
+          while IFS='=' read -r k v; do
+            if [ -n "$k" ] && [ "${k#'#'}" = "$k" ] && [ -n "$v" ]; then
+              echo "$k=$v" >> $GITHUB_ENV
+            fi
+          done < versions.env
+
+      - name: Compute version tags
+        id: tags
+        run: |
+          set -eu
+          
+          IMAGE="${{ matrix.image }}"
+          
+          # Descobrir variável primária de versão
+          if [ -f "$IMAGE/VERSION_VAR" ]; then
+            PRIMARY_VAR=$(grep -v '^[#[:space:]]*$' "$IMAGE/VERSION_VAR" | head -1 | tr -d '\r')
+          else
+            PRIMARY_VAR=$(echo "$IMAGE" | tr '[:lower:]-' '[:upper:]_')_VERSION
+          fi
+          
+          echo "Primary version variable: $PRIMARY_VAR"
+          
+          FULL_VERSION="${!PRIMARY_VAR:-}"
+          
+          if [ -z "$FULL_VERSION" ]; then
+            echo "Nenhuma versão encontrada em $PRIMARY_VAR; usando 'latest'" >&2
+            echo "full=latest" >> $GITHUB_OUTPUT
+            echo "short=latest" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          SHORT_VERSION=$(echo "$FULL_VERSION" | awk -F. '{ if (NF>=2) {print $1"."$2} else {print $1} }')
+          
+          echo "full=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "short=$SHORT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up support for more platforms with QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
@@ -47,68 +95,131 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from VERSION file
-        id: version
-        run: |
-          # If the file ./<image>/VERSION exists, use its contents (trim spaces/new lines).
-          if [ -f ./${{ matrix.image }}/VERSION ]; then
-            VERSION=$(cat ./${{ matrix.image }}/VERSION | tr -d ' \t\r\n')
-          else
-            # use short commit SHA (first 7 chars) as version instead of "latest"
-            if [ -n "${GITHUB_SHA:-}" ]; then
-              VERSION=$(echo "${GITHUB_SHA}" | cut -c1-7)
-            else
-              VERSION="latest"
-            fi
-          fi
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Set up support for more platforms with QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Check if image folder changed
-        id: changes
+        id: detect
         run: |
-          # If previous SHA is missing (new branch/initial commit), treat as changed
-          if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+          set -eu
+          
+          IMAGE="${{ matrix.image }}"
+          BEFORE="${{ github.event.before }}"
+          CURRENT="${{ github.sha }}"
+
+          # If there is no previous commit (first commit), always build.
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "build=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # List changed files between previous commit and current
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || true)
+          # Load changed files between commits
+          CHANGED_FILES=$(git diff --name-only "$BEFORE" "$CURRENT" || true)
 
-          echo "$CHANGED_FILES" | grep -E "^${{ matrix.image }}/" >/dev/null 2>&1 && echo "changed=true" >> $GITHUB_OUTPUT || echo "changed=false" >> $GITHUB_OUTPUT
+          # Checks if files in the image folder have been modified.
+          if echo "$CHANGED_FILES" | grep -E "^$IMAGE/" >/dev/null 2>&1; then
+            echo "build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if relevant version variables have changed.
+          VAR_LIST=""
+          if [ -f "$IMAGE/VERSION_VAR" ]; then
+            VAR_LIST=$(grep -v '^[#[:space:]]*$' "$IMAGE/VERSION_VAR" | tr -d '\r')
+          else
+            VAR_LIST=$(echo "$IMAGE" | tr '[:lower:]-' '[:upper:]_')_VERSION
+          fi
+
+          echo "Version variables for $IMAGE: $VAR_LIST"
+
+          # Check if versions.env changed relevant variables
+          if echo "$CHANGED_FILES" | grep -q "^versions.env$"; then
+            
+            OLD_VERS=$(git show "$BEFORE":versions.env 2>/dev/null || echo "")
+            NEW_VERS=$(cat versions.env)
+            base_old=$(echo "$OLD_VERS" | awk -F= '$1=="BASE_IMAGE" {print $2}')
+            base_new=$(echo "$NEW_VERS" | awk -F= '$1=="BASE_IMAGE" {print $2}')
+            changed=false
+
+            # Check BASE_IMAGE change
+            if [ "$base_old" != "$base_new" ]; then
+              echo "BASE_IMAGE changed ($base_old -> $base_new)"; changed=true;
+            fi
+            
+            # Check other version variables
+            for var in $VAR_LIST; do
+              old_val=$(echo "$OLD_VERS" | awk -F= -v v="$var" '$1==v {print $2}')
+              new_val=$(echo "$NEW_VERS" | awk -F= -v v="$var" '$1==v {print $2}')
+
+              # Check if variable changed
+              if [ "$old_val" != "$new_val" ]; then
+                echo "$var changed ($old_val -> $new_val)";
+                changed=true;
+              fi
+            done
+
+            # If any relevant variable changed, mark for build
+            if [ "$changed" = true ]; then
+              echo "build=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+          echo "build=false" >> $GITHUB_OUTPUT
 
       - name: Build and push image (buildx)
-        if: ${{ steps.changes.outputs.changed == 'true' }}
+        if: ${{ steps.detect.outputs.build == 'true' }}
         run: |
-          # Garantir que o owner do repo esteja em minúsculas (GHCR exige nomes lowercase)
+          set -eu
+          
           IMAGE_OWNER="${{ github.repository_owner }}"
           IMAGE_OWNER_LOWER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
           IMAGE_NAME=ghcr.io/$IMAGE_OWNER_LOWER/${{ matrix.image }}
-          # Se existir ./<image>/VERSION, passe como build-arg PACKAGE_VERSION
+
+          # Prepare build arguments
           BUILD_ARGS=""
-          if [ -f ./${{ matrix.image }}/VERSION ]; then
-            PACKAGE_VER=$(cat ./${{ matrix.image }}/VERSION | tr -d ' \t\r\n')
-            BUILD_ARGS="--build-arg PACKAGE_VERSION=${PACKAGE_VER}"
+
+          # Inject all declared version variables.
+          if [ -f ./${{ matrix.image }}/VERSION_VAR ]; then
+            # Load declared variables
+            VAR_LIST=$(grep -v '^[#[:space:]]*$' ./${{ matrix.image }}/VERSION_VAR | tr -d '\r')
+
+            # Iterate and add each variable
+            for var in $VAR_LIST; do
+              # Values already exported by the 'Load versions' step
+              val="${!var:-}"
+
+              # Add build argument if value is not empty
+              if [ -n "$val" ]; then
+                BUILD_ARGS="$BUILD_ARGS --build-arg $var=$val"
+              fi
+            done
+          else
+            # Generic fallback
+            var=$(echo "${{ matrix.image }}" | tr '[:lower:]-' '[:upper:]_')_VERSION
+            # Value already exported by the 'Load versions' step
+            val="${!var:-}"
+
+            # Add build argument if value is not empty
+            if [ -n "$val" ]; then
+              BUILD_ARGS="$BUILD_ARGS --build-arg $var=$val"
+            fi
+          fi
+
+          # Always include BASE_IMAGE from versions.env (if defined)
+          if [ -n "${BASE_IMAGE:-}" ]; then
+            BUILD_ARGS="$BUILD_ARGS --build-arg BASE_IMAGE=${BASE_IMAGE}"
           fi
 
           docker buildx build --platform linux/amd64,linux/arm64 \
             $BUILD_ARGS \
-            -t $IMAGE_NAME:${{ steps.version.outputs.version }} \
+            -t $IMAGE_NAME:${{ steps.tags.outputs.full }} \
+            -t $IMAGE_NAME:${{ steps.tags.outputs.short }} \
             -t $IMAGE_NAME:latest \
             ./${{ matrix.image }} --push
 
       - name: Create and push tag
-        if: ${{ steps.changes.outputs.changed == 'true' }}
+        if: ${{ steps.detect.outputs.build == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="${{ matrix.image }}-${{ steps.version.outputs.version }}"
+          TAG_NAME="${{ matrix.image }}-${{ steps.tags.outputs.full }}"
 
           # don't fail if tag already exists
           if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
