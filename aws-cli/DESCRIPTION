@@ -1,1 +1,1 @@
-Base image with integrated AWS CLI V2 for Linux/amd64 and Linux/arm64
+Base image with integrated AWS CLI V2 and kubectl for Linux/amd64 and Linux/arm64
