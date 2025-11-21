@@ -26,8 +26,8 @@ jobs:
       matrix:
         image:
           - aws-cli
-          - gcloud-cli
-          - terraform-aws-gcp
+          # - gcloud-cli
+          # - terraform-aws-gcp
           # - kubectl
           # - sonarqube
           # - terraform
