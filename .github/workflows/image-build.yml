@@ -268,18 +268,16 @@ jobs:
 
           # Prefer README.md from image folder as release notes
           if [ -f "$README_PATH" ]; then
-            NOTES_ARG=("--notes-file" "$README_PATH")
+            NOTES_FILE="$README_PATH"
           else
             echo "No README.md found in $IMAGE_DIR; generating a minimal body"
-            cat > RELEASE_BODY.txt << EOF
-            Docker image published to GHCR:
-            - ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.full }}
-            - ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.short }}
-            - ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
-            EOF
-            NOTES_ARG=("--notes-file" "RELEASE_BODY.txt")
+            NOTES_FILE="RELEASE_BODY.txt"
+            printf "Docker image published to GHCR:\n" > "$NOTES_FILE"
+            printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.full }}\n" >> "$NOTES_FILE"
+            printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.short }}\n" >> "$NOTES_FILE"
+            printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest\n" >> "$NOTES_FILE"
           fi
 
           gh release create "$TAG_NAME" \
             --title "${{ matrix.image }}-${{ steps.tags.outputs.full }}" \
-            "${NOTES_ARG[@]}"
+            --notes-file "$NOTES_FILE"
