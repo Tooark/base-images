@@ -208,7 +208,7 @@ jobs:
             BUILD_ARGS="$BUILD_ARGS --build-arg BASE_IMAGE=${BASE_IMAGE}"
           fi
 
-          # Carrega descrição opcional da imagem a partir de arquivo DESCRIPTION (multi-arch manifest precisa do label no build)
+          # Load optional image description from DESCRIPTION file
           DESC_FILE="./${{ matrix.image }}/DESCRIPTION"
           if [ -f "$DESC_FILE" ]; then
             DESCRIPTION=$(sed -e 's/\r//g' "$DESC_FILE" | tr '\n' ' ' | sed -e 's/[[:space:]]\+/ /g' -e 's/^ //' -e 's/ $//')
@@ -216,11 +216,14 @@ jobs:
             DESCRIPTION="Base image: ${{ matrix.image }}"
           fi
 
-          LABELS="--label org.opencontainers.image.title=${{ matrix.image }} \n --label org.opencontainers.image.description=$DESCRIPTION \n --label org.opencontainers.image.source=${{ github.repository }} \n --label org.opencontainers.image.revision=${{ github.sha }} \n --label org.opencontainers.image.version=${{ steps.tags.outputs.full }}"
-
+          # Build and push the multi-arch image with labels
           docker buildx build --platform linux/amd64,linux/arm64 \
             $BUILD_ARGS \
-            $LABELS \
+            --label "org.opencontainers.image.title=${{ matrix.image }}" \
+            --label "org.opencontainers.image.description=$DESCRIPTION" \
+            --label "org.opencontainers.image.source=${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.version=${{ steps.tags.outputs.full }}" \
             -t $IMAGE_NAME:${{ steps.tags.outputs.full }} \
             -t $IMAGE_NAME:${{ steps.tags.outputs.short }} \
             -t $IMAGE_NAME:latest \
