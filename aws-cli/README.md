@@ -6,7 +6,7 @@ Esta imagem fornece o comando `aws` (AWS CLI v2) pronto para uso em pipelines e 
 
 - Nome da imagem: `aws-cli` (nome da pasta)
 - Tags publicadas por versão:
-  - Versão completa: `aws-cli:2.32.2`
+  - Versão completa: `aws-cli:2.32.1`
   - Versão curta (major.minor): `aws-cli:2.32`
   - Última estável: `aws-cli:latest`
 
@@ -17,7 +17,7 @@ Substitua os números de versão acima pelo valor correspondente à sua build.
 | Ferramenta / item    | Versão / observação                                 | ARG (build)       |
 | -------------------- | --------------------------------------------------- | ----------------- |
 | Debian (imagem base) | `debian:12-slim` (padrão)                           | `BASE_IMAGE`      |
-| AWS CLI (v2)         | Versão definida pela tag da imagem (ex.: `2.32.2`) | `AWSCLI_VERSION` |
+| AWS CLI (v2)         | Versão definida pela tag da imagem (ex.: `2.32.1`) | `AWSCLI_VERSION` |
 | Binário disponível   | `aws` (em `/usr/local/bin`)                         | N/A               |
 | Pacote de runtime    | `ca-certificates`                                   | N/A               |
 | Usuário padrão       | `app` (não-root), HOME: `/home/app`                 | N/A               |
@@ -67,7 +67,7 @@ docker run --rm `
 
 ## Variantes de tag
 
-- `aws-cli:<major>.<minor>.<patch>`: versão exata do AWS CLI (ex.: `2.32.2`).
+- `aws-cli:<major>.<minor>.<patch>`: versão exata do AWS CLI (ex.: `2.32.1`).
 - `aws-cli:<major>.<minor>`: acompanha a última patch daquela série (ex.: `2.32`).
 - `aws-cli:latest`: aponta para a última versão estável construída.
 
@@ -95,7 +95,7 @@ A imagem é construída para linux/amd64 e linux/arm64. O `Dockerfile` detecta `
 Ao construir localmente, publique múltiplas tags equivalentes à mesma imagem (versão completa, curta e `latest`). Exemplo simplificado com Docker (PowerShell):
 
 ```powershell
-$version = "2.32.2"
+$version = "2.32.1"
 $short = ($version -split '\\.')[0..1] -join '.'
 
 docker build `
