@@ -6,8 +6,8 @@ Esta imagem fornece o comando `aws` (AWS CLI v2) pronto para uso em pipelines e 
 
 - Nome da imagem: `aws-cli` (nome da pasta)
 - Tags publicadas por versão:
-  - Versão completa: `aws-cli:2.31.38`
-  - Versão curta (major.minor): `aws-cli:2.31`
+  - Versão completa: `aws-cli:2.32.2`
+  - Versão curta (major.minor): `aws-cli:2.32`
   - Última estável: `aws-cli:latest`
 
 Substitua os números de versão acima pelo valor correspondente à sua build.
@@ -17,7 +17,7 @@ Substitua os números de versão acima pelo valor correspondente à sua build.
 | Ferramenta / item    | Versão / observação                                 | ARG (build)       |
 | -------------------- | --------------------------------------------------- | ----------------- |
 | Debian (imagem base) | `debian:12-slim` (padrão)                           | `BASE_IMAGE`      |
-| AWS CLI (v2)         | Versão definida pela tag da imagem (ex.: `2.31.38`) | `PACKAGE_VERSION` |
+| AWS CLI (v2)         | Versão definida pela tag da imagem (ex.: `2.32.2`) | `PACKAGE_VERSION` |
 | Binário disponível   | `aws` (em `/usr/local/bin`)                         | N/A               |
 | Pacote de runtime    | `ca-certificates`                                   | N/A               |
 | Usuário padrão       | `app` (não-root), HOME: `/home/app`                 | N/A               |
@@ -67,8 +67,8 @@ docker run --rm `
 
 ## Variantes de tag
 
-- `aws-cli:<major>.<minor>.<patch>`: versão exata do AWS CLI (ex.: `2.31.38`).
-- `aws-cli:<major>.<minor>`: acompanha a última patch daquela série (ex.: `2.31`).
+- `aws-cli:<major>.<minor>.<patch>`: versão exata do AWS CLI (ex.: `2.32.2`).
+- `aws-cli:<major>.<minor>`: acompanha a última patch daquela série (ex.: `2.32`).
 - `aws-cli:latest`: aponta para a última versão estável construída.
 
 Use a variante que atenda ao seu requisito de estabilidade. Para pipelines reprodutíveis, prefira a versão completa.
@@ -95,7 +95,7 @@ A imagem é construída para linux/amd64 e linux/arm64. O `Dockerfile` detecta `
 Ao construir localmente, publique múltiplas tags equivalentes à mesma imagem (versão completa, curta e `latest`). Exemplo simplificado com Docker (PowerShell):
 
 ```powershell
-$version = "2.31.38"
+$version = "2.32.2"
 $short = ($version -split '\\.')[0..1] -join '.'
 
 docker build `
