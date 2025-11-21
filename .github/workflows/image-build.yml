@@ -9,12 +9,14 @@ on:
     branches: [main]
     paths:
       - "**/Dockerfile"
+      - "**/VERSION"
       - ".github/workflows/image-build.yml"
       - "versions.env"
   pull_request:
     branches: [main]
     paths:
       - "**/Dockerfile"
+      - "**/VERSION"
       - ".github/workflows/image-build.yml"
       - "versions.env"
   workflow_dispatch:
@@ -27,14 +29,13 @@ jobs:
         image:
           - aws-cli
           - gcloud-cli
-          # - terraform-aws-gcp
-          # - kubectl
-          # - sonarqube
           # - terraform
-          # - terraform-aws
-          # - terraform-aws-gcp-clis
-          # - terraform-gcp
+          # - sonarqube
           # - trivy
+          # - kubectl
+          # - terraform-aws
+          # - terraform-gcp
+          # - terraform-aws-gcp
     env:
       REGISTRY: ghcr.io/tooark
     steps:
@@ -60,8 +61,8 @@ jobs:
           IMAGE="${{ matrix.image }}"
           
           # Descobrir variável primária de versão
-          if [ -f "$IMAGE/VERSION_VAR" ]; then
-            PRIMARY_VAR=$(grep -v '^[#[:space:]]*$' "$IMAGE/VERSION_VAR" | head -1 | tr -d '\r')
+          if [ -f "$IMAGE/VERSION" ]; then
+            PRIMARY_VAR=$(grep -v '^[#[:space:]]*$' "$IMAGE/VERSION" | head -1 | tr -d '\r')
           else
             PRIMARY_VAR=$(echo "$IMAGE" | tr '[:lower:]-' '[:upper:]_')_VERSION
           fi
@@ -121,8 +122,8 @@ jobs:
 
           # Check if relevant version variables have changed.
           VAR_LIST=""
-          if [ -f "$IMAGE/VERSION_VAR" ]; then
-            VAR_LIST=$(grep -v '^[#[:space:]]*$' "$IMAGE/VERSION_VAR" | tr -d '\r')
+          if [ -f "$IMAGE/VERSION" ]; then
+            VAR_LIST=$(grep -v '^[#[:space:]]*$' "$IMAGE/VERSION" | tr -d '\r')
           else
             VAR_LIST=$(echo "$IMAGE" | tr '[:lower:]-' '[:upper:]_')_VERSION
           fi
@@ -176,9 +177,9 @@ jobs:
           BUILD_ARGS=""
 
           # Inject all declared version variables.
-          if [ -f ./${{ matrix.image }}/VERSION_VAR ]; then
+          if [ -f ./${{ matrix.image }}/VERSION ]; then
             # Load declared variables
-            VAR_LIST=$(grep -v '^[#[:space:]]*$' ./${{ matrix.image }}/VERSION_VAR | tr -d '\r')
+            VAR_LIST=$(grep -v '^[#[:space:]]*$' ./${{ matrix.image }}/VERSION | tr -d '\r')
 
             # Iterate and add each variable
             for var in $VAR_LIST; do
@@ -207,8 +208,19 @@ jobs:
             BUILD_ARGS="$BUILD_ARGS --build-arg BASE_IMAGE=${BASE_IMAGE}"
           fi
 
+          # Carrega descrição opcional da imagem a partir de arquivo DESCRIPTION (multi-arch manifest precisa do label no build)
+          DESC_FILE="./${{ matrix.image }}/DESCRIPTION"
+          if [ -f "$DESC_FILE" ]; then
+            DESCRIPTION=$(sed -e 's/\r//g' "$DESC_FILE" | tr '\n' ' ' | sed -e 's/[[:space:]]\+/ /g' -e 's/^ //' -e 's/ $//')
+          else
+            DESCRIPTION="Base image: ${{ matrix.image }}"
+          fi
+
+          LABELS="--label org.opencontainers.image.title=${{ matrix.image }} \n --label org.opencontainers.image.description=$DESCRIPTION \n --label org.opencontainers.image.source=${{ github.repository }} \n --label org.opencontainers.image.revision=${{ github.sha }} \n --label org.opencontainers.image.version=${{ steps.tags.outputs.full }}"
+
           docker buildx build --platform linux/amd64,linux/arm64 \
             $BUILD_ARGS \
+            $LABELS \
             -t $IMAGE_NAME:${{ steps.tags.outputs.full }} \
             -t $IMAGE_NAME:${{ steps.tags.outputs.short }} \
             -t $IMAGE_NAME:latest \
@@ -234,3 +246,37 @@ jobs:
 
           # push the tag using the repo credentials available in the runner
           git push origin refs/tags/$TAG_NAME
+
+      - name: Create GitHub Release (gh)
+        if: ${{ steps.detect.outputs.build == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          TAG_NAME="${{ matrix.image }}-${{ steps.tags.outputs.full }}"
+          IMAGE_DIR="${{ matrix.image }}"
+          README_PATH="./${{ matrix.image }}/README.md"
+
+          # Skip if release already exists
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists, skipping"
+            exit 0
+          fi
+
+          # Prefer README.md from image folder as release notes
+          if [ -f "$README_PATH" ]; then
+            NOTES_ARG=("--notes-file" "$README_PATH")
+          else
+            echo "No README.md found in $IMAGE_DIR; generating a minimal body"
+            cat > RELEASE_BODY.txt << EOF
+            Docker image published to GHCR:
+            - ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.full }}
+            - ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.short }}
+            - ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
+            EOF
+            NOTES_ARG=("--notes-file" "RELEASE_BODY.txt")
+          fi
+
+          gh release create "$TAG_NAME" \
+            --title "${{ matrix.image }}-${{ steps.tags.outputs.full }}" \
+            "${NOTES_ARG[@]}"
