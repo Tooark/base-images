@@ -2,7 +2,7 @@
 
 Imagens base de ferramentas para Deploy
 
-AWS CLI, Google Cloud SDK, Azure CLI, kubectl, Helm, Terraform, Ansible, etc.
+**AWS CLI, Google Cloud SDK, Azure CLI, kubectl, Helm, Terraform, Ansible, etc.**
 
 - AWS CLI V2:
   - [Documentação](aws-cli/README.md)
@@ -13,3 +13,7 @@ AWS CLI, Google Cloud SDK, Azure CLI, kubectl, Helm, Terraform, Ansible, etc.
   - [Documentação](gcloud-cli/README.md)
   - [Instalação](https://cloud.google.com/sdk/docs/install)
   - [Notas de lançamento](https://cloud.google.com/sdk/docs/release-notes)
+
+- Kubernetes kubectl:
+  - [Instalação](https://kubernetes.io/docs/tasks/tools/)
+  - [Notas de lançamento](https://kubernetes.io/releases/)

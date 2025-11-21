@@ -1,6 +1,6 @@
 # gcloud-cli
 
-Esta imagem fornece o Google Cloud SDK (`gcloud`, `gsutil`, `bq`) pronto para uso em pipelines e em containers ad-hoc. Este documento explica como usar a imagem gerada pelo build, incluindo as tags publicadas.
+Esta imagem fornece o Google Cloud SDK (`gcloud`, `gsutil`, `bq`) e o Terraform (`terraform`) prontos para uso em pipelines e em containers ad-hoc. Este documento explica como usar a imagem gerada pelo build, incluindo as tags publicadas.
 
 ## Nome e tags da imagem
 
@@ -14,13 +14,14 @@ Substitua os números de versão acima pelo valor correspondente à sua build.
 
 ## O que tem nesta imagem
 
-| Ferramenta / item    | Versão / observação                                 | ARG (build)       |
-| -------------------- | --------------------------------------------------- | ----------------- |
-| Debian (imagem base) | `debian:12-slim` (padrão)                           | `BASE_IMAGE`      |
-| Google Cloud SDK     | Versão definida pela tag da imagem (ex.: `548.0.0`) | `GCLOUD_VERSION` |
-| Binários disponíveis | `gcloud`, `gsutil`, `bq` (em `/usr/local/bin`)      | N/A               |
-| Pacotes de runtime   | `ca-certificates`, `bash`, `python3`                | N/A               |
-| Usuário padrão       | `app` (não-root), HOME: `/home/app`                 | N/A               |
+| Ferramenta / item    | Versão / observação                                 | ARG (build)         |
+| -------------------- | --------------------------------------------------- | ------------------- |
+| Debian (imagem base) | `debian:12-slim` (padrão)                           | `BASE_IMAGE`        |
+| Google Cloud SDK     | Versão definida pela tag da imagem (ex.: `548.0.0`) | `GCLOUD_VERSION`    |
+| Terraform            | Versão definida via build arg (ex.: `1.34.2`)       | `TERRAFORM_VERSION` |
+| Binários disponíveis | `gcloud`, `gsutil`, `bq`, `terraform`               | N/A                 |
+| Pacotes de runtime   | `ca-certificates`, `bash`, `python3`                | N/A                 |
+| Usuário padrão       | `app` (não-root), HOME: `/home/app`                 | N/A                 |
 
 Observações:
 
@@ -38,6 +39,12 @@ Listar informações de configuração atuais (sem autenticar):
 
 ```powershell
 docker run --rm ghcr.io/tooark/gcloud-cli:latest gcloud info
+```
+
+Verificar `terraform`:
+
+```powershell
+docker run --rm ghcr.io/tooark/gcloud-cli:latest terraform version
 ```
 
 ### Autenticação e credenciais
@@ -99,27 +106,38 @@ Sobrescreva o entrypoint para executar um shell e checar versões:
 docker run --rm --entrypoint sh gcloud-cli:latest -c "gcloud --version; gsutil --version; bq version; dpkg -l | grep -E 'ca-certificates|bash|python3'"
 ```
 
+Incluindo Terraform:
+
+```powershell
+docker run --rm --entrypoint sh ghcr.io/tooark/gcloud-cli:latest -c "gcloud --version; gsutil --version; bq version; terraform version; dpkg -l | grep -E 'ca-certificates|bash|python3'"
+```
+
 ## Multi-arquitetura
 
-A imagem é construída para linux/amd64 e linux/arm64. O `Dockerfile` detecta `TARGETARCH` e baixa o artefato adequado do Google Cloud SDK para a arquitetura alvo.
+A imagem é construída para linux/amd64 e linux/arm64. O `Dockerfile` detecta `TARGETARCH` e baixa os artefatos adequados para a arquitetura alvo:
+
+- Google Cloud SDK (amd64/arm64)
+- Terraform (binário `linux_amd64`/`linux_arm64`)
 
 - Imagem base configurável via `--build-arg BASE_IMAGE` (padrão: `debian:12-slim`).
 - Versão do SDK definida via `--build-arg GCLOUD_VERSION` (obrigatório no build).
 
 ## Notas de build (opcional)
 
-Ao construir localmente, publique múltiplas tags equivalentes à mesma imagem (versão completa, curta e `latest`). Exemplo simplificado com Docker (PowerShell):
+Ao construir localmente, publique múltiplas tags equivalentes à mesma imagem (versão completa, curta e `latest`). Informe ambos os ARGs (`GCLOUD_VERSION` e `TERRAFORM_VERSION`). Exemplo simplificado com Docker (PowerShell):
 
 ```powershell
-$version = "548.0.0"
-$short = ($version -split '\\.')[0..1] -join '.'
+$version = "548.0.0"       # Google Cloud SDK
+$tf      = "1.34.2"         # Terraform
+$short   = ($version -split '\\.') [0..1] -join '.'
 
 docker build `
-	--build-arg GCLOUD_VERSION=$version `
-	-t gcloud-cli:$version `
-	-t gcloud-cli:$short `
-	-t gcloud-cli:latest `
-	./gcloud-cli
+  --build-arg GCLOUD_VERSION=$version `
+  --build-arg TERRAFORM_VERSION=$tf `
+  -t gcloud-cli:$version-$tf `
+  -t gcloud-cli:$short `
+  -t gcloud-cli:latest `
+  ./gcloud-cli
 ```
 
 ## Licença
