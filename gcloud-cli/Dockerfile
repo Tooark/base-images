@@ -34,7 +34,7 @@ ARG GCLOUD_VERSION
 RUN set -eux; \
   : "${GCLOUD_VERSION:?Defina GCLOUD_VERSION (ex: 547.0.0)}"; \
   case "${TARGETARCH}" in \
-    "arm64") OS_ARCH="linux-arm64" ;; \
+    "arm64") OS_ARCH="linux-arm" ;; \
     "arm")   OS_ARCH="linux-arm" ;; \
     *)        OS_ARCH="linux-x86_64" ;; \
   esac; \
@@ -69,8 +69,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && update-ca-certificates
 
-# Garante shell mais estrita (ativando -e -u e pipefail corretamente)
-# Forma correta: colocar pipefail como opção (-o pipefail) ou agrupar -euo pipefail
+# Garante shell mais estrita
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Copia o Google Cloud SDK do builder para o runtime
