@@ -41,11 +41,11 @@ RUN set -eux; \
   : "${GCLOUD_VERSION:?Defina GCLOUD_VERSION (ex: 547.0.0)}"; \
   : "${KUBECTL_VERSION:?Defina KUBECTL_VERSION (ex: 1.30.4)}"; \
   case "${TARGETARCH}" in \
-    "arm64") OS_ARCH="linux-arm"    KUBE_ARCH="arm64" ;; \
-    "arm")   OS_ARCH="linux-arm"    KUBE_ARCH="arm64" ;; \
-    *)       OS_ARCH="linux-x86_64" KUBE_ARCH="amd64" ;; \
+    "arm64") GCLOUD_ARCH="linux-arm"    KUBE_ARCH="arm64" ;; \
+    "arm")   GCLOUD_ARCH="linux-arm"    KUBE_ARCH="arm64" ;; \
+    *)       GCLOUD_ARCH="linux-x86_64" KUBE_ARCH="amd64" ;; \
   esac; \
-  GCLOUD_FILE="google-cloud-sdk-${GCLOUD_VERSION}-${OS_ARCH}.tar.gz"; \
+  GCLOUD_FILE="google-cloud-sdk-${GCLOUD_VERSION}-${GCLOUD_ARCH}.tar.gz"; \
   GCLOUD_URL="https://storage.googleapis.com/cloud-sdk-release/${GCLOUD_FILE}"; \
   curl -fsSL "$GCLOUD_URL" -o /tmp/gcloud.tar.gz; \
   mkdir -p /opt; \

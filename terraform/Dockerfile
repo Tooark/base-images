@@ -34,11 +34,11 @@ ARG TERRAFORM_VERSION
 RUN set -eux; \
   : "${TERRAFORM_VERSION:?Defina TERRAFORM_VERSION (ex: 1.14.0)}"; \
   case "${TARGETARCH}" in \
-    "arm64") TERRAFORM_ARCH="linux_arm64" ;; \
-    "arm")   TERRAFORM_ARCH="linux_arm"   ;; \
-    *)       TERRAFORM_ARCH="linux_amd64" ;; \
+    "arm64") TF_ARCH="linux_arm64" ;; \
+    "arm")   TF_ARCH="linux_arm"   ;; \
+    *)       TF_ARCH="linux_amd64" ;; \
   esac; \
-  TERRAFORM_FILE="terraform_${TERRAFORM_VERSION}_${TERRAFORM_ARCH}.zip"; \
+  TERRAFORM_FILE="terraform_${TERRAFORM_VERSION}_${TF_ARCH}.zip"; \
   BASE_URL="https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}"; \
   curl -fsSL "${BASE_URL}/${TERRAFORM_FILE}" -o /tmp/terraform.zip; \
   unzip -d /tmp /tmp/terraform.zip; \
