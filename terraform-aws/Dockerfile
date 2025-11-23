@@ -48,9 +48,9 @@ RUN set -eux; \
   : "${AWSCLI_VERSION:?Defina AWSCLI_VERSION (ex: 2.31.38)}"; \
   : "${KUBECTL_VERSION:?Defina KUBECTL_VERSION (ex: 1.34.2)}"; \
   case "${TARGETARCH}" in \
-    "arm64") TF_ARCH="arm64" AWS_ARCH="linux-aarch64" KUBE_ARCH="arm64" ;; \
-    "arm")   TF_ARCH="arm64" AWS_ARCH="linux-aarch64" KUBE_ARCH="arm64" ;; \
-    *)       TF_ARCH="amd64" AWS_ARCH="linux-x86_64"  KUBE_ARCH="amd64" ;; \
+    "arm64") TF_ARCH="linux_arm64" AWS_ARCH="linux-aarch64" KUBE_ARCH="arm64" ;; \
+    "arm")   TF_ARCH="linux_arm64" AWS_ARCH="linux-aarch64" KUBE_ARCH="arm64" ;; \
+    *)       TF_ARCH="linux_amd64" AWS_ARCH="linux-x86_64"  KUBE_ARCH="amd64" ;; \
   esac; \
   TF_FILE="terraform_${TERRAFORM_VERSION}_${TF_ARCH}.zip"; \
   TF_URL="https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/${TF_FILE}"; \
