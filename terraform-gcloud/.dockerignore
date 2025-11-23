@@ -1,0 +1,19 @@
+# Ignore VCS
+.git
+.gitignore
+
+# Ignore local build artifacts
+node_modules
+dist
+build
+__pycache__
+
+# Ignore CI / OS files
+.DS_Store
+Thumbs.db
+
+# Ignore scripts (not needed in build context)
+scripts/
+
+# Ignore editor files
+.vscode

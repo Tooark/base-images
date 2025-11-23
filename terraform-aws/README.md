@@ -6,7 +6,7 @@ Imagem base para pipelines que precisam de Terraform, AWS CLI v2 e kubectl junto
 
 - Nome da imagem: `terraform-aws` (nome da pasta)
 - Tags sugeridas (exemplos):
-  - Composta: `terraform-aws:1.0.0` (terraform-aws-cli-kubectl)
+  - Composta: `terraform-aws:1.32.34` (terraform-aws-cli-kubectl)
   - Focada em Terraform: `terraform-aws:1.0`
   - Última estável: `terraform-aws:latest`
 
@@ -20,7 +20,7 @@ Escolha a estratégia de tagging que atenda à política de reprodutibilidade do
 | Terraform         | Versão exata (ex.: `1.14.0`)                      | `TERRAFORM_VERSION` |
 | AWS CLI v2        | Versão exata (ex.: `2.31.38`)                     | `AWSCLI_VERSION`    |
 | kubectl           | Versão exata (ex.: `1.34.2`)                      | `KUBECTL_VERSION`   |
-| Label de pacote   | Versão agregada p/ metadados (ex.: `1.0.0`)       | `TF_AWS_VERSION`    |
+| Label de pacote   | Versão agregada p/ metadados (ex.: `1.32.34`)     | `TF_AWS_VERSION`    |
 | Pacotes runtime   | `ca-certificates`                                 | N/A                 |
 | Binários          | `terraform`, `aws`, `kubectl` em `/usr/local/bin` | N/A                 |
 | Usuário padrão    | `app` (não-root), HOME: `/home/app`               | N/A                 |
@@ -131,7 +131,7 @@ Adapte a estratégia de tags conforme sua política (por exemplo, manter só a a
 
 | ARG                 | Obrigatório  | Exemplo          | Comentário                             |
 | ------------------- | ------------ | ---------------- | -------------------------------------- |
-| `TF_AWS_VERSION`    | Sim          | `1.0.0`          | Usado em label/metadados               |
+| `TF_AWS_VERSION`    | Sim          | `1.32.34`        | Usado em label/metadados               |
 | `TERRAFORM_VERSION` | Sim          | `1.14.0`         | Versão HashiCorp oficial               |
 | `AWSCLI_VERSION`    | Sim          | `2.31.38`        | Versão AWS CLI v2 completa             |
 | `KUBECTL_VERSION`   | Sim          | `1.34.2`         | Versão cliente Kubernetes              |

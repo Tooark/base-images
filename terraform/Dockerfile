@@ -43,6 +43,7 @@ RUN set -eux; \
   curl -fsSL "${BASE_URL}/${TERRAFORM_FILE}" -o /tmp/terraform.zip; \
   unzip -d /tmp /tmp/terraform.zip; \
   install -m 0755 /tmp/terraform /usr/local/bin/terraform; \
+  rm -rf /tmp/terraform /tmp/terraform.zip || true; \
   terraform -version;
 
 ############################
