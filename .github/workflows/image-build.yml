@@ -29,7 +29,7 @@ jobs:
         image:
           - aws-cli
           - gcloud-cli
-          # - terraform
+          - terraform
           # - sonarqube
           # - trivy
           # - kubectl
