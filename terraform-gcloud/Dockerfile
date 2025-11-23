@@ -24,7 +24,7 @@ FROM ${BASE_IMAGE} AS builder
 # Instala dependências mínimas
 # hadolint ignore=DL3008
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl tar gzip unzip \
+  && apt-get install -y --no-install-recommends ca-certificates curl tar gzip unzip bash python3 \
   && rm -rf /var/lib/apt/lists/*
 
 # Garante shell mais estrita
