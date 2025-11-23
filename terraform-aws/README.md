@@ -18,7 +18,7 @@ Escolha a estratégia de tagging que atenda à política de reprodutibilidade do
 | ----------------- | ------------------------------------------------- | ------------------- |
 | Base (Debian)     | `debian:12-slim` (padrão, configurável)           | `BASE_IMAGE`        |
 | Terraform         | Versão exata (ex.: `1.14.0`)                      | `TERRAFORM_VERSION` |
-| AWS CLI v2        | Versão exata (ex.: `2.31.38`)                     | `AWSCLI_VERSION`    |
+| AWS CLI v2        | Versão exata (ex.: `2.32.3`)                      | `AWSCLI_VERSION`    |
 | kubectl           | Versão exata (ex.: `1.34.2`)                      | `KUBECTL_VERSION`   |
 | Label de pacote   | Versão agregada p/ metadados (ex.: `1.32.34`)     | `TF_AWS_VERSION`    |
 | Pacotes runtime   | `ca-certificates`                                 | N/A                 |
@@ -110,7 +110,7 @@ docker run --rm --entrypoint sh ghcr.io/tooark/terraform-aws:latest -c "terrafor
 
 ```powershell
 $tf = "1.14.0"              # Terraform
-$aws = "2.31.38"            # AWS CLI v2
+$aws = "2.32.3"             # AWS CLI v2
 $kube = "1.34.2"            # kubectl
 $bundle = "$tf-$aws-$kube"  # Versão agregada
 
@@ -133,7 +133,7 @@ Adapte a estratégia de tags conforme sua política (por exemplo, manter só a a
 | ------------------- | ------------ | ---------------- | -------------------------------------- |
 | `TF_AWS_VERSION`    | Sim          | `1.32.34`        | Usado em label/metadados               |
 | `TERRAFORM_VERSION` | Sim          | `1.14.0`         | Versão HashiCorp oficial               |
-| `AWSCLI_VERSION`    | Sim          | `2.31.38`        | Versão AWS CLI v2 completa             |
+| `AWSCLI_VERSION`    | Sim          | `2.32.3`         | Versão AWS CLI v2 completa             |
 | `KUBECTL_VERSION`   | Sim          | `1.34.2`         | Versão cliente Kubernetes              |
 | `BASE_IMAGE`        | Não (padrão) | `debian:12-slim` | Pode ser ajustado p/ imagem compatível |
 

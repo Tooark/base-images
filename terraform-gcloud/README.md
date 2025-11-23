@@ -6,7 +6,7 @@ Imagem base para pipelines que precisam de Terraform, Google Cloud SDK (gcloud, 
 
 - Nome da imagem: `terraform-gcloud` (nome da pasta)
 - Tags sugeridas (exemplos):
-  - Composta agregada: `terraform-gcloud:1.547.34`
+  - Composta agregada: `terraform-gcloud:1.548.34`
   - Focada em Terraform: `terraform-gcloud:1.14.0`
   - Última estável: `terraform-gcloud:latest`
 
@@ -18,9 +18,9 @@ O `Dockerfile` aceita um ARG agregador `TF_GCLOUD_VERSION` usado para a label `o
 | ------------------------- | --------------------------------------------------- | ------------------- |
 | Base (Debian)             | `debian:12-slim` (padrão, configurável)             | `BASE_IMAGE`        |
 | Terraform                 | Versão exata (ex.: `1.14.0`)                        | `TERRAFORM_VERSION` |
-| Google Cloud SDK (gcloud) | Versão exata (ex.: `547.0.0`)                       | `GCLOUD_VERSION`    |
+| Google Cloud SDK (gcloud) | Versão exata (ex.: `548.0.0`)                       | `GCLOUD_VERSION`    |
 | kubectl                   | Versão exata (ex.: `1.34.2`)                        | `KUBECTL_VERSION`   |
-| Label agregada            | Versão p/ metadados (ex.: `1.547.34`)               | `TF_GCLOUD_VERSION` |
+| Label agregada            | Versão p/ metadados (ex.: `1.548.34`)               | `TF_GCLOUD_VERSION` |
 | Pacotes runtime           | `ca-certificates bash python3`                      | N/A                 |
 | Binários                  | `terraform`, `gcloud`, `gsutil`, `bq`, `kubectl`    | N/A                 |
 | Symlinks                  | `gcloud`, `gsutil`, `bq` apontam para SDK em `/opt` | N/A                 |
@@ -110,7 +110,7 @@ docker run --rm --entrypoint bash ghcr.io/tooark/terraform-gcloud:latest -c "ter
 
 ```powershell
 $tf = "1.14.0"        # Terraform
-$gcloud = "547.0.0"   # Google Cloud SDK
+$gcloud = "548.0.0"   # Google Cloud SDK
 $kube = "1.34.2"      # kubectl
 $bundle = "$tf-$gcloud-$kube"  # Versão agregada (TF_GCLOUD_VERSION)
 
@@ -131,9 +131,9 @@ Adapte a estratégia de tags conforme sua política (ex.: manter só agregada + 
 
 | ARG                 | Obrigatório | Exemplo          | Comentário                                 |
 | ------------------- | ----------- | ---------------- | ------------------------------------------ |
-| `TF_GCLOUD_VERSION` | Sim         | `1.547.34`       | Usado em label/metadados                   |
+| `TF_GCLOUD_VERSION` | Sim         | `1.548.34`       | Usado em label/metadados                   |
 | `TERRAFORM_VERSION` | Sim         | `1.14.0`         | Versão HashiCorp oficial                   |
-| `GCLOUD_VERSION`    | Sim         | `547.0.0`        | Versão exata do Google Cloud SDK           |
+| `GCLOUD_VERSION`    | Sim         | `548.0.0`        | Versão exata do Google Cloud SDK           |
 | `KUBECTL_VERSION`   | Sim         | `1.34.2`         | Versão cliente Kubernetes                  |
 | `BASE_IMAGE`        | Não         | `debian:12-slim` | Pode ajustar para imagem compatível mínima |
 
