@@ -67,9 +67,9 @@ RUN set -eux; \
   install -m 0755 /tmp/terraform /usr/local/bin/terraform; \
   chmod +x /usr/local/bin/kubectl; \
   rm -rf /tmp/terraform /tmp/terraform.zip || true; \
-  rm -f /tmp/gcloud.tar.gz; || true; \
+  rm -f /tmp/gcloud.tar.gz || true; \
   terraform -version; \
-  gcloud --version; \
+  /opt/google-cloud-sdk/bin/gcloud --version; \
   kubectl version --client --output=json || true
 
 ############################
