@@ -124,5 +124,5 @@ ENV TF_IN_AUTOMATION=1 \
   TF_INPUT=0 \
   TF_CLI_ARGS="-input=false -no-color"
 
-# Configura comando padrão
-CMD ["/bin/sh"]
+# Evita ENTRYPOINT para facilitar uso em pipelines; fornece um CMD neutro
+CMD ["/bin/bash"]
