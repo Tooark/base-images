@@ -140,6 +140,13 @@ docker build `
   ./gcloud-cli
 ```
 
+## Documentação oficial
+
+- [GCLOUD CLI](https://cloud.google.com/sdk/docs/install)
+  - [Notas de lançamento](https://cloud.google.com/sdk/docs/release-notes)
+- [Kubectl](https://kubernetes.io/docs/tasks/tools/)
+  - [Notas de lançamento](https://kubernetes.io/releases/)
+
 ## Licença
 
 MIT – ver arquivo `LICENSE` na raiz do repositório.

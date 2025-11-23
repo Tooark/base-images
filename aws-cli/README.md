@@ -14,14 +14,14 @@ Substitua os números de versão acima pelo valor correspondente à sua build.
 
 ## O que tem nesta imagem
 
-| Ferramenta / item        | Versão / observação                                            | ARG (build)        |
-| ------------------------ | -------------------------------------------------------------- | ------------------ |
-| Debian (imagem base)     | `debian:12-slim` (padrão)                                      | `BASE_IMAGE`       |
-| AWS CLI (v2)             | Versão definida pela tag da imagem (ex.: `2.32.3`)            | `AWSCLI_VERSION`   |
-| kubectl                  | Versão definida via build arg (ex.: `1.34.2`)                 | `KUBECTL_VERSION`  |
-| Binários disponíveis     | `aws`, `kubectl` (ambos em `/usr/local/bin`)                  | N/A                |
-| Pacote(s) de runtime     | `ca-certificates`                                             | N/A                |
-| Usuário padrão           | `app` (não-root), HOME: `/home/app`                           | N/A                |
+| Ferramenta / item    | Versão / observação                                | ARG (build)       |
+| -------------------- | -------------------------------------------------- | ----------------- |
+| Debian (imagem base) | `debian:12-slim` (padrão)                          | `BASE_IMAGE`      |
+| AWS CLI (v2)         | Versão definida pela tag da imagem (ex.: `2.32.3`) | `AWSCLI_VERSION`  |
+| kubectl              | Versão definida via build arg (ex.: `1.34.2`)      | `KUBECTL_VERSION` |
+| Binários disponíveis | `aws`, `kubectl` (ambos em `/usr/local/bin`)       | N/A               |
+| Pacote(s) de runtime | `ca-certificates`                                  | N/A               |
+| Usuário padrão       | `app` (não-root), HOME: `/home/app`                | N/A               |
 
 Observações:
 
@@ -128,6 +128,13 @@ docker build `
   -t aws-cli:latest `
   ./aws-cli
 ```
+
+## Documentação oficial
+
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+  - [Notas de lançamento](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
+- [Kubectl](https://kubernetes.io/docs/tasks/tools/)
+  - [Notas de lançamento](https://kubernetes.io/releases/)
 
 ## Licença
 
