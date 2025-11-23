@@ -32,10 +32,10 @@ jobs:
           - terraform
           - terraform-aws
           - terraform-gcloud
+          - terraform-aws-gcloud
           # - sonarqube
           # - trivy
           # - kubectl
-          # - terraform-aws-gcp
     env:
       REGISTRY: ghcr.io/tooark
     steps:
