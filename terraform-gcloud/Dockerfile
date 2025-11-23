@@ -63,8 +63,8 @@ RUN set -eux; \
   mkdir -p /opt; \
   unzip /tmp/terraform.zip -d /tmp; \
   tar -xzf /tmp/gcloud.tar.gz -C /opt; \
+  test -x /opt/google-cloud-sdk/bin/gcloud; \
   install -m 0755 /tmp/terraform /usr/local/bin/terraform; \
-  /tmp/aws/install; \
   chmod +x /usr/local/bin/kubectl; \
   rm -rf /tmp/terraform /tmp/terraform.zip || true; \
   rm -f /tmp/gcloud.tar.gz; || true; \
@@ -100,7 +100,7 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Copia apenas o necessário do builder para o runtime
 COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
-COPY --from=builder /usr/local/google-cloud-sdk /usr/local/google-cloud-sdk
+COPY --from=builder /opt/google-cloud-sdk /opt/google-cloud-sdk
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 
 # Cria um symlink em /usr/local/bin apontando para o binário gcloud e outras ferramentas comuns
