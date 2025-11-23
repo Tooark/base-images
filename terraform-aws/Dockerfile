@@ -64,11 +64,11 @@ RUN set -eux; \
   unzip /tmp/awscliv2.zip -d /tmp; \
   install -m 0755 /tmp/terraform /usr/local/bin/terraform; \
   /tmp/aws/install; \
-  chmod +x /usr/local/bin/kubectl; \  
+  chmod +x /usr/local/bin/kubectl; \
   rm -rf /tmp/terraform /tmp/terraform.zip || true; \
   rm -rf /tmp/aws /tmp/awscliv2.zip || true; \
   terraform -version; \
-  aws --version; \  
+  aws --version; \
   kubectl version --client --output=json || true
 
 ############################
@@ -114,8 +114,8 @@ USER app
 
 # Variáveis úteis
 ENV TF_IN_AUTOMATION=1 \
-    TF_INPUT=0 \  
-    TF_CLI_ARGS="-input=false -no-color"
+  TF_INPUT=0 \
+  TF_CLI_ARGS="-input=false -no-color"
 
 # Configura comando padrão
 CMD ["/bin/sh"]
