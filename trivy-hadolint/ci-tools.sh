@@ -43,11 +43,13 @@ Configuration variables:
   REPORT_DIR             (default: "/tmp/ci-reports")
 
 Variables for sending reports (webhook):
-  REPORT_URL             (required for send-report) URL of the HTTP POST endpoint
+  REPORT_URL             (required for send-report) One or more URLs separated by
+                          comma (ex: "https://hook1/api,https://hook2/api")
   REPORT_TOKEN           (optional) Bearer token for authentication
   REPORT_HEADERS         (optional) Extra headers, format "Key: Value" per line
   REPORT_METHOD          (default: "POST") HTTP method
   REPORT_FAIL_ON_ERROR   (default: "false") Fail the pipeline if sending fails
+  REPORT_SEND_EACH_SCAN  (default: "false") Send report after each individual scan
 
 Passing extra flags:
   Use "--" to pass additional flags to Trivy/Hadolint.
@@ -259,20 +261,11 @@ require_command() {
 }
 
 # ── Envio de relatório via HTTP POST ──────────────────────────────────────────
-send_report() {
+
+# Envia o arquivo para uma única URL (função interna)
+_send_to_url() {
   local file="${1:-}"
-  local url="${REPORT_URL:-}"
-
-  if [[ -z "${url}" ]]; then
-    log "REPORT_URL is not set. Skipping report upload."
-    return 0
-  fi
-
-  if [[ -z "${file}" || ! -f "${file}" ]]; then
-    log "Report file not found: ${file}"
-    [[ "${REPORT_FAIL_ON_ERROR:-false}" == "true" ]] && return 1
-    return 0
-  fi
+  local url="${2:-}"
 
   local method="${REPORT_METHOD:-POST}"
   local curl_args=( -s -S -w "\n%{http_code}" -X "${method}" )
@@ -301,10 +294,50 @@ send_report() {
   local body
   body=$(echo "${response}" | sed '$d')
 
+  # Verifica código HTTP
   if [[ "${http_code}" =~ ^2[0-9]{2}$ ]]; then
     log "Report uploaded successfully (HTTP ${http_code})"
+    return 0
   else
     log "Failed to upload report (HTTP ${http_code}): ${body}"
+    return 1
+  fi
+}
+
+# Envia o relatório para todas as URLs configuradas em REPORT_URL (separadas por vírgula)
+send_report() {
+  local file="${1:-}"
+  local urls="${REPORT_URL:-}"
+
+  # Verifica se url esta definida
+  if [[ -z "${urls}" ]]; then
+    log "REPORT_URL is not set. Skipping report upload."
+    return 0
+  fi
+
+  # Verifica se o arquivo existe
+  if [[ -z "${file}" || ! -f "${file}" ]]; then
+    log "Report file not found: ${file}"
+    [[ "${REPORT_FAIL_ON_ERROR:-false}" == "true" ]] && return 1
+    return 0
+  fi
+
+  local has_failure=0
+  local url
+
+  # Itera sobre as URLs separadas por vírgula
+  while IFS= read -r url; do
+    # Trim de espaços
+    url="${url#"${url%%[![:space:]]*}"}"
+    url="${url%"${url##*[![:space:]]}"}"
+
+    # Ignora entradas vazias
+    [[ -z "${url}" ]] && continue
+
+    _send_to_url "${file}" "${url}" || has_failure=1
+  done <<< "${urls//,/$'\n'}"
+
+  if [[ ${has_failure} -ne 0 ]]; then
     [[ "${REPORT_FAIL_ON_ERROR:-false}" == "true" ]] && return 1
   fi
 
@@ -416,6 +449,7 @@ do_image_scan() {
   fi
 
   log "Image report saved in: ${output}"
+  is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "${output}"
   echo "${output}"
 }
 
@@ -513,6 +547,7 @@ do_filesystem_scan() {
   fi
 
   log "Filesystem report saved in: ${output}"
+  is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "${output}"
   echo "${output}"
 }
 
@@ -572,6 +607,7 @@ do_config_scan() {
   fi
 
   log "Config report saved in: ${output}"
+  is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "${output}"
   echo "${output}"
 }
 
@@ -628,6 +664,7 @@ do_repo_scan() {
   fi
 
   log "Repository report saved in: ${output}"
+  is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "${output}"
   echo "${output}"
 }
 
@@ -670,6 +707,7 @@ do_dockerfile_lint() {
   fi
 
   log "Dockerfile lint report saved in: ${output}"
+  is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "${output}"
   echo "${output}"
   return ${rc}
 }

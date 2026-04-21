@@ -8,7 +8,8 @@ A imagem inclui um wrapper CLI (`ci-tools`) para padronizar scans de imagem, fil
 - Geração de SBOM via `image-scan` e `filesystem-scan`
 - Integração opcional com Trivy Server
 - Fallback local controlado por variável
-- Envio de relatório consolidado por webhook
+- Envio de relatório por webhook (uma ou múltiplas URLs)
+- Envio automático após cada scan individual (opcional)
 
 ## Nome e tags da imagem
 
@@ -105,14 +106,15 @@ Notas:
 
 ### Webhook (envio de relatório)
 
-| Variável               | Default           | Descrição                                     |
-| ---------------------- | ----------------- | --------------------------------------------- |
-| `REPORT_URL`           | vazio             | Endpoint HTTP para envio de relatório         |
-| `REPORT_TOKEN`         | vazio             | Token Bearer para o webhook                   |
-| `REPORT_HEADERS`       | vazio             | Headers extras, um por linha (`Key: Value`)   |
-| `REPORT_METHOD`        | `POST`            | Método HTTP                                   |
-| `REPORT_FAIL_ON_ERROR` | `false`           | Se `true`, falha pipeline quando upload falha |
-| `REPORT_DIR`           | `/tmp/ci-reports` | Diretório dos relatórios                      |
+| Variável                | Default           | Descrição                                                         |
+| ----------------------- | ----------------- | ----------------------------------------------------------------- |
+| `REPORT_URL`            | vazio             | Uma ou mais URLs separadas por vírgula (ex: `url1,url2`)          |
+| `REPORT_TOKEN`          | vazio             | Token Bearer para o webhook                                       |
+| `REPORT_HEADERS`        | vazio             | Headers extras, um por linha (`Key: Value`)                       |
+| `REPORT_METHOD`         | `POST`            | Método HTTP                                                       |
+| `REPORT_FAIL_ON_ERROR`  | `false`           | Se `true`, falha pipeline quando qualquer upload falha            |
+| `REPORT_SEND_EACH_SCAN` | `false`           | Se `true`, envia relatório automaticamente após cada scan         |
+| `REPORT_DIR`            | `/tmp/ci-reports` | Diretório dos relatórios                                          |
 
 ## Exemplos básicos
 
@@ -251,6 +253,30 @@ docker run --rm \
   -e REPORT_FAIL_ON_ERROR=true \
   ghcr.io/tooark/trivy-hadolint:latest \
   full-scan myapp:latest /workspace
+```
+
+### 4) Envio para múltiplas URLs
+
+```bash
+docker run --rm \
+  -v "$PWD":/workspace \
+  -e REPORT_URL="https://hook1.internal/report,https://hook2.internal/report" \
+  -e REPORT_TOKEN="$REPORT_TOKEN" \
+  -e REPORT_FAIL_ON_ERROR=true \
+  ghcr.io/tooark/trivy-hadolint:latest \
+  full-scan myapp:latest /workspace
+```
+
+### 5) Envio automático após cada scan individual
+
+```bash
+docker run --rm \
+  -v "$PWD":/workspace \
+  -e REPORT_URL=https://example.internal/security/report \
+  -e REPORT_TOKEN="$REPORT_TOKEN" \
+  -e REPORT_SEND_EACH_SCAN=true \
+  ghcr.io/tooark/trivy-hadolint:latest \
+  image-scan myapp:latest
 ```
 
 ## Passando flags extras para Trivy e Hadolint
@@ -564,6 +590,8 @@ send-security-report:
 - Use `TRIVY_SERVER_REQUIRED=false` em ambientes de desenvolvimento para maior resiliência.
 - Evite `TRIVY_TOKEN_AS_FLAG=true` quando possível, para não expor credencial em argumentos de processo.
 - Monte o workspace com `-v` quando precisar escanear arquivos locais.
+- Use `REPORT_SEND_EACH_SCAN=true` para receber notificações incrementais durante pipelines longas.
+- `REPORT_URL` aceita múltiplas URLs separadas por vírgula; espaços ao redor são ignorados.
 
 ## Build local da imagem
 
