@@ -1,0 +1,43 @@
+name: Update Tool Versions
+
+on:
+  # Sexta-feira, 12:00 UTC
+  schedule:
+    - cron: "0 15 * * 5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-versions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch latest stable versions
+        run: python3 script/fetch-latest-stable-versions.py
+
+      - name: Update versions.env
+        id: update
+        run: python3 script/update-versions.py
+
+      - name: Show diff
+        if: steps.update.outputs.changed == 'true'
+        run: git --no-pager diff -- versions.env
+
+      - name: Commit and push
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          source versions.env
+          git add versions.env
+          git commit -m "chore(versions): AWS ${AWSCLI_VERSION} | GCloud ${GCLOUD_VERSION} | K8s ${KUBECTL_VERSION} | Terraform ${TERRAFORM_VERSION} | Trivy ${TRIVY_VERSION} | Hadolint ${HADOLINT_VERSION}"
+          git push
+
+      - name: No changes
+        if: steps.update.outputs.changed != 'true'
+        run: echo "No version updates found."

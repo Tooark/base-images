@@ -3,6 +3,9 @@
 # Argumento para definir a imagem base
 ARG BASE_IMAGE=debian:12-slim
 
+# Argumento para definir a versão do Trivy e Hadolint (obrigatório)
+ARG TRIVY_HADOLINT_VERSION=2.0.0
+
 # Argumento para definir a versão do Trivy (obrigatório)
 ARG TRIVY_VERSION=0.67.2
 
@@ -26,7 +29,9 @@ FROM hadolint/hadolint:v${HADOLINT_VERSION} AS hadolint_src
 FROM ${BASE_IMAGE} AS runtime
 
 # Argumento para definir a versão do Trivy e Hadolint (obrigatório)
-ARG TRIVY_HADOLINT_VERSION=2.0.0
+ARG TRIVY_HADOLINT_VERSION
+ARG TRIVY_VERSION
+ARG HADOLINT_VERSION
 
 # Metadados da imagem
 LABEL org.opencontainers.image.title="trivy-hadolint" \
@@ -34,7 +39,9 @@ LABEL org.opencontainers.image.title="trivy-hadolint" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${TRIVY_HADOLINT_VERSION}" \
-  org.opencontainers.image.source="https://github.com/Tooark/base-images/trivy-hadolint"
+  org.opencontainers.image.source="https://github.com/Tooark/base-images/trivy-hadolint" \
+  io.tooark.trivy.version="${TRIVY_VERSION}" \
+  io.tooark.hadolint.version="${HADOLINT_VERSION}"
 
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \

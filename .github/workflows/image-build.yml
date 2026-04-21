@@ -33,9 +33,8 @@ jobs:
           - terraform-aws
           - terraform-gcloud
           - terraform-aws-gcloud
+          - trivy-hadolint
           # - sonarqube
-          # - trivy
-          # - kubectl
     env:
       REGISTRY: ghcr.io/tooark
     steps:
@@ -75,13 +74,17 @@ jobs:
             echo "Nenhuma versão encontrada em $PRIMARY_VAR; usando 'latest'" >&2
             echo "full=latest" >> $GITHUB_OUTPUT
             echo "short=latest" >> $GITHUB_OUTPUT
+            echo "major=latest" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
+          # full = major.minor.patch ; short = major.minor ; major = major
           SHORT_VERSION=$(echo "$FULL_VERSION" | awk -F. '{ if (NF>=2) {print $1"."$2} else {print $1} }')
+          MAJOR_VERSION=$(echo "$FULL_VERSION" | awk -F. '{ print $1 }')
           
           echo "full=$FULL_VERSION" >> $GITHUB_OUTPUT
           echo "short=$SHORT_VERSION" >> $GITHUB_OUTPUT
+          echo "major=$MAJOR_VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up support for more platforms with QEMU
         uses: docker/setup-qemu-action@v3
@@ -226,6 +229,7 @@ jobs:
             --label "org.opencontainers.image.version=${{ steps.tags.outputs.full }}" \
             -t $IMAGE_NAME:${{ steps.tags.outputs.full }} \
             -t $IMAGE_NAME:${{ steps.tags.outputs.short }} \
+            -t $IMAGE_NAME:${{ steps.tags.outputs.major }} \
             -t $IMAGE_NAME:latest \
             ./${{ matrix.image }} --push
 
@@ -275,6 +279,7 @@ jobs:
             printf "Docker image published to GHCR:\n" > "$NOTES_FILE"
             printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.full }}\n" >> "$NOTES_FILE"
             printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.short }}\n" >> "$NOTES_FILE"
+            printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.major }}\n" >> "$NOTES_FILE"
             printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest\n" >> "$NOTES_FILE"
           fi
 

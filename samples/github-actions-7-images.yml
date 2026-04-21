@@ -1,0 +1,65 @@
+name: Base Images Samples
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  aws_cli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: aws-cli version
+        run: docker run --rm ghcr.io/tooark/aws-cli:latest aws --version
+      - name: kubectl version
+        run: docker run --rm ghcr.io/tooark/aws-cli:latest kubectl version --client
+
+  gcloud_cli:
+    runs-on: ubuntu-latest
+    steps:
+      - name: gcloud version
+        run: docker run --rm ghcr.io/tooark/gcloud-cli:latest gcloud --version
+      - name: kubectl version
+        run: docker run --rm ghcr.io/tooark/gcloud-cli:latest kubectl version --client
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: terraform version
+        run: docker run --rm ghcr.io/tooark/terraform:latest terraform version
+
+  terraform_aws:
+    runs-on: ubuntu-latest
+    steps:
+      - name: terraform version
+        run: docker run --rm ghcr.io/tooark/terraform-aws:latest terraform version
+      - name: aws version
+        run: docker run --rm ghcr.io/tooark/terraform-aws:latest aws --version
+
+  terraform_gcloud:
+    runs-on: ubuntu-latest
+    steps:
+      - name: terraform version
+        run: docker run --rm ghcr.io/tooark/terraform-gcloud:latest terraform version
+      - name: gcloud version
+        run: docker run --rm ghcr.io/tooark/terraform-gcloud:latest gcloud --version
+
+  terraform_aws_gcloud:
+    runs-on: ubuntu-latest
+    steps:
+      - name: terraform version
+        run: docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest terraform version
+      - name: aws version
+        run: docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest aws --version
+      - name: gcloud version
+        run: docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest gcloud --version
+
+  trivy_hadolint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ci-tools version
+        run: docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools version
+      - name: image scan sample
+        run: docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools image-scan nginx:latest

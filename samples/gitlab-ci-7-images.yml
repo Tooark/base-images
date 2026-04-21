@@ -1,0 +1,66 @@
+stages:
+  - validate
+  - security
+
+aws_cli:
+  stage: validate
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker run --rm ghcr.io/tooark/aws-cli:latest aws --version
+    - docker run --rm ghcr.io/tooark/aws-cli:latest kubectl version --client
+
+gcloud_cli:
+  stage: validate
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker run --rm ghcr.io/tooark/gcloud-cli:latest gcloud --version
+    - docker run --rm ghcr.io/tooark/gcloud-cli:latest kubectl version --client
+
+terraform:
+  stage: validate
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker run --rm ghcr.io/tooark/terraform:latest terraform version
+
+terraform_aws:
+  stage: validate
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker run --rm ghcr.io/tooark/terraform-aws:latest terraform version
+    - docker run --rm ghcr.io/tooark/terraform-aws:latest aws --version
+
+terraform_gcloud:
+  stage: validate
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker run --rm ghcr.io/tooark/terraform-gcloud:latest terraform version
+    - docker run --rm ghcr.io/tooark/terraform-gcloud:latest gcloud --version
+
+terraform_aws_gcloud:
+  stage: validate
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest terraform version
+    - docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest aws --version
+    - docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest gcloud --version
+
+trivy_hadolint:
+  stage: security
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools version
+    - docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools image-scan nginx:latest
