@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.19
+# syntax=docker/dockerfile:1
 
 # Argumento para definir a imagem base
 ARG BASE_IMAGE=debian:12-slim
@@ -17,9 +17,10 @@ FROM ${BASE_IMAGE} AS builder
 
 # Instala dependências mínimas
 # hadolint ignore=DL3008
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl unzip \
-  && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl unzip
 
 # Garante shell mais estrita
 SHELL ["/bin/sh", "-eu", "-c"]
@@ -43,8 +44,8 @@ RUN set -eux; \
   curl -fsSL "${BASE_URL}/${TERRAFORM_FILE}" -o /tmp/terraform.zip; \
   unzip -d /tmp /tmp/terraform.zip; \
   install -m 0755 /tmp/terraform /usr/local/bin/terraform; \
-  rm -rf /tmp/terraform /tmp/terraform.zip || true; \
-  terraform -version;
+  rm -rf /tmp/terraform /tmp/terraform.zip; \
+  terraform -version
 
 ############################
 # Stage 2: runtime mínimo  #
@@ -60,14 +61,16 @@ LABEL org.opencontainers.image.title="terraform" \
   org.opencontainers.image.description="Base image with integrated Terraform for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
-  org.opencontainers.image.version="${TERRAFORM_VERSION}"
+  org.opencontainers.image.version="${TERRAFORM_VERSION}" \
+  org.opencontainers.image.source="https://github.com/Tooark/base-images/terraform"
 
 # Instala dependências mínimas
 # hadolint ignore=DL3008
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/* \
-  && update-ca-certificates
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && update-ca-certificates
 
 # Garante shell mais estrita
 SHELL ["/bin/sh", "-eu", "-c"]
@@ -75,16 +78,15 @@ SHELL ["/bin/sh", "-eu", "-c"]
 # Copia apenas o necessário do builder para o runtime
 COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
 
-# Usuário não-root
-RUN adduser --disabled-password --gecos "" app || useradd -m -s /bin/sh app \
-  && chown app:app /usr/local/bin/terraform || true
+# Cria usuário não-root
+RUN adduser --disabled-password --gecos "" app
 
 # Muda para o usuário não-root
 USER app
 
-# Variáveis úteis
+# Variáveis úteis para CI
 ENV TF_IN_AUTOMATION=1 \
-    TF_INPUT=0 \  
+    TF_INPUT=0 \
     TF_CLI_ARGS="-input=false -no-color"
 
 # Configura comando padrão

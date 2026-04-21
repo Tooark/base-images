@@ -1,31 +1,37 @@
 # gcloud-cli
 
-Esta imagem fornece o Google Cloud SDK (`gcloud`, `gsutil`, `bq`) e o Terraform (`terraform`) prontos para uso em pipelines e em containers ad-hoc. Este documento explica como usar a imagem gerada pelo build, incluindo as tags publicadas.
+Esta imagem fornece o Google Cloud SDK (`gcloud`, `gsutil`, `bq`) e `kubectl`, prontos para uso em pipelines e execuções ad-hoc em container.
 
 ## Nome e tags da imagem
 
 - Nome da imagem: `gcloud-cli` (nome da pasta)
 - Tags publicadas por versão:
-  - Versão completa: `gcloud-cli:548.0.0`
-  - Versão curta (major.minor): `gcloud-cli:548.0`
+  - Versão completa: `gcloud-cli:<major.minor.patch>`
+  - Versão curta (major.minor): `gcloud-cli:<major.minor>`
+  - Versão menor (major): `gcloud-cli:<major>`
   - Última estável: `gcloud-cli:latest`
 
-Substitua os números de versão acima pelo valor correspondente à sua build.
+Substitua os números acima pelos valores da sua build.
 
-## O que tem nesta imagem
+## O que existe na imagem
 
-| Ferramenta / item    | Versão / observação                                 | ARG (build)         |
-| -------------------- | --------------------------------------------------- | ------------------- |
-| Debian (imagem base) | `debian:12-slim` (padrão)                           | `BASE_IMAGE`        |
-| Google Cloud SDK     | Versão definida pela tag da imagem (ex.: `548.0.0`) | `GCLOUD_VERSION`    |
-| Terraform            | Versão definida via build arg (ex.: `1.34.2`)       | `TERRAFORM_VERSION` |
-| Binários disponíveis | `gcloud`, `gsutil`, `bq`, `terraform`               | N/A                 |
-| Pacotes de runtime   | `ca-certificates`, `bash`, `python3`                | N/A                 |
-| Usuário padrão       | `app` (não-root), HOME: `/home/app`                 | N/A                 |
+| Item             | Descrição                                                           |
+| ---------------- | ------------------------------------------------------------------- |
+| Base             | `debian:12-slim` (padrão)                                           |
+| Google Cloud SDK | Instalado em `/opt/google-cloud-sdk`                                |
+| kubectl          | Instalado em `/usr/local/bin/kubectl`                               |
+| Symlinks         | `gcloud`, `gsutil`, `bq` disponíveis em `/usr/local/bin`            |
+| Binários         | `gcloud`, `gsutil`, `bq`, `kubectl` disponíveis em `/usr/local/bin` |
+| Pacotes          | `ca-certificates`, `bash`, `python3`                                |
+| Usuário padrão   | `app` (não-root), HOME: `/home/app`                                 |
 
 Observações:
 
+- O usuário padrão é `app` e o HOME é `/home/app`.
+- A imagem inclui `bash` e `python3` (necessários para os scripts do gcloud).
+- O `CMD` padrão é `/bin/bash`.
 - Prompts interativos são desabilitados por padrão: `CLOUDSDK_CORE_DISABLE_PROMPTS=1`.
+- A imagem é compatível com `linux/amd64` e `linux/arm64`.
 
 ## Uso rápido
 
@@ -41,10 +47,10 @@ Listar informações de configuração atuais (sem autenticar):
 docker run --rm ghcr.io/tooark/gcloud-cli:latest gcloud info
 ```
 
-Verificar `terraform`:
+Ver versão do kubectl (cliente):
 
 ```powershell
-docker run --rm ghcr.io/tooark/gcloud-cli:latest terraform version
+docker run --rm ghcr.io/tooark/gcloud-cli:latest kubectl version --client
 ```
 
 ### Autenticação e credenciais
@@ -53,88 +59,179 @@ Em ambientes CI/CD, prefira contas de serviço. Duas formas comuns:
 
 1. Variável `GOOGLE_APPLICATION_CREDENTIALS` apontando para um arquivo JSON montado:
 
-```powershell
-docker run --rm `
-  -e GOOGLE_APPLICATION_CREDENTIALS=/home/app/key.json `
-  -v ${env:USERPROFILE}\\Downloads\\sa.json:/home/app/key.json:ro `
-  gcloud-cli:latest gcloud auth activate-service-account --key-file=/home/app/key.json
-```
+   ```powershell
+   docker run --rm `
+     -e GOOGLE_APPLICATION_CREDENTIALS=/home/app/key.json `
+     -v ${env:USERPROFILE}\Downloads\sa.json:/home/app/key.json:ro `
+     ghcr.io/tooark/gcloud-cli:latest gcloud auth activate-service-account --key-file=/home/app/key.json
+   ```
 
-Após a ativação, invoque comandos autenticados (ex.: listar buckets):
+2. Definir projeto/região/zone via variáveis de ambiente:
 
-```powershell
-docker run --rm `
-  -e GOOGLE_APPLICATION_CREDENTIALS=/home/app/key.json `
-  -v ${env:USERPROFILE}\\Downloads\\sa.json:/home/app/key.json:ro `
-  ghcr.io/tooark/gcloud-cli:latest gsutil ls -p meu-projeto
-```
+   ```powershell
+   docker run --rm `
+     -e CLOUDSDK_CORE_PROJECT=meu-projeto `
+     -e CLOUDSDK_COMPUTE_REGION=us-central1 `
+     -e CLOUDSDK_COMPUTE_ZONE=us-central1-a `
+     ghcr.io/tooark/gcloud-cli:latest gcloud config list
+   ```
 
-1. Autenticação ADC via `gcloud auth application-default activate-service-account` (equivalente para ADC):
+3. Usar `kubectl get` com kubeconfig montado:
 
-```powershell
-docker run --rm `
-  -e GOOGLE_APPLICATION_CREDENTIALS=/home/app/key.json `
-  -v ${env:USERPROFILE}\\Downloads\\sa.json:/home/app/key.json:ro `
-  ghcr.io/tooark/gcloud-cli:latest gcloud auth application-default activate-service-account --key-file=/home/app/key.json
-```
-
-Defina também projeto/região/zone via variáveis de ambiente quando necessário:
-
-```powershell
-docker run --rm `
-  -e CLOUDSDK_CORE_PROJECT=meu-projeto `
-  -e CLOUDSDK_COMPUTE_REGION=us-central1 `
-  -e CLOUDSDK_COMPUTE_ZONE=us-central1-a `
-  gcloud-cli:latest gcloud config list
-```
+   ```powershell
+   docker run --rm `
+     -v C:\caminho\para\kubeconfig:/home/app/.kube/config:ro `
+     ghcr.io/tooark/gcloud-cli:latest kubectl get nodes --request-timeout=10s
+   ```
 
 > O usuário padrão é `app`; ao montar arquivos de credencial, use caminhos sob `/home/app` dentro do container.
 
 ## Variantes de tag
 
 - `gcloud-cli:<major>.<minor>.<patch>`: versão exata do SDK (ex.: `548.0.0`).
-- `gcloud-cli:<major>.<minor>`: acompanha a última patch daquela série (ex.: `548.0`).
+- `gcloud-cli:<major>.<minor>`: acompanha a última patch da série (ex.: `548.0`).
+- `gcloud-cli:<major>`: acompanha a última minor da série (ex.: `548`).
 - `gcloud-cli:latest`: aponta para a última versão estável construída.
 
 Para pipelines reprodutíveis, prefira a versão completa.
 
 ## Como verificar versões dentro da imagem
 
-Sobrescreva o entrypoint para executar um shell e checar versões:
-
 ```powershell
-docker run --rm --entrypoint sh gcloud-cli:latest -c "gcloud --version; gsutil --version; bq version; dpkg -l | grep -E 'ca-certificates|bash|python3'"
-```
-
-Incluindo Terraform:
-
-```powershell
-docker run --rm --entrypoint sh ghcr.io/tooark/gcloud-cli:latest -c "gcloud --version; gsutil --version; bq version; terraform version; dpkg -l | grep -E 'ca-certificates|bash|python3'"
+docker run --rm --entrypoint sh ghcr.io/tooark/gcloud-cli:latest -c "gcloud --version; gsutil --version; bq version; kubectl version --client; dpkg -l | grep -E 'ca-certificates|bash|python3'"
 ```
 
 ## Multi-arquitetura
 
-A imagem é construída para linux/amd64 e linux/arm64. O `Dockerfile` detecta `TARGETARCH` e baixa os artefatos adequados para a arquitetura alvo:
+O `Dockerfile` detecta `TARGETARCH` e baixa:
 
-- Google Cloud SDK (amd64/arm64)
-- Terraform (binário `linux_amd64`/`linux_arm64`)
+- O Google Cloud SDK da arquitetura correspondente
+- O binário `kubectl` da arquitetura correspondente
 
-- Imagem base configurável via `--build-arg BASE_IMAGE` (padrão: `debian:12-slim`).
-- Versão do SDK definida via `--build-arg GCLOUD_VERSION` (obrigatório no build).
+Arquiteturas suportadas:
+
+- `linux/amd64`
+- `linux/arm64`
+
+Builds para arquiteturas diferentes falham explicitamente no estágio de build.
+
+## GitHub Actions
+
+### Exemplo básico
+
+```yaml
+name: Deploy GCP
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/gcloud-cli:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar com service account
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          echo "$GCP_SA_KEY" > /tmp/sa.json
+          gcloud auth activate-service-account --key-file=/tmp/sa.json
+          gcloud config set project ${{ vars.GCP_PROJECT }}
+
+      - name: Deploy para Cloud Storage
+        run: gsutil -m rsync -r ./dist gs://${{ vars.GCS_BUCKET }}
+```
+
+### Exemplo com kubectl (GKE)
+
+```yaml
+name: Deploy GKE
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/gcloud-cli:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticar e configurar cluster
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          echo "$GCP_SA_KEY" > /tmp/sa.json
+          gcloud auth activate-service-account --key-file=/tmp/sa.json
+          gcloud container clusters get-credentials ${{ vars.GKE_CLUSTER }} \
+            --zone ${{ vars.GKE_ZONE }} \
+            --project ${{ vars.GCP_PROJECT }}
+
+      - name: Aplicar manifests
+        run: kubectl apply -f k8s/
+
+      - name: Verificar rollout
+        run: kubectl rollout status deployment/${{ vars.APP_NAME }} --timeout=120s
+```
+
+## GitLab CI
+
+### Exemplo básico
+
+```yaml
+stages:
+  - deploy
+
+deploy_gcs:
+  stage: deploy
+  image: ghcr.io/tooark/gcloud-cli:latest
+  script:
+    - echo "$GCP_SA_KEY" > /tmp/sa.json
+    - gcloud auth activate-service-account --key-file=/tmp/sa.json
+    - gcloud config set project $GCP_PROJECT
+    - gsutil -m rsync -r ./dist gs://$GCS_BUCKET
+  only:
+    - main
+```
+
+### Exemplo com kubectl (GKE)
+
+```yaml
+stages:
+  - deploy
+
+deploy_gke:
+  stage: deploy
+  image: ghcr.io/tooark/gcloud-cli:latest
+  script:
+    - echo "$GCP_SA_KEY" > /tmp/sa.json
+    - gcloud auth activate-service-account --key-file=/tmp/sa.json
+    - gcloud container clusters get-credentials $GKE_CLUSTER --zone $GKE_ZONE --project $GCP_PROJECT
+    - kubectl apply -f k8s/
+    - kubectl rollout status deployment/$APP_NAME --timeout=120s
+  only:
+    - main
+```
 
 ## Notas de build (opcional)
 
-Ao construir localmente, publique múltiplas tags equivalentes à mesma imagem (versão completa, curta e `latest`). Informe ambos os ARGs (`GCLOUD_VERSION` e `TERRAFORM_VERSION`). Exemplo simplificado com Docker (PowerShell):
+Ao construir localmente, publique tags equivalentes para a mesma imagem (versão completa, curta e `latest`).
 
 ```powershell
-$version = "548.0.0"       # Google Cloud SDK
-$tf      = "1.34.2"         # Terraform
-$short   = ($version -split '\\.') [0..1] -join '.'
+$version = "548.0.0"   # Google Cloud SDK
+$kubectl = "1.30.4"    # kubectl
+$short = ($version -split '\\.')[0..1] -join '.'
 
 docker build `
   --build-arg GCLOUD_VERSION=$version `
-  --build-arg TERRAFORM_VERSION=$tf `
-  -t gcloud-cli:$version-$tf `
+  --build-arg KUBECTL_VERSION=$kubectl `
+  -t gcloud-cli:$version `
   -t gcloud-cli:$short `
   -t gcloud-cli:latest `
   ./gcloud-cli
@@ -142,11 +239,11 @@ docker build `
 
 ## Documentação oficial
 
-- [GCLOUD CLI](https://cloud.google.com/sdk/docs/install)
+- [Google Cloud CLI](https://cloud.google.com/sdk/docs/install)
   - [Notas de lançamento](https://cloud.google.com/sdk/docs/release-notes)
-- [Kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
   - [Notas de lançamento](https://kubernetes.io/releases/)
 
 ## Licença
 
-MIT – ver arquivo `LICENSE` na raiz do repositório.
+MIT - ver arquivo `LICENSE` na raiz do repositório.

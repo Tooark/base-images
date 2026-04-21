@@ -1,84 +1,78 @@
 # terraform-aws
 
-Imagem base para pipelines que precisam de Terraform, AWS CLI v2 e kubectl juntos, em ambiente mínimo (Debian slim) multi-arquitetura (linux/amd64 e linux/arm64). Este README reflete o conteúdo do `Dockerfile` da pasta `terraform-aws`.
+Esta imagem fornece o `terraform`, `aws` (AWS CLI v2) e `kubectl`, prontos para uso em pipelines e execuções ad-hoc em container.
 
-## Nome e tags
+## Nome e tags da imagem
 
 - Nome da imagem: `terraform-aws` (nome da pasta)
-- Tags sugeridas (exemplos):
-  - Composta: `terraform-aws:1.32.34` (terraform-aws-cli-kubectl)
-  - Focada em Terraform: `terraform-aws:1.0`
+- Tags publicadas por versão:
+  - Versão completa: `terraform-aws:<major.minor.patch>`
+  - Versão curta (major.minor): `terraform-aws:<major.minor>`
+  - Versão menor (major): `terraform-aws:<major>`
   - Última estável: `terraform-aws:latest`
 
-Escolha a estratégia de tagging que atenda à política de reprodutibilidade do seu pipeline. O `Dockerfile` aceita um ARG agregador `TF_AWS_VERSION` para rotular a imagem (label `org.opencontainers.image.version`).
+Substitua os números acima pelos valores da sua build.
 
-## Conteúdo da imagem
+## O que existe na imagem
 
-| Item / ferramenta | Observação / versão (exemplo)                     | ARG (build)         |
-| ----------------- | ------------------------------------------------- | ------------------- |
-| Base (Debian)     | `debian:12-slim` (padrão, configurável)           | `BASE_IMAGE`        |
-| Terraform         | Versão exata (ex.: `1.14.0`)                      | `TERRAFORM_VERSION` |
-| AWS CLI v2        | Versão exata (ex.: `2.32.3`)                      | `AWSCLI_VERSION`    |
-| kubectl           | Versão exata (ex.: `1.34.2`)                      | `KUBECTL_VERSION`   |
-| Label de pacote   | Versão agregada p/ metadados (ex.: `1.32.34`)     | `TF_AWS_VERSION`    |
-| Pacotes runtime   | `ca-certificates`                                 | N/A                 |
-| Binários          | `terraform`, `aws`, `kubectl` em `/usr/local/bin` | N/A                 |
-| Usuário padrão    | `app` (não-root), HOME: `/home/app`               | N/A                 |
-| Shell padrão      | `/bin/sh` (não inclui `bash`)                     | N/A                 |
+| Item           | Descrição                                                       |
+| -------------- | --------------------------------------------------------------- |
+| Base           | `debian:12-slim` (padrão)                                       |
+| Terraform      | Instalado em `/usr/local/bin/terraform`                         |
+| AWS CLI v2     | Instalado em `/usr/local/aws-cli/v2/current/bin/aws`            |
+| kubectl        | Instalado em `/usr/local/bin/kubectl`                           |
+| Symlink        | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
+| Binários       | `terraform`, `aws`, `kubectl` disponíveis em `/usr/local/bin`   |
+| Pacote         | `ca-certificates`                                               |
+| Usuário padrão | `app` (não-root), HOME: `/home/app`                             |
 
 Observações:
 
-- `aws` é symlink para `/usr/local/aws-cli/v2/current/bin/aws`.
-- Terraform é instalado como binário único.
-- kubectl é baixado diretamente para a arquitetura alvo.
-
-## Variáveis de ambiente (pré-configuradas)
-
-| Variável           | Valor                    | Finalidade                                       |
-| ------------------ | ------------------------ | ------------------------------------------------ |
-| `TF_IN_AUTOMATION` | `1`                      | Ajusta saída e comportamento para modo automação |
-| `TF_INPUT`         | `0`                      | Prevê não-interatividade                         |
-| `TF_CLI_ARGS`      | `-input=false -no-color` | Flags extras aplicadas globalmente               |
-
-Você pode sobrescrever qualquer uma no `docker run -e VAR=...` conforme necessário.
+- O usuário padrão é `app` e o HOME é `/home/app`.
+- Não há `bash` na imagem; o shell padrão é `/bin/sh`.
+- O `CMD` padrão é `/bin/sh`.
+- Variáveis de CI pré-configuradas: `TF_IN_AUTOMATION=1`, `TF_INPUT=0`, `TF_CLI_ARGS="-input=false -no-color"`.
+- A imagem é compatível com `linux/amd64` e `linux/arm64`.
 
 ## Uso rápido
 
-Executar `aws --version` (CMD padrão):
+Verificar versões instaladas:
 
 ```powershell
-docker run --rm ghcr.io/tooark/terraform-aws:latest terraform -version
+docker run --rm ghcr.io/tooark/terraform-aws:latest terraform version
 docker run --rm ghcr.io/tooark/terraform-aws:latest aws --version
-docker run --rm ghcr.io/tooark/terraform-aws:latest kubectl version --client --short
+docker run --rm ghcr.io/tooark/terraform-aws:latest kubectl version --client
 ```
 
-Inicializar um diretório Terraform (montando código local):
+Inicializar um diretório Terraform (monte seu código):
 
 ```powershell
-docker run --rm -v C:\caminho\para\infra:/work -w /work ghcr.io/tooark/terraform-aws:latest terraform init
+docker run --rm `
+  -v ${PWD}:/workspace `
+  -w /workspace `
+  ghcr.io/tooark/terraform-aws:latest terraform init
 ```
 
-Plano Terraform não interativo:
+Executar plan e apply:
 
 ```powershell
-docker run --rm
-  -v C:\caminho\para\infra:/work
-  -w /work
-  ghcr.io/tooark/terraform-aws:latest terraform plan -no-color
+docker run --rm `
+  -v ${PWD}:/workspace `
+  -w /workspace `
+  ghcr.io/tooark/terraform-aws:latest terraform plan
 ```
 
-Chamada AWS STS (credenciais necessárias):
+Executar comando AWS (ex.: STS):
 
 ```powershell
 docker run --rm `
   -e AWS_ACCESS_KEY_ID=$env:AWS_ACCESS_KEY_ID `
   -e AWS_SECRET_ACCESS_KEY=$env:AWS_SECRET_ACCESS_KEY `
-  -e AWS_SESSION_TOKEN=$env:AWS_SESSION_TOKEN `
   -e AWS_REGION=us-east-1 `
   ghcr.io/tooark/terraform-aws:latest aws sts get-caller-identity --no-cli-pager
 ```
 
-kubectl com kubeconfig montado:
+Usar kubectl com kubeconfig montado:
 
 ```powershell
 docker run --rm `
@@ -86,72 +80,206 @@ docker run --rm `
   ghcr.io/tooark/terraform-aws:latest kubectl get nodes --request-timeout=10s
 ```
 
-## Credenciais & volumes
+## Variantes de tag
 
-- AWS: monte `${env:USERPROFILE}\.aws` em `/home/app/.aws` (somente leitura recomendado).
-- Terraform state remoto: configure via backend nos `.tf` (nenhuma alteração especial na imagem).
-- kubeconfig: `/home/app/.kube/config`.
+- `terraform-aws:<major.minor.patch>`: versão exata (ex.: `terraform-aws:1.14.0`).
+- `terraform-aws:<major.minor>`: acompanha a última patch da série (ex.: `terraform-aws:1.14`).
+- `terraform-aws:<major>`: acompanha a última minor da série (ex.: `terraform-aws:1`).
+- `terraform-aws:latest`: aponta para a última versão estável construída.
+
+Para pipelines reprodutíveis, prefira a versão completa.
+
+## Como verificar versões dentro da imagem
+
+```powershell
+docker run --rm --entrypoint sh ghcr.io/tooark/terraform-aws:latest -c "terraform version; aws --version; kubectl version --client; dpkg -l | grep -E 'ca-certificates'"
+```
 
 ## Multi-arquitetura
 
-Suporta `linux/amd64` e `linux/arm64`. O `Dockerfile` usa `TARGETARCH` para escolher:
+O `Dockerfile` detecta `TARGETARCH` e baixa:
 
-- Arquivo de Terraform correto (`terraform_<ver>_<arch>.zip`)
-- Instalador AWS CLI (`awscli-exe-<arch>-<ver>.zip`)
-- Binário `kubectl` apropriado
+- O binário Terraform da arquitetura correspondente
+- O instalador AWS CLI da arquitetura correspondente
+- O binário kubectl da arquitetura correspondente
 
-## Verificação interna (debug rápido)
+Arquiteturas suportadas:
 
-```powershell
-docker run --rm --entrypoint sh ghcr.io/tooark/terraform-aws:latest -c "terraform -version; aws --version; kubectl version --client --short; dpkg -l | grep -E 'ca-certificates'"
+- `linux/amd64`
+- `linux/arm64`
+
+Builds para arquiteturas diferentes falham explicitamente no estágio de build.
+
+## GitHub Actions
+
+### Exemplo básico
+
+```yaml
+name: Terraform Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/terraform-aws:latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply tfplan
 ```
 
-## Build local (exemplo PowerShell)
+### Exemplo com deployment em EKS
+
+```yaml
+name: Deploy to EKS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/terraform-aws:latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply tfplan
+
+      - name: Deploy to EKS
+        run: |
+          aws eks update-kubeconfig --name ${{ vars.EKS_CLUSTER }}
+          kubectl apply -f k8s/
+
+      - name: Verify deployment
+        run: kubectl rollout status deployment/${{ vars.APP_NAME }} --timeout=120s
+```
+
+## GitLab CI
+
+### Exemplo básico
+
+```yaml
+stages:
+  - validate
+  - deploy
+
+variables:
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+  AWS_REGION: us-east-1
+
+terraform_plan:
+  stage: validate
+  image: ghcr.io/tooark/terraform-aws:latest
+  script:
+    - terraform init
+    - terraform validate
+    - terraform plan -out=tfplan
+  artifacts:
+    paths:
+      - tfplan
+  only:
+    - merge_requests
+    - main
+
+terraform_apply:
+  stage: deploy
+  image: ghcr.io/tooark/terraform-aws:latest
+  script:
+    - terraform init
+    - terraform apply tfplan
+  dependencies:
+    - terraform_plan
+  only:
+    - main
+  when: manual
+```
+
+### Exemplo com deployment em EKS
+
+```yaml
+stages:
+  - deploy
+
+variables:
+  AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+  AWS_REGION: us-east-1
+
+deploy_eks:
+  stage: deploy
+  image: ghcr.io/tooark/terraform-aws:latest
+  script:
+    - terraform init
+    - terraform apply -auto-approve
+    - aws eks update-kubeconfig --name $EKS_CLUSTER
+    - kubectl apply -f k8s/
+    - kubectl rollout status deployment/$APP_NAME --timeout=120s
+  only:
+    - main
+  when: manual
+```
+
+## Notas de build (opcional)
+
+Ao construir localmente, publique tags equivalentes para a mesma imagem.
 
 ```powershell
-$tf = "1.14.0"              # Terraform
-$aws = "2.32.3"             # AWS CLI v2
-$kube = "1.34.2"            # kubectl
-$bundle = "$tf-$aws-$kube"  # Versão agregada
+$tf_aws = "1.14.0"  # Imagem com Terraform, AWS CLI e kubectl
+$tf = "1.14.0"      # Terraform
+$aws = "2.32.3"     # AWS CLI v2
+$kube = "1.34.2"    # kubectl
 
 docker build `
+  --build-arg TF_AWS_VERSION=$tf_aws `
   --build-arg TERRAFORM_VERSION=$tf `
   --build-arg AWSCLI_VERSION=$aws `
   --build-arg KUBECTL_VERSION=$kube `
-  --build-arg TF_AWS_VERSION=$bundle `
-  -t terraform-aws:$bundle `
-  -t terraform-aws:$tf `
   -t terraform-aws:latest `
+  -t terraform-aws:$tf_aws `
   ./terraform-aws
 ```
 
-Adapte a estratégia de tags conforme sua política (por exemplo, manter só a agregada + `latest`).
-
-## ARGs obrigatórios
-
-| ARG                 | Obrigatório  | Exemplo          | Comentário                             |
-| ------------------- | ------------ | ---------------- | -------------------------------------- |
-| `TF_AWS_VERSION`    | Sim          | `1.32.34`        | Usado em label/metadados               |
-| `TERRAFORM_VERSION` | Sim          | `1.14.0`         | Versão HashiCorp oficial               |
-| `AWSCLI_VERSION`    | Sim          | `2.32.3`         | Versão AWS CLI v2 completa             |
-| `KUBECTL_VERSION`   | Sim          | `1.34.2`         | Versão cliente Kubernetes              |
-| `BASE_IMAGE`        | Não (padrão) | `debian:12-slim` | Pode ser ajustado p/ imagem compatível |
-
-## Segurança & execução
-
-- Usuário não-root `app` minimiza risco em pipelines.
-- Apenas pacotes mínimos: reduz superfície de ataque.
-- Sem `bash`; scripts devem ser POSIX sh ou binários.
-
 ## Documentação oficial
 
-- [TERRAFORM](https://developer.hashicorp.com/terraform/install#linux)
+- [Terraform](https://developer.hashicorp.com/terraform/install#linux)
   - [Notas de lançamento](https://github.com/hashicorp/terraform/releases)
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
   - [Notas de lançamento](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
-- [Kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
   - [Notas de lançamento](https://kubernetes.io/releases/)
 
 ## Licença
 
-MIT – ver arquivo `LICENSE` na raiz do repositório.
+MIT - ver arquivo `LICENSE` na raiz do repositório.
