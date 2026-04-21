@@ -37,6 +37,7 @@ jobs:
           # - sonarqube
     env:
       REGISTRY: ghcr.io/tooark
+      TRIVY_SCANNER_IMAGE: ghcr.io/tooark/trivy-hadolint:1.67
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -170,50 +171,70 @@ jobs:
           fi
           echo "build=false" >> $GITHUB_OUTPUT
 
-      - name: Build and push image (buildx)
+      - name: Build image locally for scan (amd64 only)
         if: ${{ steps.detect.outputs.build == 'true' }}
         run: |
           set -eu
-          
+
           IMAGE_OWNER="${{ github.repository_owner }}"
           IMAGE_OWNER_LOWER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
-          IMAGE_NAME=ghcr.io/$IMAGE_OWNER_LOWER/${{ matrix.image }}
+          SCAN_IMAGE=ghcr.io/$IMAGE_OWNER_LOWER/${{ matrix.image }}:scan-${{ github.sha }}
 
-          # Prepare build arguments
+          # Prepare build arguments (shared with the push step via output)
           BUILD_ARGS=""
 
-          # Inject all declared version variables.
           if [ -f ./${{ matrix.image }}/VERSION ]; then
-            # Load declared variables
             VAR_LIST=$(grep -v '^[#[:space:]]*$' ./${{ matrix.image }}/VERSION | tr -d '\r')
-
-            # Iterate and add each variable
             for var in $VAR_LIST; do
-              # Values already exported by the 'Load versions' step
               val=$(printf '%s' "${!var:-}" | tr -d '\r')
-
-              # Add build argument if value is not empty
               if [ -n "$val" ]; then
                 BUILD_ARGS="$BUILD_ARGS --build-arg $var=$val"
               fi
             done
           else
-            # Generic fallback
             var=$(echo "${{ matrix.image }}" | tr '[:lower:]-' '[:upper:]_')_VERSION
-            # Value already exported by the 'Load versions' step
             val=$(printf '%s' "${!var:-}" | tr -d '\r')
-
-            # Add build argument if value is not empty
             if [ -n "$val" ]; then
               BUILD_ARGS="$BUILD_ARGS --build-arg $var=$val"
             fi
           fi
 
-          # Always include BASE_IMAGE from versions.env (if defined)
           BASE_IMAGE_CLEAN=$(printf '%s' "${BASE_IMAGE:-}" | tr -d '\r')
           if [ -n "$BASE_IMAGE_CLEAN" ]; then
             BUILD_ARGS="$BUILD_ARGS --build-arg BASE_IMAGE=${BASE_IMAGE_CLEAN}"
           fi
+
+          # Build single-arch image and load into local daemon for scanning
+          docker buildx build --platform linux/amd64 \
+            $BUILD_ARGS \
+            -t "$SCAN_IMAGE" \
+            ./${{ matrix.image }} --load
+
+          # Export image name and build args for subsequent steps
+          echo "SCAN_IMAGE=$SCAN_IMAGE" >> "$GITHUB_ENV"
+          echo "BUILD_ARGS=$BUILD_ARGS"  >> "$GITHUB_ENV"
+
+      - name: Scan image with Trivy
+        if: ${{ steps.detect.outputs.build == 'true' }}
+        run: |
+          set -eu
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e TRIVY_SEVERITY="CRITICAL,HIGH" \
+            -e TRIVY_EXIT_CODE="1" \
+            -e TRIVY_IGNORE_UNFIXED="true" \
+            -e TRIVY_FORMAT="table" \
+            "$TRIVY_SCANNER_IMAGE" \
+            image-scan "$SCAN_IMAGE"
+
+      - name: Build and push image (multi-arch)
+        if: ${{ steps.detect.outputs.build == 'true' }}
+        run: |
+          set -eu
+
+          IMAGE_OWNER="${{ github.repository_owner }}"
+          IMAGE_OWNER_LOWER=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
+          IMAGE_NAME=ghcr.io/$IMAGE_OWNER_LOWER/${{ matrix.image }}
 
           # Load optional image description from DESCRIPTION file
           DESC_FILE="./${{ matrix.image }}/DESCRIPTION"
@@ -224,6 +245,7 @@ jobs:
           fi
 
           # Build and push the multi-arch image with labels
+          # BUILD_ARGS was exported by the scan step via GITHUB_ENV
           docker buildx build --platform linux/amd64,linux/arm64 \
             $BUILD_ARGS \
             --label "org.opencontainers.image.title=${{ matrix.image }}" \
@@ -236,6 +258,9 @@ jobs:
             -t $IMAGE_NAME:${{ steps.tags.outputs.major }} \
             -t $IMAGE_NAME:latest \
             ./${{ matrix.image }} --push
+
+          # Remove local scan image to free disk space
+          docker rmi "$SCAN_IMAGE" || true
 
       - name: Create and push tag
         if: ${{ steps.detect.outputs.build == 'true' }}
