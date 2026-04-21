@@ -72,7 +72,6 @@ RUN set -eux; \
   install -m 0755 /tmp/kubectl /usr/local/bin/kubectl; \
   rm -rf /tmp/terraform /tmp/terraform.zip /tmp/gcloud.tar.gz /tmp/kubectl; \
   terraform -version; \
-  /opt/google-cloud-sdk/bin/gcloud --version; \
   kubectl version --client --output=yaml >/dev/null
 
 ############################

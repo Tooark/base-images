@@ -85,7 +85,6 @@ RUN set -eux; \
   rm -rf /tmp/terraform /tmp/terraform.zip /tmp/aws /tmp/awscliv2.zip /tmp/gcloud.tar.gz /tmp/kubectl; \
   terraform -version; \
   aws --version; \
-  /opt/google-cloud-sdk/bin/gcloud --version; \
   kubectl version --client --output=yaml >/dev/null
 
 ############################

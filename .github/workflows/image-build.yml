@@ -265,8 +265,8 @@ jobs:
         run: |
           set -eu
           TAG_NAME="${{ matrix.image }}-${{ steps.tags.outputs.full }}"
-          IMAGE_DIR="${{ matrix.image }}"
-          README_PATH="./${{ matrix.image }}/README.md"
+          IMAGE_OWNER="${{ github.repository_owner }}"
+          IMAGE_NAME="ghcr.io/$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')/${{ matrix.image }}"
 
           # Skip if release already exists
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
@@ -274,19 +274,51 @@ jobs:
             exit 0
           fi
 
-          # Prefer README.md from image folder as release notes
-          if [ -f "$README_PATH" ]; then
-            NOTES_FILE="$README_PATH"
+          # Read image description
+          DESC_FILE="./${{ matrix.image }}/DESCRIPTION"
+          if [ -f "$DESC_FILE" ]; then
+            DESCRIPTION=$(sed -e 's/\r//g' "$DESC_FILE" | tr '\n' ' ' | sed -e 's/[[:space:]]\+/ /g' -e 's/^ //' -e 's/ $//')
           else
-            echo "No README.md found in $IMAGE_DIR; generating a minimal body"
-            NOTES_FILE="RELEASE_BODY.txt"
-            printf "Docker image published to GHCR:\n" > "$NOTES_FILE"
-            printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.full }}\n" >> "$NOTES_FILE"
-            printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.short }}\n" >> "$NOTES_FILE"
-            printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.tags.outputs.major }}\n" >> "$NOTES_FILE"
-            printf "- ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest\n" >> "$NOTES_FILE"
+            DESCRIPTION="${{ matrix.image }}"
           fi
+
+          # Build tools table from VERSION file
+          # Lines whose variable names match known tools are included; composite vars are skipped.
+          TOOLS_TABLE="| Tool | Version |\n|------|---------|\n"
+          if [ -f "./${{ matrix.image }}/VERSION" ]; then
+            while IFS= read -r var; do
+              var=$(printf '%s' "$var" | tr -d '\r')
+              [ -z "$var" ] && continue
+              val=$(printf '%s' "${!var:-}" | tr -d '\r')
+              [ -z "$val" ] && continue
+              case "$var" in
+                TERRAFORM_VERSION) TOOL_NAME="Terraform" ;;
+                AWSCLI_VERSION)    TOOL_NAME="AWS CLI" ;;
+                GCLOUD_VERSION)    TOOL_NAME="Google Cloud SDK" ;;
+                KUBECTL_VERSION)   TOOL_NAME="kubectl" ;;
+                TRIVY_VERSION)     TOOL_NAME="Trivy" ;;
+                HADOLINT_VERSION)  TOOL_NAME="Hadolint" ;;
+                *)                 continue ;;
+              esac
+              TOOLS_TABLE="${TOOLS_TABLE}| ${TOOL_NAME} | \`${val}\` |\n"
+            done < "./${{ matrix.image }}/VERSION"
+          fi
+
+          # Generate release notes file
+          NOTES_FILE="$(mktemp)"
+          printf "## %s \`%s\`\n\n" "${{ matrix.image }}" "${{ steps.tags.outputs.full }}" > "$NOTES_FILE"
+          printf "%s\n\n" "$DESCRIPTION" >> "$NOTES_FILE"
+          printf "### Docker Image\n\n" >> "$NOTES_FILE"
+          printf "| Tag | Image |\n|-----|-------|\n" >> "$NOTES_FILE"
+          printf "| Patch version | \`%s:%s\` |\n"    "$IMAGE_NAME" "${{ steps.tags.outputs.full }}"  >> "$NOTES_FILE"
+          printf "| Minor version | \`%s:%s\` |\n"   "$IMAGE_NAME" "${{ steps.tags.outputs.short }}" >> "$NOTES_FILE"
+          printf "| Major version | \`%s:%s\` |\n"   "$IMAGE_NAME" "${{ steps.tags.outputs.major }}" >> "$NOTES_FILE"
+          printf "| Latest | \`%s:latest\` |\n\n"    "$IMAGE_NAME" >> "$NOTES_FILE"
+          printf "### Included Tools\n\n" >> "$NOTES_FILE"
+          printf "%b" "$TOOLS_TABLE" >> "$NOTES_FILE"
 
           gh release create "$TAG_NAME" \
             --title "${{ matrix.image }}-${{ steps.tags.outputs.full }}" \
             --notes-file "$NOTES_FILE"
+
+          rm -f "$NOTES_FILE"
