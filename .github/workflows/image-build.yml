@@ -47,8 +47,11 @@ jobs:
         run: |
           set -eu
           while IFS='=' read -r k v; do
+            # Normalize CRLF files edited on Windows before exporting variables.
+            k=$(printf '%s' "$k" | tr -d '\r')
+            v=$(printf '%s' "$v" | tr -d '\r')
             if [ -n "$k" ] && [ "${k#'#'}" = "$k" ] && [ -n "$v" ]; then
-              echo "$k=$v" >> $GITHUB_ENV
+              echo "$k=$v" >> "$GITHUB_ENV"
             fi
           done < versions.env
 
@@ -68,7 +71,7 @@ jobs:
           
           echo "Primary version variable: $PRIMARY_VAR"
           
-          FULL_VERSION="${!PRIMARY_VAR:-}"
+          FULL_VERSION=$(printf '%s' "${!PRIMARY_VAR:-}" | tr -d '\r')
           
           if [ -z "$FULL_VERSION" ]; then
             echo "Nenhuma versão encontrada em $PRIMARY_VAR; usando 'latest'" >&2
@@ -187,7 +190,7 @@ jobs:
             # Iterate and add each variable
             for var in $VAR_LIST; do
               # Values already exported by the 'Load versions' step
-              val="${!var:-}"
+              val=$(printf '%s' "${!var:-}" | tr -d '\r')
 
               # Add build argument if value is not empty
               if [ -n "$val" ]; then
@@ -198,7 +201,7 @@ jobs:
             # Generic fallback
             var=$(echo "${{ matrix.image }}" | tr '[:lower:]-' '[:upper:]_')_VERSION
             # Value already exported by the 'Load versions' step
-            val="${!var:-}"
+            val=$(printf '%s' "${!var:-}" | tr -d '\r')
 
             # Add build argument if value is not empty
             if [ -n "$val" ]; then
@@ -207,8 +210,9 @@ jobs:
           fi
 
           # Always include BASE_IMAGE from versions.env (if defined)
-          if [ -n "${BASE_IMAGE:-}" ]; then
-            BUILD_ARGS="$BUILD_ARGS --build-arg BASE_IMAGE=${BASE_IMAGE}"
+          BASE_IMAGE_CLEAN=$(printf '%s' "${BASE_IMAGE:-}" | tr -d '\r')
+          if [ -n "$BASE_IMAGE_CLEAN" ]; then
+            BUILD_ARGS="$BUILD_ARGS --build-arg BASE_IMAGE=${BASE_IMAGE_CLEAN}"
           fi
 
           # Load optional image description from DESCRIPTION file

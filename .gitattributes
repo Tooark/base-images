@@ -1,0 +1,6 @@
+# Keep CI/config files with LF to avoid CRLF leaking into shell variables.
+*.yml text eol=lf
+*.yaml text eol=lf
+*.env text eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
