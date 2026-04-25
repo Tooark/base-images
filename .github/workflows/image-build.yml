@@ -25,6 +25,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         image:
           - aws-cli
@@ -218,8 +219,10 @@ jobs:
         if: ${{ steps.detect.outputs.build == 'true' }}
         run: |
           set -eu
+          DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            --group-add "$DOCKER_GID" \
             -e TRIVY_SEVERITY="CRITICAL,HIGH" \
             -e TRIVY_EXIT_CODE="1" \
             -e TRIVY_IGNORE_UNFIXED="true" \
