@@ -1,9 +1,9 @@
 name: Update Tool Versions
 
 on:
-  # Sexta-feira, 12:00 UTC
+  # Sábado, 03:00 UTC
   schedule:
-    - cron: "0 15 * * 5"
+    - cron: "0 3 * * 6"
   workflow_dispatch:
 
 permissions:
