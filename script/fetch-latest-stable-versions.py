@@ -50,6 +50,23 @@ if not tf_version:
 
 versions["TERRAFORM_VERSION"] = tf_version
 
+# Sonar Scanner CLI (GitHub Releases - latest stable)
+sonar_release = json.loads(
+    fetch_text(
+        "https://api.github.com/repos/SonarSource/sonar-scanner-cli/releases/latest",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "tooark-version-bot",
+        },
+    )
+)
+sonar_tag = sonar_release.get("tag_name", "").lstrip("v")
+
+if not sonar_tag:
+  raise RuntimeError("Could not parse SONAR_CLI_VERSION from Sonar Scanner releases")
+
+versions["SONAR_CLI_VERSION"] = sonar_tag
+
 # Trivy (GitHub Releases - latest stable)
 trivy_release = json.loads(
     fetch_text(

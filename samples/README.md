@@ -1,6 +1,6 @@
 # samples
 
-Exemplos de uso das 7 imagens em tres cenários:
+Exemplos de uso das 8 imagens em tres cenários:
 
 - uso local
 - GitHub Actions
@@ -14,6 +14,7 @@ Exemplos de uso das 7 imagens em tres cenários:
 - ghcr.io/tooark/terraform-aws:latest
 - ghcr.io/tooark/terraform-gcloud:latest
 - ghcr.io/tooark/terraform-aws-gcloud:latest
+- ghcr.io/tooark/sonar-scanner:latest
 - ghcr.io/tooark/trivy-hadolint:latest
 
 ## 1) Uso local (docker run)
@@ -60,6 +61,13 @@ docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest aws --version
 docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest gcloud --version
 ```
 
+### sonar-scanner
+
+```bash
+docker run --rm ghcr.io/tooark/sonar-scanner:latest sonar-scanner --version
+docker run --rm ghcr.io/tooark/sonar-scanner:latest java -version
+```
+
 ### trivy-hadolint
 
 ```bash
@@ -69,9 +77,9 @@ docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools image-scan nginx:l
 
 ## 2) GitHub Actions
 
-Arquivo completo de exemplo para as 7 imagens:
+Arquivo completo de exemplo para as 8 imagens:
 
-- [github-actions-7-images.yml](github-actions-7-images.yml)
+- [github-actions-images.yml](github-actions-images.yml)
 
 Como usar:
 
@@ -81,9 +89,9 @@ Como usar:
 
 ## 3) GitLab CI
 
-Arquivo completo de exemplo para as 7 imagens:
+Arquivo completo de exemplo para as 8 imagens:
 
-- [gitlab-ci-7-images.yml](gitlab-ci-7-images.yml)
+- [gitlab-ci-images.yml](gitlab-ci-images.yml)
 
 Como usar:
 

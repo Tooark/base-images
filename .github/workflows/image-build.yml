@@ -34,8 +34,8 @@ jobs:
           - terraform-aws
           - terraform-gcloud
           - terraform-aws-gcloud
+          - sonar-scanner
           - trivy-hadolint
-          # - sonarqube
     env:
       REGISTRY: ghcr.io/tooark
       TRIVY_SCANNER_IMAGE: ghcr.io/tooark/trivy-hadolint:1.67
@@ -324,6 +324,7 @@ jobs:
                 AWSCLI_VERSION)    TOOL_NAME="AWS CLI" ;;
                 GCLOUD_VERSION)    TOOL_NAME="Google Cloud SDK" ;;
                 KUBECTL_VERSION)   TOOL_NAME="kubectl" ;;
+                SONAR_CLI_VERSION) TOOL_NAME="Sonar Scanner CLI" ;;
                 TRIVY_VERSION)     TOOL_NAME="Trivy" ;;
                 HADOLINT_VERSION)  TOOL_NAME="Hadolint" ;;
                 *)                 continue ;;
