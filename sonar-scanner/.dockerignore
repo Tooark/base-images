@@ -1,0 +1,7 @@
+# Contexto mínimo para build: inclui apenas arquivos úteis deste módulo
+**
+!Dockerfile
+!.dockerignore
+!README.md
+!DESCRIPTION
+!VERSION

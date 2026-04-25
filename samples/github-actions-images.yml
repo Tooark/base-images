@@ -55,6 +55,14 @@ jobs:
       - name: gcloud version
         run: docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest gcloud --version
 
+  sonar_scanner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: sonar-scanner version
+        run: docker run --rm ghcr.io/tooark/sonar-scanner:latest sonar-scanner --version
+      - name: java version
+        run: docker run --rm ghcr.io/tooark/sonar-scanner:latest java -version
+
   trivy_hadolint:
     runs-on: ubuntu-latest
     steps:

@@ -56,6 +56,15 @@ terraform_aws_gcloud:
     - docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest aws --version
     - docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest gcloud --version
 
+sonar_scanner:
+  stage: security
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker run --rm ghcr.io/tooark/sonar-scanner:latest sonar-scanner --version
+    - docker run --rm ghcr.io/tooark/sonar-scanner:latest java -version
+
 trivy_hadolint:
   stage: security
   image: docker:24

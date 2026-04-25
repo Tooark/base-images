@@ -14,6 +14,7 @@ Cada subprojeto possui Dockerfile, versionamento e documentação própria.
 | `terraform-aws`        | Terraform + AWS CLI v2 + kubectl                              | [terraform-aws/README.md](terraform-aws/README.md)               |
 | `terraform-gcloud`     | Terraform + Google Cloud SDK + kubectl                        | [terraform-gcloud/README.md](terraform-gcloud/README.md)         |
 | `terraform-aws-gcloud` | Terraform + AWS CLI v2 + Google Cloud SDK + kubectl           | [terraform-aws-gcloud/README.md](terraform-aws-gcloud/README.md) |
+| `sonar-scanner`        | Sonar Scanner CLI para análises em pipelines CI/CD            | [sonar-scanner/README.md](sonar-scanner/README.md)               |
 | `trivy-hadolint`       | Trivy + Hadolint + wrapper `ci-tools` para scans e relatórios | [trivy-hadolint/README.md](trivy-hadolint/README.md)             |
 
 ## Estrutura
@@ -33,5 +34,5 @@ Cada subprojeto possui Dockerfile, versionamento e documentação própria.
 ## Exemplos prontos
 
 - Guia com exemplos locais e instruções de uso: [samples/README.md](samples/README.md)
-- Pipeline exemplo para GitHub Actions (7 imagens): [samples/github-actions-7-images.yml](samples/github-actions-7-images.yml)
-- Pipeline exemplo para GitLab CI (7 imagens): [samples/gitlab-ci-7-images.yml](samples/gitlab-ci-7-images.yml)
+- Pipeline exemplo para GitHub Actions: [samples/github-actions-images.yml](samples/github-actions-images.yml)
+- Pipeline exemplo para GitLab CI: [samples/gitlab-ci-images.yml](samples/gitlab-ci-images.yml)

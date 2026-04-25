@@ -5,14 +5,17 @@ import re
 
 def parse_semver(version):
   m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$", version)
+
   if not m:
     return None
+  
   return tuple(int(part) for part in m.groups())
 
 
 def detect_change_level(old_version, new_version):
   old_semver = parse_semver(old_version)
   new_semver = parse_semver(new_version)
+  
   if old_semver is None or new_semver is None:
     return None
 
@@ -21,33 +24,43 @@ def detect_change_level(old_version, new_version):
 
   if new_major != old_major:
     return "major"
+  
   if new_minor != old_minor:
     return "minor"
+  
   if new_patch != old_patch:
     return "patch"
+  
   return None
 
 
 def bump_semver(version, level):
   semver = parse_semver(version)
+  
   if semver is None:
     return None
 
   major, minor, patch = semver
+  
   if level == "major":
     return f"{major + 1}.0.0"
+  
   if level == "minor":
     return f"{major}.{minor + 1}.0"
+  
   if level == "patch":
     return f"{major}.{minor}.{patch + 1}"
+  
   return None
 
 
 def max_change_level(levels):
   priority = {"patch": 1, "minor": 2, "major": 3}
   valid_levels = [level for level in levels if level in priority]
+  
   if not valid_levels:
     return None
+  
   return max(valid_levels, key=lambda level: priority[level])
 
 
@@ -66,8 +79,10 @@ with open("versions.env", "r", encoding="utf-8") as f:
 
 key_line_idx = {}
 key_current_val = {}
+
 for idx, line in enumerate(lines):
   m = re.match(r"^([A-Z0-9_]+)=(.*)$", line.rstrip("\n"))
+  
   if m:
     key_line_idx[m.group(1)] = idx
     key_current_val[m.group(1)] = m.group(2)
@@ -80,6 +95,7 @@ base_change_levels = {}
 for key, new_val in latest.items():
   if key in key_line_idx:
     old_val = key_current_val[key]
+
     if old_val != new_val:
       lines[key_line_idx[key]] = f"{key}={new_val}\n"
       changed.append((key, old_val, new_val))
@@ -88,6 +104,7 @@ for key, new_val in latest.items():
     # If the key does not exist yet in versions.env, append at the end.
     if lines and not lines[-1].endswith("\n"):
       lines[-1] += "\n"
+
     lines.append(f"{key}={new_val}\n")
     changed.append((key, "<absent>", new_val))
 
@@ -102,6 +119,7 @@ for composite_key, dependency_keys in COMPOSITE_VERSION_RULES.items():
     if dep_key in base_change_levels
   ]
   bump_level = max_change_level(triggered_levels)
+  
   if not bump_level:
     continue
 
@@ -120,6 +138,7 @@ if changed:
     f.writelines(lines)
 
 print("Changes:")
+
 if not changed:
   print("- no changes")
 else:
