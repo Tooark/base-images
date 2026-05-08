@@ -6,7 +6,7 @@ import urllib.request
 def fetch_text(url, headers=None):
   req = urllib.request.Request(url, headers=headers or {
       "User-Agent": "tooark-version-bot"})
-  
+
   with urllib.request.urlopen(req, timeout=30) as resp:
     return resp.read().decode("utf-8")
 
@@ -63,26 +63,36 @@ sonar_release = json.loads(
 sonar_tag = sonar_release.get("tag_name", "").lstrip("v")
 
 if not sonar_tag:
-  raise RuntimeError("Could not parse SONAR_CLI_VERSION from Sonar Scanner releases")
+  raise RuntimeError(
+      "Could not parse SONAR_CLI_VERSION from Sonar Scanner releases")
 
 versions["SONAR_CLI_VERSION"] = sonar_tag
 
-# Docker CLI (GitHub Releases - latest stable)
-docker_cli_release = json.loads(
-    fetch_text(
-        "https://api.github.com/repos/docker/cli/releases/latest",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "tooark-version-bot",
-        },
-    )
+# Docker CLI (Release notes page - latest stable)
+docker_docs = fetch_text(
+    "https://docs.docker.com/engine/release-notes/"
 )
-docker_cli_tag = docker_cli_release.get("tag_name", "").lstrip("v")
 
-if not docker_cli_tag:
-  raise RuntimeError("Could not parse DOCKER_VERSION from Docker CLI releases")
+# Find the TableOfContents element
+toc_match = re.search(
+    r'<div\s+id=TableOfContents[^>]*>.*?</div>\s*</div>', docker_docs, re.DOTALL)
 
-versions["DOCKER_VERSION"] = docker_cli_tag
+if not toc_match:
+  raise RuntimeError(
+      "Could not find TableOfContents element in Docker release notes")
+
+toc_content = toc_match.group(0)
+
+# Extract all links text from <a> tags within the TOC
+# Pattern: <a ...>VERSION_TEXT</a> where VERSION_TEXT is like 29.4.3
+links_pattern = r'<a[^>]*>(\d+\.\d+\.\d+)</a>'
+versions_found = re.findall(links_pattern, toc_content)
+
+if not versions_found:
+  raise RuntimeError("Could not find version links in TableOfContents")
+
+# Get the first version (latest)
+versions["DOCKER_VERSION"] = versions_found[0]
 
 # Docker Buildx plugin (GitHub Releases - latest stable)
 docker_buildx_release = json.loads(
@@ -97,7 +107,8 @@ docker_buildx_release = json.loads(
 docker_buildx_tag = docker_buildx_release.get("tag_name", "").lstrip("v")
 
 if not docker_buildx_tag:
-  raise RuntimeError("Could not parse DOCKER_BUILDX_VERSION from Docker Buildx releases")
+  raise RuntimeError(
+      "Could not parse DOCKER_BUILDX_VERSION from Docker Buildx releases")
 
 versions["DOCKER_BUILDX_VERSION"] = docker_buildx_tag
 
