@@ -222,13 +222,25 @@ jobs:
         if: ${{ steps.detect.outputs.build == 'true' }}
         run: |
           set -eu
+
+          IGNORE_FILE="./${{ matrix.image }}/.trivyignore"
+          TRIVY_EXTRA_ARGS=()
+          if [ -f "$IGNORE_FILE" ]; then
+            echo "Using Trivy ignore file: $IGNORE_FILE"
+            TRIVY_EXTRA_ARGS=(-- --ignorefile "/workspace/${{ matrix.image }}/.trivyignore")
+          else
+            echo "No Trivy ignore file found for ${{ matrix.image }}, scanning without --ignorefile"
+          fi
+
           DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -w /workspace \
             --group-add "$DOCKER_GID" \
             -e TRIVY_FORMAT="table" \
             "$TRIVY_SCANNER_IMAGE" \
-            image-scan "$SCAN_IMAGE"
+            image-scan "$SCAN_IMAGE" "${TRIVY_EXTRA_ARGS[@]}"
 
       - name: Build and push image (multi-arch)
         if: ${{ steps.detect.outputs.build == 'true' }}
