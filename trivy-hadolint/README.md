@@ -64,15 +64,16 @@ ci-tools send-report [file]                                                     
 
 ### Trivy (gerais)
 
-| Variável               | Default         | Descrição                                   |
-| ---------------------- | --------------- | ------------------------------------------- |
-| `TRIVY_SEVERITY`       | `CRITICAL,HIGH` | Severidades para scan de vulnerabilidade    |
-| `TRIVY_EXIT_CODE`      | `1`             | Exit code usado quando há achados           |
-| `TRIVY_IGNORE_UNFIXED` | `true`          | Ignora vulnerabilidades sem fix             |
-| `TRIVY_FORMAT`         | `json`          | Formato de saída (`json`, `sarif`, `table`) |
-| `TRIVY_OUTPUT`         | por comando     | Caminho do arquivo de saída                 |
-| `TRIVY_TIMEOUT`        | padrão do Trivy | Timeout do scan                             |
-| `TRIVY_SCANNERS`       | padrão do Trivy | Ex.: `vuln,secret,misconfig`                |
+| Variável               | Default                            | Descrição                                                          |
+| ---------------------- | ---------------------------------- | ------------------------------------------------------------------ |
+| `TRIVY_SEVERITY`       | `CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN` | Severidades para scan de vulnerabilidade                           |
+| `TRIVY_SEVERITY_FAIL`  | `CRITICAL,HIGH`                    | Severidades usadas no gate de falha                                |
+| `TRIVY_EXIT_CODE`      | `1`                                | Gate ativa se 1; falha com vulnerabilidades em TRIVY_SEVERITY_FAIL |
+| `TRIVY_IGNORE_UNFIXED` | `true`                             | Ignora vulnerabilidades sem fix                                    |
+| `TRIVY_FORMAT`         | `json`                             | Formato de saída (`json`, `sarif`, `table`)                        |
+| `TRIVY_OUTPUT`         | por comando                        | Caminho do arquivo de saída                                        |
+| `TRIVY_TIMEOUT`        | padrão do Trivy                    | Timeout do scan                                                    |
+| `TRIVY_SCANNERS`       | padrão do Trivy                    | Ex.: `vuln,secret,misconfig`                                       |
 
 ### Trivy Server (opcional)
 
@@ -85,7 +86,9 @@ ci-tools send-report [file]                                                     
 
 Notas:
 
-- Por padrão, o token deve ser fornecido via ambiente (`TRIVY_TOKEN`) para reduzir exposição em argumentos.
+- **Geração de relatório**: O relatório sempre é gerado em formato JSON/SARIF/TABLE com todas as severidades definidas em `TRIVY_SEVERITY`, independente de `TRIVY_EXIT_CODE`.
+- **Gate de falha**: Quando `TRIVY_EXIT_CODE=1`, o wrapper analisa o relatório JSON gerado e verifica se contém vulnerabilidades com severidade em `TRIVY_SEVERITY_FAIL`. Se encontrar, a pipeline falha. Se o formato não for JSON, o gate é pulado.
+- \*\*Por padrão, o token deve ser fornecido via ambiente (`TRIVY_TOKEN`) para reduzir exposição em argumentos.
 - Com `TRIVY_SERVER_REQUIRED=false`, o wrapper tenta fallback local se o scan via server falhar e não houver relatório gerado.
 
 ### SBOM
@@ -106,15 +109,15 @@ Notas:
 
 ### Webhook (envio de relatório)
 
-| Variável                | Default           | Descrição                                                         |
-| ----------------------- | ----------------- | ----------------------------------------------------------------- |
-| `REPORT_URL`            | vazio             | Uma ou mais URLs separadas por vírgula (ex: `url1,url2`)          |
-| `REPORT_TOKEN`          | vazio             | Token Bearer para o webhook                                       |
-| `REPORT_HEADERS`        | vazio             | Headers extras, um por linha (`Key: Value`)                       |
-| `REPORT_METHOD`         | `POST`            | Método HTTP                                                       |
-| `REPORT_FAIL_ON_ERROR`  | `false`           | Se `true`, falha pipeline quando qualquer upload falha            |
-| `REPORT_SEND_EACH_SCAN` | `false`           | Se `true`, envia relatório automaticamente após cada scan         |
-| `REPORT_DIR`            | `/tmp/ci-reports` | Diretório dos relatórios                                          |
+| Variável                | Default           | Descrição                                                 |
+| ----------------------- | ----------------- | --------------------------------------------------------- |
+| `REPORT_URL`            | vazio             | Uma ou mais URLs separadas por vírgula (ex: `url1,url2`)  |
+| `REPORT_TOKEN`          | vazio             | Token Bearer para o webhook                               |
+| `REPORT_HEADERS`        | vazio             | Headers extras, um por linha (`Key: Value`)               |
+| `REPORT_METHOD`         | `POST`            | Método HTTP                                               |
+| `REPORT_FAIL_ON_ERROR`  | `false`           | Se `true`, falha pipeline quando qualquer upload falha    |
+| `REPORT_SEND_EACH_SCAN` | `false`           | Se `true`, envia relatório automaticamente após cada scan |
+| `REPORT_DIR`            | `/tmp/ci-reports` | Diretório dos relatórios                                  |
 
 ## Exemplos básicos
 
@@ -592,6 +595,16 @@ send-security-report:
 - Monte o workspace com `-v` quando precisar escanear arquivos locais.
 - Use `REPORT_SEND_EACH_SCAN=true` para receber notificações incrementais durante pipelines longas.
 - `REPORT_URL` aceita múltiplas URLs separadas por vírgula; espaços ao redor são ignorados.
+
+## Gestão do `.trivyignore`
+
+O arquivo `.trivyignore` neste diretório contém CVEs aceitas temporariamente para o scan de segurança da imagem `trivy-hadolint`.
+
+Quando o script `update-versions.py` detecta uma nova versão do Trivy ou do Hadolint, o `.trivyignore` é **automaticamente limpo**, pois as exceções de CVE da versão anterior podem não ser mais válidas.
+
+Como `trivy-hadolint` é uma imagem composta (Trivy + Hadolint), seu `.trivyignore` é **reconstruído por concatenação** dos `.trivyignore` individuais dos componentes base, caso ainda contenham exceções vigentes.
+
+> **Nota:** Não edite manualmente o `.trivyignore` de imagens compostas. Edite apenas os `.trivyignore` das imagens base correspondentes — a concatenação é feita automaticamente pelo script.
 
 ## Build local da imagem
 

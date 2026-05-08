@@ -1,0 +1,25 @@
+# Vulnerabilidades em dependências internas do Google Cloud SDK (bundled python).
+# Não temos controle sobre essas versões — só o Google pode atualizá-las no SDK.
+# Aceitas enquanto não houver versão corrigida do SDK disponível.
+
+# cryptography 43.0.1 — subgroup attack em curvas SECT (fix: 46.0.5)
+CVE-2026-26007
+
+# pyOpenSSL 24.2.1 — DTLS cookie callback buffer overflow (fix: 26.0.0)
+CVE-2026-27459
+
+# rust-openssl 0.10.66 (via Cargo.lock) — bindings PSK/cookie trampolines
+CVE-2026-41676
+CVE-2026-41678
+CVE-2026-41681
+GHSA-hppc-g8h3-xhp3
+
+# Vulnerabilidades na Go stdlib (v1.25.8) embutida no binário do Terraform.
+# Não temos controle — só a HashiCorp pode corrigir ao compilar com Go >= 1.25.9/1.26.2.
+
+# crypto/x509 + crypto/tls — DoS em validação de cadeia de certificados
+CVE-2026-32280
+CVE-2026-32281
+
+# crypto/tls — DoS via múltiplas mensagens de key update
+CVE-2026-32283

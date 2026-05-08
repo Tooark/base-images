@@ -67,6 +67,40 @@ if not sonar_tag:
 
 versions["SONAR_CLI_VERSION"] = sonar_tag
 
+# Docker CLI (GitHub Releases - latest stable)
+docker_cli_release = json.loads(
+    fetch_text(
+        "https://api.github.com/repos/docker/cli/releases/latest",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "tooark-version-bot",
+        },
+    )
+)
+docker_cli_tag = docker_cli_release.get("tag_name", "").lstrip("v")
+
+if not docker_cli_tag:
+  raise RuntimeError("Could not parse DOCKER_VERSION from Docker CLI releases")
+
+versions["DOCKER_VERSION"] = docker_cli_tag
+
+# Docker Buildx plugin (GitHub Releases - latest stable)
+docker_buildx_release = json.loads(
+    fetch_text(
+        "https://api.github.com/repos/docker/buildx/releases/latest",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "tooark-version-bot",
+        },
+    )
+)
+docker_buildx_tag = docker_buildx_release.get("tag_name", "").lstrip("v")
+
+if not docker_buildx_tag:
+  raise RuntimeError("Could not parse DOCKER_BUILDX_VERSION from Docker Buildx releases")
+
+versions["DOCKER_BUILDX_VERSION"] = docker_buildx_tag
+
 # Trivy (GitHub Releases - latest stable)
 trivy_release = json.loads(
     fetch_text(

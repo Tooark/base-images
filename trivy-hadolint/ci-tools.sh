@@ -24,18 +24,19 @@ Commands:
 
 Configuration variables:
   TRIVY_SEVERITY         (default: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL")
+  TRIVY_SEVERITY_FAIL    (default: "HIGH,CRITICAL")
   TRIVY_EXIT_CODE        (default: "1" - pipeline fails on vulnerabilities)
   TRIVY_IGNORE_UNFIXED   (default: "true")
   TRIVY_FORMAT           (ex: "json", "sarif", "table")
   TRIVY_OUTPUT           (ex: "trivy.sarif")
   TRIVY_TIMEOUT          (ex: "5m")
   TRIVY_SCANNERS         (ex: "vuln,secret,misconfig")
-  TRIVY_SERVER           (ex: "http://trivy-server:4954")
   TRIVY_TOKEN            (token for Trivy server auth; set TRIVY_TOKEN env var
                           directly — Trivy reads it natively. Use TRIVY_TOKEN_AS_FLAG=true
                           only if your setup requires the --token CLI flag)
-  TRIVY_SERVER_REQUIRED  (default: "false"; when true, do not fallback to local scan)
   TRIVY_TOKEN_AS_FLAG    (default: "false"; when true, send token via --token flag)
+  TRIVY_SERVER_REQUIRED  (default: "false"; when true, do not fallback to local scan)
+  TRIVY_SERVER           (ex: "http://trivy-server:4954")
   SBOM_FORMAT            (default: "cyclonedx" | "spdx-json", used with --sbom)
   SBOM_OUTPUT            (default: output file when --sbom is enabled)
   HADOLINT_CONFIG        (ex: ".hadolint.yaml")
@@ -189,7 +190,7 @@ log() { echo "[ci-tools] $*" >&2; }
 # Boolean helper (true/false, 1/0, yes/no, on/off)
 is_true() {
   case "${1:-}" in
-    1|true|TRUE|True|yes|YES|on|ON) return 0 ;;
+    1|true|TRUE|True|yes|YES|Yes|on|ON|On) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -199,6 +200,7 @@ trivy_server_flags() {
   local output_var="${1:-}"
   local include_server="${2:-true}"
 
+  # Validação de argumento obrigatório (output_var)
   if [[ -z "${output_var}" ]]; then
     log "trivy_server_flags: no output array specified"
     return 2
@@ -208,10 +210,11 @@ trivy_server_flags() {
 
   flags_ref=()
 
+  # Valida se deve incluir flags de servidor e se TRIVY_SERVER está definido
   if [[ "${include_server}" == "true" && -n "${TRIVY_SERVER:-}" ]]; then
     flags_ref+=( --server "${TRIVY_SERVER}" )
 
-    # Por padrão o token deve vir de variável de ambiente, evitando exposição em args.
+    # Por padrão o token deve vir de variável de ambiente, evitando exposição em args
     if [[ -n "${TRIVY_TOKEN:-}" ]] && is_true "${TRIVY_TOKEN_AS_FLAG:-false}"; then
       flags_ref+=( --token "${TRIVY_TOKEN}" )
     fi
@@ -222,8 +225,11 @@ trivy_server_flags() {
 trivy_common_flags() {
   local output_var="${1:-}"
   local include_server="${2:-true}"
+  local severity="${3:-${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}}"
+  local exit_code="${4:-${TRIVY_EXIT_CODE:-1}}"
   local server_flags=()
 
+  # Validação de argumento obrigatório (output_var)
   if [[ -z "${output_var}" ]]; then
     log "trivy_common_flags: no output array specified"
     return 2
@@ -233,13 +239,15 @@ trivy_common_flags() {
 
   flags_ref=()
 
-  flags_ref+=( --severity "${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}" )
-  flags_ref+=( --exit-code "${TRIVY_EXIT_CODE:-1}" )
+  flags_ref+=( --severity "${severity}" )
+  flags_ref+=( --exit-code "${exit_code}" )
   [[ "${TRIVY_IGNORE_UNFIXED:-true}" == "true" ]] && flags_ref+=( --ignore-unfixed )
   [[ -n "${TRIVY_TIMEOUT:-}" ]] && flags_ref+=( --timeout "${TRIVY_TIMEOUT}" )
   [[ -n "${TRIVY_SCANNERS:-}" ]] && flags_ref+=( --scanners "${TRIVY_SCANNERS}" )
 
+  # Inclui flags de servidor se aplicável
   trivy_server_flags server_flags "${include_server}" || return $?
+
   flags_ref+=( "${server_flags[@]}" )
 }
 
@@ -247,16 +255,75 @@ trivy_common_flags() {
 require_command() {
   local cmd="${1:-}"
 
+  # Validação de argumento obrigatório (cmd)
   if [[ -z "${cmd}" ]]; then
     log "require_command: no command specified"
     return 2
   fi
 
+  # Verifica se o comando está disponível
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     log "Command '${cmd}' not found. Please install it or adjust your PATH."
     return 127
   fi
 
+  return 0
+}
+
+# Avalia gate de falha por severidade a partir de um relatório JSON do Trivy
+trivy_failure_gate() {
+  local format="${1:-}"
+  local output="${2:-}"
+  local fail_severity="${3:-${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}}"
+
+  # Verifica se o formato é JSON para análise e se o arquivo existe antes de tentar processar.
+  if [[ "${format}" != "json" || ! -f "${output}" ]]; then
+    log "Warning: Cannot analyze failure gate for non-JSON format. Skipping gate."
+    return 0
+  fi
+
+  # Verifica se 'jq' está disponível para processar o JSON
+  require_command jq || return 127
+
+  local fail_sev_array=(${fail_severity//,/ })
+  local vuln_found_count=0
+  local sev
+
+  # Itera sobre cada severidade de falha e conta vulnerabilidades
+  for sev in "${fail_sev_array[@]}"; do
+    local sev_upper="${sev^^}"
+    local sev_count
+    sev_count=$(jq --arg sev "$sev_upper" '[.Results[]?.Vulnerabilities[]? | select(.Severity == $sev)] | length' "$output" 2>/dev/null || echo 0)
+    vuln_found_count=$((vuln_found_count + sev_count))
+  done
+
+  # Mostra resumo por severidade diretamente do JSON já gerado.
+  local severity_summary=""
+  severity_summary=$(jq -r --arg severities "${fail_severity}" '
+    ($severities | split(",") | map(gsub("^\\s+|\\s+$"; "") | ascii_upcase)) as $slist
+    | [ .Results[]?.Vulnerabilities[]? ] as $v
+    | $slist
+    | map(. as $sev | "\($sev): \($v | map(select(.Severity == $sev)) | length)")
+    | .[]
+  ' "${output}" 2>/dev/null || true)
+
+  # Verifica se o resumo por severidade foi gerado e exibe no log
+  if [[ -n "${severity_summary}" ]]; then
+    log "Failure gate summary by severity (from JSON report):"
+
+    # Itera sobre o resumo e imprime cada linha no log
+    while IFS= read -r line; do
+      log "  ${line}"
+    done <<< "${severity_summary}"
+  fi
+
+  # Verifica se encontrou vulnerabilidades que correspondem ao critério de falha
+  if [[ ${vuln_found_count} -gt 0 ]]; then
+    log "Failure gate triggered: found ${vuln_found_count} vulnerability(ies) matching TRIVY_SEVERITY_FAIL=${fail_severity}."
+    return 1
+  fi
+
+  log "No vulnerabilities matching TRIVY_SEVERITY_FAIL=${fail_severity} found. Gate passed."
   return 0
 }
 
@@ -278,6 +345,7 @@ _send_to_url() {
 
   # Headers extras (uma linha por header: "Key: Value")
   if [[ -n "${REPORT_HEADERS:-}" ]]; then
+    # Itera sobre cada linha de REPORT_HEADERS e adiciona ao curl_args
     while IFS= read -r header; do
       [[ -n "${header}" ]] && curl_args+=( -H "${header}" )
     done <<< "${REPORT_HEADERS}"
@@ -337,6 +405,7 @@ send_report() {
     _send_to_url "${file}" "${url}" || has_failure=1
   done <<< "${urls//,/$'\n'}"
 
+  # Verifica se houve falha em algum envio e decide se retorna erro ou não com base em REPORT_FAIL_ON_ERROR
   if [[ ${has_failure} -ne 0 ]]; then
     [[ "${REPORT_FAIL_ON_ERROR:-false}" == "true" ]] && return 1
   fi
@@ -353,11 +422,12 @@ do_version() {
 }
 
 # ── Scan de imagem ────────────────────────────────────────────────────────────
-do_image_scan() {
+do_image_scan() { 
   local image=""
   local sbom_enabled="false"
   local sbom_format="${SBOM_FORMAT:-cyclonedx}"
 
+  # Processa argumentos posicionais e opções
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
@@ -397,55 +467,75 @@ do_image_scan() {
     esac
   done
 
+  # Verifica se a imagem foi fornecida
   if [[ -z "${image}" ]]; then
     usage_image_scan
     return 2
   fi
 
+  # Verifica se o comando 'trivy' está disponível
   require_command trivy || return 127
 
   local output="${TRIVY_OUTPUT:-${REPORT_DIR}/trivy-image.json}"
   local format="${TRIVY_FORMAT:-json}"
+  local report_severity="${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}"
+  local fail_severity="${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}"
+  local fail_exit_code="${TRIVY_EXIT_CODE:-1}"
   local trivy_flags=()
 
+  # Verifica se o SBOM está habilitado para ajustar formato e saída
   if [[ "${sbom_enabled}" == "true" ]]; then
     output="${SBOM_OUTPUT:-${REPORT_DIR}/trivy-image.sbom.json}"
     format="${sbom_format}"
   fi
 
-  trivy_common_flags trivy_flags true || return $?
+  # Relatório sempre usa TRIVY_SEVERITY, mas nunca falha por severidade (exit-code=0).
+  trivy_common_flags trivy_flags true "${report_severity}" "0" || return $?
 
+  local rc=0
   trivy image \
     "${trivy_flags[@]}" \
     --format "${format}" \
     --output "${output}" \
-    "${image}" "$@"
+    "${image}" "$@" || rc=$?
 
-  local rc=$?
-
+  # Fallback para scan local se o servidor falhar e TRIVY_SERVER_REQUIRED não for true.
   if [[ ${rc} -ne 0 && -n "${TRIVY_SERVER:-}" && ! -s "${output}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}"; then
     log "Trivy server scan failed (exit ${rc}); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
 
-    trivy_common_flags trivy_flags false || return $?
+    # Relatório deve usar severidade de relatório para garantir que o gate funcione mesmo sem servidor.
+    trivy_common_flags trivy_flags false "${report_severity}" "0" || return $?
 
+    rc=0
     trivy image \
       "${trivy_flags[@]}" \
       --format "${format}" \
       --output "${output}" \
-      "${image}" "$@"
-
-    rc=$?
+      "${image}" "$@" || rc=$?
   fi
 
+  # Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ ${rc} -ne 0 ]]; then
     log "Error executing 'trivy' (exit ${rc})."
     [[ -f "${output}" ]] || log "Report not found: ${output}"
     return ${rc}
   fi
 
+  # Verifica se o relatório foi gerado e não está vazio.
   if [[ ! -s "${output}" ]]; then
     log "Report is empty or not generated: ${output}"
     return 1
+  fi
+
+  # Se o relatório for table, imprime no log para facilitar análise.
+  if [[ "${format}" == "table" ]]; then
+    log "Trivy table report (severity=${report_severity}):"
+    cat "${output}" >&2
+  fi
+
+  # Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
+  if [[ "${sbom_enabled}" != "true" ]] && [[ "${fail_exit_code}" != "0" ]]; then
+    trivy_failure_gate "${format}" "${output}" "${fail_severity}" || return $?
   fi
 
   log "Image report saved in: ${output}"
@@ -460,6 +550,7 @@ do_filesystem_scan() {
   local sbom_enabled="false"
   local sbom_format="${SBOM_FORMAT:-cyclonedx}"
 
+  # Processa argumentos posicionais e opções
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
@@ -500,50 +591,63 @@ do_filesystem_scan() {
     esac
   done
 
+  # Verifica se o comando 'trivy' está disponível
   require_command trivy || return 127
 
   local output="${TRIVY_OUTPUT:-${REPORT_DIR}/trivy-filesystem.json}"
   local format="${TRIVY_FORMAT:-json}"
+  local report_severity="${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}"
+  local fail_severity="${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}"
+  local fail_exit_code="${TRIVY_EXIT_CODE:-1}"
   local trivy_flags=()
 
+  # Verifica se o SBOM está habilitado para ajustar formato e saída
   if [[ "${sbom_enabled}" == "true" ]]; then
     output="${SBOM_OUTPUT:-${REPORT_DIR}/trivy-filesystem.sbom.json}"
     format="${sbom_format}"
   fi
 
-  trivy_common_flags trivy_flags true || return $?
+  # Relatório sempre usa TRIVY_SEVERITY, mas nunca falha por severidade (exit-code=0).
+  trivy_common_flags trivy_flags true "${report_severity}" "0" || return $?
 
+  local rc=0
   trivy filesystem \
     "${trivy_flags[@]}" \
     --format "${format}" \
     --output "${output}" \
-    "${target}" "$@"
+    "${target}" "$@" || rc=$?
 
-  local rc=$?
-
+  # Fallback para scan local se o servidor falhar e TRIVY_SERVER_REQUIRED não for true.
   if [[ ${rc} -ne 0 && -n "${TRIVY_SERVER:-}" && ! -s "${output}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}"; then
     log "Trivy server scan failed (exit ${rc}); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
 
-    trivy_common_flags trivy_flags false || return $?
+    # Relatório deve usar severidade de relatório para garantir que o gate funcione mesmo sem servidor.
+    trivy_common_flags trivy_flags false "${report_severity}" "0" || return $?
 
+    rc=0
     trivy filesystem \
       "${trivy_flags[@]}" \
       --format "${format}" \
       --output "${output}" \
-      "${target}" "$@"
-
-    rc=$?
+      "${target}" "$@" || rc=$?
   fi
 
+  # Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ ${rc} -ne 0 ]]; then
     log "Error executing 'trivy' (exit ${rc})."
     [[ -f "${output}" ]] || log "Report not found: ${output}"
     return ${rc}
   fi
 
+  # Verifica se o relatório foi gerado e não está vazio.
   if [[ ! -s "${output}" ]]; then
     log "Report is empty or not generated: ${output}"
     return 1
+  fi
+
+  # Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
+  if [[ "${sbom_enabled}" != "true" ]] && [[ "${fail_exit_code}" != "0" ]]; then
+    trivy_failure_gate "${format}" "${output}" "${fail_severity}" || return $?
   fi
 
   log "Filesystem report saved in: ${output}"
@@ -553,57 +657,89 @@ do_filesystem_scan() {
 
 # ── Scan de configuração (IaC) ────────────────────────────────────────────────
 do_config_scan() {
-  local target="${1:-$PWD}"
+  local target="$PWD"
+  local target_set="false"
 
-  if [[ "${target}" == "help" || "${target}" == "-h" || "${target}" == "--help" || -z "${target}" ]]; then
-    usage_config_scan
-    [[ -z "${target}" ]] && return 2
-    return 0
-  fi
+  # Processa argumentos posicionais e opções
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      help|-h|--help)
+        usage_config_scan
+        return 0
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        if [[ "${target_set}" == "false" ]]; then
+          target="${1}"
+          target_set="true"
+          shift
+        else
+          break
+        fi
+        ;;
+    esac
+  done
 
-  shift || true
+  # Verifica se o comando 'trivy' está disponível
   require_command trivy || return 127
 
   local output="${TRIVY_OUTPUT:-${REPORT_DIR}/trivy-config.json}"
-  local trivy_server_args=()
+  local format="${TRIVY_FORMAT:-json}"
+  local report_severity="${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}"
+  local fail_severity="${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}"
+  local fail_exit_code="${TRIVY_EXIT_CODE:-1}"
+  local trivy_flags=()
 
-  trivy_server_flags trivy_server_args true || return $?
+  # Relatório sempre usa TRIVY_SEVERITY, mas nunca falha por severidade (exit-code=0).
+  trivy_common_flags trivy_flags true "${report_severity}" "0" || return $?
 
+  local rc=0
   trivy config \
-    "${trivy_server_args[@]}" \
-    --format "${TRIVY_FORMAT:-json}" \
+    "${trivy_flags[@]}" \
+    --format "${format}" \
     --output "${output}" \
-    --exit-code "${TRIVY_EXIT_CODE:-1}" \
-    --severity "${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}" \
-    "${target}" "$@"
+    "${target}" "$@" || rc=$?
 
-  local rc=$?
-
+  # Fallback para scan local se o servidor falhar e TRIVY_SERVER_REQUIRED não for true.
   if [[ ${rc} -ne 0 && -n "${TRIVY_SERVER:-}" && ! -s "${output}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}"; then
     log "Trivy server scan failed (exit ${rc}); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
 
-    trivy_server_flags trivy_server_args false || return $?
+    # Relatório deve usar severidade de relatório para garantir que o gate funcione mesmo sem servidor.
+    trivy_common_flags trivy_flags false "${report_severity}" "0" || return $?
 
+    rc=0
     trivy config \
-      "${trivy_server_args[@]}" \
-      --format "${TRIVY_FORMAT:-json}" \
+      "${trivy_flags[@]}" \
+      --format "${format}" \
       --output "${output}" \
-      --exit-code "${TRIVY_EXIT_CODE:-1}" \
-      --severity "${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}" \
-      "${target}" "$@"
-
-    rc=$?
+      "${target}" "$@" || rc=$?
   fi
 
+  # Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ ${rc} -ne 0 ]]; then
     log "Error executing 'trivy' (exit ${rc})."
     [[ -f "${output}" ]] || log "Report not found: ${output}"
     return ${rc}
   fi
 
+  # Verifica se o relatório foi gerado e não está vazio.
   if [[ ! -s "${output}" ]]; then
     log "Report is empty or not generated: ${output}"
     return 1
+  fi
+
+  # Se o relatório for table, imprime no log para facilitar análise.
+  if [[ "${format}" == "table" ]]; then
+    log "Trivy table report (severity=${report_severity}):"
+    cat "${output}" >&2
+  fi
+
+  # Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
+  if [[ "${sbom_enabled}" != "true" ]] && [[ "${fail_exit_code}" != "0" ]]; then
+    trivy_failure_gate "${format}" "${output}" "${fail_severity}" || return $?
   fi
 
   log "Config report saved in: ${output}"
@@ -613,54 +749,88 @@ do_config_scan() {
 
 # ── Scan de repositório ──────────────────────────────────────────────────────
 do_repo_scan() {
-  local target="${1:-$PWD}"
+  local target="$PWD"
+  local target_set="false"
 
-  if [[ "${target}" == "help" || "${target}" == "-h" || "${target}" == "--help" || -z "${target}" ]]; then
-    usage_repo_scan
-    [[ -z "${target}" ]] && return 2
-    return 0
-  fi
+  # Processa argumentos posicionais e opções
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      help|-h|--help)
+        usage_repo_scan
+        return 0
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        if [[ "${target_set}" == "false" ]]; then
+          target="${1}"
+          target_set="true"
+          shift
+        else
+          break
+        fi
+        ;;
+    esac
+  done
 
-  shift || true
   require_command trivy || return 127
 
   local output="${TRIVY_OUTPUT:-${REPORT_DIR}/trivy-repo.json}"
   local format="${TRIVY_FORMAT:-json}"
+  local report_severity="${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}"
+  local fail_severity="${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}"
+  local fail_exit_code="${TRIVY_EXIT_CODE:-1}"
   local trivy_flags=()
 
-  trivy_common_flags trivy_flags true || return $?
+  # Relatório sempre usa TRIVY_SEVERITY, mas nunca falha por severidade (exit-code=0).
+  trivy_common_flags trivy_flags true "${report_severity}" "0" || return $?
 
+  local rc=0
   trivy repo \
     "${trivy_flags[@]}" \
     --format "${format}" \
     --output "${output}" \
-    "${target}" "$@"
+    "${target}" "$@" || rc=$?
 
-  local rc=$?
-
+  # Fallback para scan local se o servidor falhar e TRIVY_SERVER_REQUIRED não for true.
   if [[ ${rc} -ne 0 && -n "${TRIVY_SERVER:-}" && ! -s "${output}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}"; then
     log "Trivy server scan failed (exit ${rc}); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
 
-    trivy_common_flags trivy_flags false || return $?
+    # Relatório deve usar severidade de relatório para garantir que o gate funcione mesmo sem servidor.
+    trivy_common_flags trivy_flags false "${report_severity}" "0" || return $?
 
+    rc=0
     trivy repo \
       "${trivy_flags[@]}" \
       --format "${format}" \
       --output "${output}" \
-      "${target}" "$@"
-
-    rc=$?
+      "${target}" "$@" || rc=$?
   fi
 
+  # Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ ${rc} -ne 0 ]]; then
     log "Error executing 'trivy' (exit ${rc})."
     [[ -f "${output}" ]] || log "Report not found: ${output}"
     return ${rc}
   fi
 
+  # Verifica se o relatório foi gerado e não está vazio.
   if [[ ! -s "${output}" ]]; then
     log "Report is empty or not generated: ${output}"
     return 1
+  fi
+
+  # Se o relatório for table, imprime no log para facilitar análise.
+  if [[ "${format}" == "table" ]]; then
+    log "Trivy table report (severity=${report_severity}):"
+    cat "${output}" >&2
+  fi
+
+  # Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
+  if [[ "${sbom_enabled}" != "true" ]] && [[ "${fail_exit_code}" != "0" ]]; then
+    trivy_failure_gate "${format}" "${output}" "${fail_severity}" || return $?
   fi
 
   log "Repository report saved in: ${output}"
@@ -670,22 +840,40 @@ do_repo_scan() {
 
 # ── Lint de Dockerfile ────────────────────────────────────────────────────────
 do_dockerfile_lint() {
-  local file="${1:-Dockerfile}"
+  local file="Dockerfile"
+  local file_set="false"
 
-  if [[ "${file}" == "help" || "${file}" == "-h" || "${file}" == "--help" || -z "${file}" ]]; then
-    usage_dockerfile_lint
-    [[ -z "${file}" ]] && return 2
-    return 0
-  fi
+  # Processa argumentos posicionais e opções
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      help|-h|--help)
+        usage_dockerfile_lint
+        return 0
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        if [[ "${file_set}" == "false" ]]; then
+          file="${1}"
+          file_set="true"
+          shift
+        else
+          break
+        fi
+        ;;
+    esac
+  done
 
-  shift || true
+  # Verifica se o comando 'hadolint' está disponível
   require_command hadolint || return 127
 
   local output="${HADOLINT_OUTPUT:-${REPORT_DIR}/hadolint.json}"
   local format="${HADOLINT_FORMAT:-json}"
   local rc=0
-
   local hadolint_args=()
+
   hadolint_args+=( --format "${format}" )
   [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]] && hadolint_args+=( --failure-threshold "${HADOLINT_FAILURE_LEVEL}" )
   [[ -n "${HADOLINT_CONFIG:-}" ]] && [[ -f "${HADOLINT_CONFIG}" ]] && hadolint_args+=( --config "${HADOLINT_CONFIG}" )
@@ -694,10 +882,16 @@ do_dockerfile_lint() {
 
   # Avalia resultado do hadolint
   case ${rc} in
-    0)  log "Dockerfile OK - no issues found." ;;
-    1)  log "Hadolint found issues (details in ${output})." ;;
-    *)  log "Unexpected error running hadolint (exit ${rc})."
-        return ${rc} ;;
+    0)
+      log "Dockerfile OK - no issues found."
+      ;;
+    1)
+      log "Hadolint found issues (details in ${output})."
+      ;;
+    *)
+      log "Unexpected error running hadolint (exit ${rc})."
+      return ${rc}
+      ;;
   esac
 
   # Verifica se o relatório foi gerado

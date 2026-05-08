@@ -79,6 +79,20 @@ RUN set -eux; \
   unzip /tmp/awscliv2.zip -d /tmp; \
   tar -xzf /tmp/gcloud.tar.gz -C /opt; \
   test -x /opt/google-cloud-sdk/bin/gcloud; \
+  # Remove documentação, certificados/dados de teste, caches e pacotes desnecessários do SDK
+  rm -rf /opt/google-cloud-sdk/.install \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/docs \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/rust \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/pip \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/pip-*.dist-info \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/setuptools \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/setuptools-*.dist-info \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/pkg_resources/tests \
+         /opt/google-cloud-sdk/platform/gsutil/third_party/urllib3/dummyserver \
+         /opt/google-cloud-sdk/platform/gsutil/third_party/httplib2/tests \
+         /opt/google-cloud-sdk/platform/gsutil/third_party/pyasn1/test \
+         /opt/google-cloud-sdk/platform/gsutil/third_party/pyasn1_modules/test; \
+  find /opt/google-cloud-sdk -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true; \
   install -m 0755 /tmp/terraform /usr/local/bin/terraform; \
   /tmp/aws/install; \
   install -m 0755 /tmp/kubectl /usr/local/bin/kubectl; \

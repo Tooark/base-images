@@ -53,6 +53,20 @@ RUN set -eux; \
   tar -xzf /tmp/gcloud.tar.gz -C /opt; \
   rm -f /tmp/gcloud.tar.gz; \
   test -x /opt/google-cloud-sdk/bin/gcloud; \
+  # Remove documentação, certificados/dados de teste, caches e pacotes desnecessários do SDK
+  rm -rf /opt/google-cloud-sdk/.install \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/docs \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/rust \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/pip \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/pip-*.dist-info \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/setuptools \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/setuptools-*.dist-info \
+         /opt/google-cloud-sdk/platform/bundledpythonunix/lib/*/site-packages/pkg_resources/tests \
+         /opt/google-cloud-sdk/platform/gsutil/third_party/urllib3/dummyserver \
+         /opt/google-cloud-sdk/platform/gsutil/third_party/httplib2/tests \
+         /opt/google-cloud-sdk/platform/gsutil/third_party/pyasn1/test \
+         /opt/google-cloud-sdk/platform/gsutil/third_party/pyasn1_modules/test; \
+  find /opt/google-cloud-sdk -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true; \
   curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${KUBE_ARCH}/kubectl" -o /tmp/kubectl; \
   install -m 0755 /tmp/kubectl /usr/local/bin/kubectl; \
   rm -f /tmp/kubectl; \

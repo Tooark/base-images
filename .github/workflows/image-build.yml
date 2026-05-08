@@ -8,6 +8,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".trivyignore"
       - "**/Dockerfile"
       - "**/VERSION"
       - ".github/workflows/image-build.yml"
@@ -15,6 +16,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - ".trivyignore"
       - "**/Dockerfile"
       - "**/VERSION"
       - ".github/workflows/image-build.yml"
@@ -36,9 +38,10 @@ jobs:
           - terraform-aws-gcloud
           - sonar-scanner
           - trivy-hadolint
+          - docker
     env:
       REGISTRY: ghcr.io/tooark
-      TRIVY_SCANNER_IMAGE: ghcr.io/tooark/trivy-hadolint:1.67
+      TRIVY_SCANNER_IMAGE: ghcr.io/tooark/trivy-hadolint:1.70
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -61,20 +64,20 @@ jobs:
         id: tags
         run: |
           set -eu
-          
+
           IMAGE="${{ matrix.image }}"
-          
+
           # Descobrir variável primária de versão
           if [ -f "$IMAGE/VERSION" ]; then
             PRIMARY_VAR=$(grep -v '^[#[:space:]]*$' "$IMAGE/VERSION" | head -1 | tr -d '\r')
           else
             PRIMARY_VAR=$(echo "$IMAGE" | tr '[:lower:]-' '[:upper:]_')_VERSION
           fi
-          
+
           echo "Primary version variable: $PRIMARY_VAR"
-          
+
           FULL_VERSION=$(printf '%s' "${!PRIMARY_VAR:-}" | tr -d '\r')
-          
+
           if [ -z "$FULL_VERSION" ]; then
             echo "Nenhuma versão encontrada em $PRIMARY_VAR; usando 'latest'" >&2
             echo "full=latest" >> $GITHUB_OUTPUT
@@ -86,7 +89,7 @@ jobs:
           # full = major.minor.patch ; short = major.minor ; major = major
           SHORT_VERSION=$(echo "$FULL_VERSION" | awk -F. '{ if (NF>=2) {print $1"."$2} else {print $1} }')
           MAJOR_VERSION=$(echo "$FULL_VERSION" | awk -F. '{ print $1 }')
-          
+
           echo "full=$FULL_VERSION" >> $GITHUB_OUTPUT
           echo "short=$SHORT_VERSION" >> $GITHUB_OUTPUT
           echo "major=$MAJOR_VERSION" >> $GITHUB_OUTPUT
@@ -108,7 +111,7 @@ jobs:
         id: detect
         run: |
           set -eu
-          
+
           IMAGE="${{ matrix.image }}"
           BEFORE="${{ github.event.before }}"
           CURRENT="${{ github.sha }}"
@@ -223,9 +226,6 @@ jobs:
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             --group-add "$DOCKER_GID" \
-            -e TRIVY_SEVERITY="CRITICAL,HIGH" \
-            -e TRIVY_EXIT_CODE="1" \
-            -e TRIVY_IGNORE_UNFIXED="true" \
             -e TRIVY_FORMAT="table" \
             "$TRIVY_SCANNER_IMAGE" \
             image-scan "$SCAN_IMAGE"
@@ -320,13 +320,15 @@ jobs:
               val=$(printf '%s' "${!var:-}" | tr -d '\r')
               [ -z "$val" ] && continue
               case "$var" in
-                TERRAFORM_VERSION) TOOL_NAME="Terraform" ;;
-                AWSCLI_VERSION)    TOOL_NAME="AWS CLI" ;;
-                GCLOUD_VERSION)    TOOL_NAME="Google Cloud SDK" ;;
-                KUBECTL_VERSION)   TOOL_NAME="kubectl" ;;
-                SONAR_CLI_VERSION) TOOL_NAME="Sonar Scanner CLI" ;;
-                TRIVY_VERSION)     TOOL_NAME="Trivy" ;;
-                HADOLINT_VERSION)  TOOL_NAME="Hadolint" ;;
+                TERRAFORM_VERSION)      TOOL_NAME="Terraform" ;;
+                AWSCLI_VERSION)         TOOL_NAME="AWS CLI" ;;
+                GCLOUD_VERSION)         TOOL_NAME="Google Cloud SDK" ;;
+                KUBECTL_VERSION)        TOOL_NAME="kubectl" ;;
+                SONAR_CLI_VERSION)      TOOL_NAME="Sonar Scanner CLI" ;;
+                TRIVY_VERSION)          TOOL_NAME="Trivy" ;;
+                HADOLINT_VERSION)       TOOL_NAME="Hadolint" ;;
+                DOCKER_VERSION)         TOOL_NAME="Docker CLI" ;;
+                DOCKER_BUILDX_VERSION)  TOOL_NAME="Docker Buildx" ;;
                 *)                 continue ;;
               esac
               TOOLS_TABLE="${TOOLS_TABLE}| ${TOOL_NAME} | \`${val}\` |\n"
