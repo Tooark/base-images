@@ -146,7 +146,7 @@ COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/loc
 RUN ln -sf /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
   && ln -sf /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
   && ln -sf /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq \
-  && RUN addgroup --gid 998 docker \
+  && addgroup --gid 998 docker \
   && adduser --disabled-password --gecos "" app \
   && adduser app docker
 
