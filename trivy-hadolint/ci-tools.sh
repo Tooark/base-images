@@ -516,6 +516,11 @@ do_image_scan() {
 
   # Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ ${rc} -ne 0 ]]; then
+    if [[ "${format}" == "table" && -s "${output}" ]]; then
+      log "Trivy table report (failed run, exit ${rc}):"
+      cat "${output}" >&2 || true
+    fi
+
     log "Error executing 'trivy' (exit ${rc})."
     [[ -f "${output}" ]] || log "Report not found: ${output}"
     return ${rc}
@@ -634,6 +639,11 @@ do_filesystem_scan() {
 
   # Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ ${rc} -ne 0 ]]; then
+    if [[ "${format}" == "table" && -s "${output}" ]]; then
+      log "Trivy table report (failed run, exit ${rc}):"
+      cat "${output}" >&2 || true
+    fi
+
     log "Error executing 'trivy' (exit ${rc})."
     [[ -f "${output}" ]] || log "Report not found: ${output}"
     return ${rc}
@@ -720,6 +730,11 @@ do_config_scan() {
 
   # Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ ${rc} -ne 0 ]]; then
+    if [[ "${format}" == "table" && -s "${output}" ]]; then
+      log "Trivy table report (failed run, exit ${rc}):"
+      cat "${output}" >&2 || true
+    fi
+
     log "Error executing 'trivy' (exit ${rc})."
     [[ -f "${output}" ]] || log "Report not found: ${output}"
     return ${rc}
@@ -811,6 +826,11 @@ do_repo_scan() {
 
   # Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ ${rc} -ne 0 ]]; then
+    if [[ "${format}" == "table" && -s "${output}" ]]; then
+      log "Trivy table report (failed run, exit ${rc}):"
+      cat "${output}" >&2 || true
+    fi
+
     log "Error executing 'trivy' (exit ${rc})."
     [[ -f "${output}" ]] || log "Report not found: ${output}"
     return ${rc}
