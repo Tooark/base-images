@@ -241,10 +241,10 @@ jobs:
           set -eu
 
           IGNORE_FILE="./${{ matrix.image }}/.trivyignore"
-          TRIVY_EXTRA_ARGS=()
+          DOCKER_IGNORE_ARGS=()
           if [ -f "$IGNORE_FILE" ]; then
             echo "Using Trivy ignore file: $IGNORE_FILE"
-            TRIVY_EXTRA_ARGS=(-- --ignorefile "/workspace/${{ matrix.image }}/.trivyignore")
+            DOCKER_IGNORE_ARGS=(-e TRIVY_IGNOREFILE="/workspace/${{ matrix.image }}/.trivyignore")
           else
             echo "No Trivy ignore file found for ${{ matrix.image }}, scanning without --ignorefile"
           fi
@@ -256,8 +256,9 @@ jobs:
             -w /workspace \
             --group-add "$DOCKER_GID" \
             -e TRIVY_FORMAT="table" \
+            "${DOCKER_IGNORE_ARGS[@]}" \
             "$TRIVY_SCANNER_IMAGE" \
-            image-scan "$SCAN_IMAGE" "${TRIVY_EXTRA_ARGS[@]}"
+            image-scan "$SCAN_IMAGE"
 
       - name: Build and push image (multi-arch)
         if: ${{ steps.detect.outputs.build == 'true' }}

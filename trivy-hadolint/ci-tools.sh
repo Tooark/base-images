@@ -669,6 +669,7 @@ do_filesystem_scan() {
 do_config_scan() {
   local target="$PWD"
   local target_set="false"
+  local sbom_enabled="false"
 
   # Processa argumentos posicionais e opções
   while [[ $# -gt 0 ]]; do
@@ -766,6 +767,7 @@ do_config_scan() {
 do_repo_scan() {
   local target="$PWD"
   local target_set="false"
+  local sbom_enabled="false"
 
   # Processa argumentos posicionais e opções
   while [[ $# -gt 0 ]]; do
