@@ -1,9 +1,0 @@
-# Vulnerabilidades em dependências internas do Google Cloud SDK (bundled python).
-# Não temos controle sobre essas versões — só o Google pode atualizá-las no SDK.
-# Aceitas enquanto não houver versão corrigida do SDK disponível.
-
-# cryptography 43.0.1 — subgroup attack em curvas SECT (fix: 46.0.5)
-CVE-2026-26007
-
-# pyOpenSSL 24.2.1 — DTLS cookie callback buffer overflow (fix: 26.0.0)
-CVE-2026-27459
