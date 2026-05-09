@@ -8,12 +8,6 @@ CVE-2026-26007
 # pyOpenSSL 24.2.1 — DTLS cookie callback buffer overflow (fix: 26.0.0)
 CVE-2026-27459
 
-# rust-openssl 0.10.66 (via Cargo.lock) — bindings PSK/cookie trampolines
-CVE-2026-41676
-CVE-2026-41678
-CVE-2026-41681
-GHSA-hppc-g8h3-xhp3
-
 # Vulnerabilidades na Go stdlib (v1.25.8) embutida no binário do Terraform.
 # Não temos controle — só a HashiCorp pode corrigir ao compilar com Go >= 1.25.9/1.26.2.
 

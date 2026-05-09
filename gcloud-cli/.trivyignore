@@ -7,9 +7,3 @@ CVE-2026-26007
 
 # pyOpenSSL 24.2.1 — DTLS cookie callback buffer overflow (fix: 26.0.0)
 CVE-2026-27459
-
-# rust-openssl 0.10.66 (via Cargo.lock) — bindings PSK/cookie trampolines
-CVE-2026-41676
-CVE-2026-41678
-CVE-2026-41681
-GHSA-hppc-g8h3-xhp3

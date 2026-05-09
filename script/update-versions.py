@@ -69,6 +69,7 @@ COMPOSITE_VERSION_RULES = {
     "TF_GCLOUD_VERSION": ["TERRAFORM_VERSION", "GCLOUD_VERSION"],
     "TF_AWS_GCLOUD_VERSION": ["TERRAFORM_VERSION", "AWSCLI_VERSION", "GCLOUD_VERSION"],
     "TRIVY_HADOLINT_VERSION": ["TRIVY_VERSION", "HADOLINT_VERSION"],
+    "DOCKERX_VERSION": ["DOCKER_VERSION", "DOCKER_BUILDX_VERSION"],
 }
 
 # Mapping from base version keys to their image directories.
@@ -76,9 +77,7 @@ VERSION_KEY_TO_DIR = {
     "AWSCLI_VERSION": "aws-cli",
     "GCLOUD_VERSION": "gcloud-cli",
     "TERRAFORM_VERSION": "terraform",
-    "SONAR_CLI_VERSION": "sonar-scanner",
-    "DOCKER_VERSION": "docker",
-    "DOCKER_BUILDX_VERSION": "docker",
+    "SONAR_CLI_VERSION": "sonar-scanner"
 }
 
 # Mapping from composite version keys to their image directories.
@@ -87,6 +86,7 @@ COMPOSITE_KEY_TO_DIR = {
     "TF_GCLOUD_VERSION": "terraform-gcloud",
     "TF_AWS_GCLOUD_VERSION": "terraform-aws-gcloud",
     "TRIVY_HADOLINT_VERSION": "trivy-hadolint",
+    "DOCKERX_VERSION": "dockerx",
 }
 
 with open("latest_versions.json", "r", encoding="utf-8") as f:

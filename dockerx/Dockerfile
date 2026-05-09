@@ -6,6 +6,9 @@ ARG BASE_IMAGE=debian:12-slim
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
 
+# Argumento para definir a versão do Docker CLI com Buildx (obrigatório)
+ARG DOCKERX_VERSION
+
 # Argumento para definir a versão do Docker CLI (obrigatório)
 ARG DOCKER_VERSION
 
@@ -66,16 +69,17 @@ RUN set -eux; \
 FROM ${BASE_IMAGE} AS runtime
 
 # Argumentos de versão para metadados
+ARG DOCKERX_VERSION
 ARG DOCKER_VERSION
 ARG DOCKER_BUILDX_VERSION
 
 # Metadados da imagem
-LABEL org.opencontainers.image.title="docker" \
+LABEL org.opencontainers.image.title="dockerx" \
   org.opencontainers.image.description="Base image with integrated Docker CLI and Buildx plugin for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
-  org.opencontainers.image.version="${DOCKER_VERSION}" \
-  org.opencontainers.image.source="https://github.com/Tooark/base-images/docker" \
+  org.opencontainers.image.version="${DOCKERX_VERSION}" \
+  org.opencontainers.image.source="https://github.com/Tooark/base-images/dockerx" \
   io.tooark.docker.version="${DOCKER_VERSION}" \
   io.tooark.buildx.version="${DOCKER_BUILDX_VERSION}"
 

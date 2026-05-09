@@ -24,7 +24,43 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.load.outputs.versions }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Load and export versions
+        id: load
+        run: |
+          set -eu
+          VERSIONS_JSON="{}"
+          while IFS='=' read -r k v; do
+            k=$(printf '%s' "$k" | tr -d '\r')
+            v=$(printf '%s' "$v" | tr -d '\r')
+            if [ -n "$k" ] && [ "${k#'#'}" = "$k" ] && [ -n "$v" ]; then
+              VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq --arg key "$k" --arg val "$v" '. + {($key): $val}')
+            fi
+          done < versions.env
+          echo "versions=$(echo "$VERSIONS_JSON" | jq -c .)" >> $GITHUB_OUTPUT
+
+      - name: Set up support for more platforms with QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+  build-image:
+    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -48,17 +84,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Load versions
+      - name: Load versions from setup job
         run: |
           set -eu
-          while IFS='=' read -r k v; do
-            # Normalize CRLF files edited on Windows before exporting variables.
-            k=$(printf '%s' "$k" | tr -d '\r')
-            v=$(printf '%s' "$v" | tr -d '\r')
-            if [ -n "$k" ] && [ "${k#'#'}" = "$k" ] && [ -n "$v" ]; then
-              echo "$k=$v" >> "$GITHUB_ENV"
-            fi
-          done < versions.env
+          VERSIONS='${{ needs.setup.outputs.versions }}'
+          echo "$VERSIONS" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> "$GITHUB_ENV"
 
       - name: Compute version tags
         id: tags
@@ -93,19 +123,6 @@ jobs:
           echo "full=$FULL_VERSION" >> $GITHUB_OUTPUT
           echo "short=$SHORT_VERSION" >> $GITHUB_OUTPUT
           echo "major=$MAJOR_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Set up support for more platforms with QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check if image folder changed
         id: detect
