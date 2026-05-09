@@ -1,6 +1,6 @@
 # samples
 
-Exemplos de uso das 8 imagens em tres cenários:
+Exemplos de uso das 9 imagens em tres cenários:
 
 - uso local
 - GitHub Actions
@@ -8,6 +8,7 @@ Exemplos de uso das 8 imagens em tres cenários:
 
 ## Imagens cobertas
 
+- ghcr.io/tooark/docker:latest
 - ghcr.io/tooark/aws-cli:latest
 - ghcr.io/tooark/gcloud-cli:latest
 - ghcr.io/tooark/terraform:latest
@@ -19,11 +20,20 @@ Exemplos de uso das 8 imagens em tres cenários:
 
 ## 1) Uso local (docker run)
 
+### docker (dockerx)
+
+```bash
+docker run --rm ghcr.io/tooark/docker:latest docker --version
+docker run --rm ghcr.io/tooark/docker:latest docker buildx version
+```
+
 ### aws-cli
 
 ```bash
 docker run --rm ghcr.io/tooark/aws-cli:latest aws --version
 docker run --rm ghcr.io/tooark/aws-cli:latest kubectl version --client
+docker run --rm ghcr.io/tooark/aws-cli:latest docker --version
+docker run --rm ghcr.io/tooark/aws-cli:latest docker buildx version
 ```
 
 ### gcloud-cli
@@ -31,6 +41,8 @@ docker run --rm ghcr.io/tooark/aws-cli:latest kubectl version --client
 ```bash
 docker run --rm ghcr.io/tooark/gcloud-cli:latest gcloud --version
 docker run --rm ghcr.io/tooark/gcloud-cli:latest kubectl version --client
+docker run --rm ghcr.io/tooark/gcloud-cli:latest docker --version
+docker run --rm ghcr.io/tooark/gcloud-cli:latest docker buildx version
 ```
 
 ### terraform
@@ -44,6 +56,7 @@ docker run --rm ghcr.io/tooark/terraform:latest terraform version
 ```bash
 docker run --rm ghcr.io/tooark/terraform-aws:latest terraform version
 docker run --rm ghcr.io/tooark/terraform-aws:latest aws --version
+docker run --rm ghcr.io/tooark/terraform-aws:latest kubectl version --client
 ```
 
 ### terraform-gcloud
@@ -51,6 +64,7 @@ docker run --rm ghcr.io/tooark/terraform-aws:latest aws --version
 ```bash
 docker run --rm ghcr.io/tooark/terraform-gcloud:latest terraform version
 docker run --rm ghcr.io/tooark/terraform-gcloud:latest gcloud --version
+docker run --rm ghcr.io/tooark/terraform-gcloud:latest kubectl version --client
 ```
 
 ### terraform-aws-gcloud
@@ -59,6 +73,7 @@ docker run --rm ghcr.io/tooark/terraform-gcloud:latest gcloud --version
 docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest terraform version
 docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest aws --version
 docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest gcloud --version
+docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest kubectl version --client
 ```
 
 ### sonar-scanner
@@ -77,7 +92,7 @@ docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools image-scan nginx:l
 
 ## 2) GitHub Actions
 
-Arquivo completo de exemplo para as 8 imagens:
+Arquivo completo de exemplo para as 9 imagens:
 
 - [github-actions-images.yml](github-actions-images.yml)
 
@@ -89,7 +104,7 @@ Como usar:
 
 ## 3) GitLab CI
 
-Arquivo completo de exemplo para as 8 imagens:
+Arquivo completo de exemplo para as 9 imagens:
 
 - [gitlab-ci-images.yml](gitlab-ci-images.yml)
 

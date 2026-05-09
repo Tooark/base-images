@@ -2,6 +2,15 @@ stages:
   - validate
   - security
 
+dockerx:
+  stage: validate
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - docker run --rm ghcr.io/tooark/docker:latest docker --version
+    - docker run --rm ghcr.io/tooark/docker:latest docker buildx version
+
 aws_cli:
   stage: validate
   image: docker:24

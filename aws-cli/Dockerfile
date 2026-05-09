@@ -128,19 +128,23 @@ COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 
+# Copia o entrypoint para auto-configuração do acesso ao Docker
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Cria um symlink em /usr/local/bin apontando para o binário dentro da árvore do aws-cli
-# Cria grupo docker, usuário não-root e ajusta permissões dos binários
+# Cria grupo docker, usuário não-root e adiciona ao grupo docker
 RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
-  && addgroup --gid 998 docker \
+  && addgroup docker \
   && adduser --disabled-password --gecos "" app \
   && adduser app docker
-
-# Muda para o usuário não-root
-USER app
 
 # Variáveis úteis para Docker
 ENV DOCKER_CLI_HINTS=false \
     DOCKER_BUILDKIT=1
+
+# Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Configura comando padrão
 CMD ["/bin/sh"]

@@ -142,11 +142,15 @@ COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 
-# Cria symlinks, cria usuário não-root
+# Copia o entrypoint para auto-configuração do acesso ao Docker
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Cria symlinks, grupo docker, usuário não-root e adiciona ao grupo docker
 RUN ln -sf /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
   && ln -sf /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
   && ln -sf /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq \
-  && addgroup --gid 998 docker \
+  && addgroup docker \
   && adduser --disabled-password --gecos "" app \
   && adduser app docker
 
@@ -156,8 +160,8 @@ ENV CLOUDSDK_CORE_DISABLE_PROMPTS=1 \
   DOCKER_CLI_HINTS=false \
   DOCKER_BUILDKIT=1
 
-# Muda para o usuário não-root
-USER app
+# Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Configura comando padrão
 CMD ["/bin/bash"]

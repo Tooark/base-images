@@ -98,17 +98,21 @@ SHELL ["/bin/sh", "-eu", "-c"]
 COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 
-# Cria usuário não-root
-RUN addgroup --gid 998 docker \
+# Copia o entrypoint para auto-configuração do acesso ao Docker
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Cria grupo docker, usuário não-root e adiciona ao grupo docker
+RUN addgroup docker \
   && adduser --disabled-password --gecos "" app \
   && adduser app docker
-
-# Muda para o usuário não-root
-USER app
 
 # Variáveis úteis
 ENV DOCKER_CLI_HINTS=false \
     DOCKER_BUILDKIT=1
+
+# Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Configura comando padrão
 CMD ["/bin/sh"]
