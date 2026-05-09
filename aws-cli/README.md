@@ -1,6 +1,6 @@
 # aws-cli
 
-Esta imagem fornece os comandos `aws` (AWS CLI v2) e `kubectl`, prontos para uso em pipelines e execuções ad-hoc em container.
+Esta imagem fornece os comandos `aws` (AWS CLI v2), `kubectl`, `docker` e `docker buildx`, prontos para uso em pipelines e execuções ad-hoc em container.
 
 ## Nome e tags da imagem
 
@@ -20,8 +20,10 @@ Substitua os números acima pelos valores da sua build.
 | Base           | `debian:12-slim` (padrão)                                       |
 | AWS CLI v2     | Instalado em `/usr/local/aws-cli/v2/current/bin/aws`            |
 | kubectl        | Instalado em `/usr/local/bin/kubectl`                           |
+| Docker CLI     | Instalado em `/usr/local/bin/docker`                            |
+| Docker Buildx  | Plugin em `/usr/local/libexec/docker/cli-plugins/docker-buildx` |
 | Symlink        | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
-| Binários       | `aws`, `kubectl` disponíveis em `/usr/local/bin`                |
+| Binários       | `aws`, `kubectl`, `docker` disponíveis em `/usr/local/bin`      |
 | Pacotes        | `ca-certificates` instalado para conexões HTTPS seguras         |
 | Usuário padrão | `app` (não-root)                                                |
 
@@ -96,7 +98,7 @@ Para pipelines reprodutíveis, prefira a versão completa.
 ## Como verificar versões dentro da imagem
 
 ```powershell
-docker run --rm --entrypoint sh ghcr.io/tooark/aws-cli:latest -c "aws --version; kubectl version --client; dpkg -l | grep -E 'ca-certificates'"
+docker run --rm --entrypoint sh ghcr.io/tooark/aws-cli:latest -c "aws --version; kubectl version --client; docker --version; docker buildx version; dpkg -l | grep -E 'ca-certificates'"
 ```
 
 ## Multi-arquitetura
@@ -105,6 +107,8 @@ O `Dockerfile` detecta `TARGETARCH` e baixa:
 
 - O instalador adequado do AWS CLI v2
 - O binário `kubectl` da arquitetura correspondente
+- O Docker CLI estático da arquitetura correspondente
+- O plugin Docker Buildx da arquitetura correspondente
 
 Arquiteturas suportadas:
 
@@ -224,11 +228,15 @@ Ao construir localmente, publique tags equivalentes para a mesma imagem (versão
 ```powershell
 $version = "2.32.3"   # AWS CLI
 $kubectl = "1.34.2"   # kubectl
+$docker  = "28.1.1"   # Docker CLI
+$buildx  = "0.26.1"   # Buildx
 $short = ($version -split '\\.')[0..1] -join '.'
 
 docker build `
   --build-arg AWSCLI_VERSION=$version `
   --build-arg KUBECTL_VERSION=$kubectl `
+  --build-arg DOCKER_VERSION=$docker `
+  --build-arg DOCKER_BUILDX_VERSION=$buildx `
   -t aws-cli:$version `
   -t aws-cli:$short `
   -t aws-cli:latest `
@@ -241,6 +249,10 @@ docker build `
   - [Notas de lançamento](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
   - [Notas de lançamento](https://kubernetes.io/releases/)
+- [Docker CLI](https://docs.docker.com/engine/release-notes/)
+  - [Releases](https://github.com/docker/cli/releases)
+- [Docker Buildx](https://docs.docker.com/build/buildx/)
+  - [Releases](https://github.com/docker/buildx/releases)
 
 ## Licença
 

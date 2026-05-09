@@ -1,6 +1,6 @@
 # gcloud-cli
 
-Esta imagem fornece o Google Cloud SDK (`gcloud`, `gsutil`, `bq`) e `kubectl`, prontos para uso em pipelines e execuções ad-hoc em container.
+Esta imagem fornece o Google Cloud SDK (`gcloud`, `gsutil`, `bq`), `kubectl`, `docker` e `docker buildx`, prontos para uso em pipelines e execuções ad-hoc em container.
 
 ## Nome e tags da imagem
 
@@ -15,15 +15,17 @@ Substitua os números acima pelos valores da sua build.
 
 ## O que existe na imagem
 
-| Item             | Descrição                                                           |
-| ---------------- | ------------------------------------------------------------------- |
-| Base             | `debian:12-slim` (padrão)                                           |
-| Google Cloud SDK | Instalado em `/opt/google-cloud-sdk`                                |
-| kubectl          | Instalado em `/usr/local/bin/kubectl`                               |
-| Symlinks         | `gcloud`, `gsutil`, `bq` disponíveis em `/usr/local/bin`            |
-| Binários         | `gcloud`, `gsutil`, `bq`, `kubectl` disponíveis em `/usr/local/bin` |
-| Pacotes          | `ca-certificates`, `bash`, `python3`                                |
-| Usuário padrão   | `app` (não-root), HOME: `/home/app`                                 |
+| Item             | Descrição                                                         |
+| ---------------- | ----------------------------------------------------------------- |
+| Base             | `debian:12-slim` (padrão)                                         |
+| Google Cloud SDK | Instalado em `/opt/google-cloud-sdk`                              |
+| kubectl          | Instalado em `/usr/local/bin/kubectl`                             |
+| Docker CLI       | Instalado em `/usr/local/bin/docker`                              |
+| Docker Buildx    | Plugin em `/usr/local/libexec/docker/cli-plugins/docker-buildx`   |
+| Symlinks         | `gcloud`, `gsutil`, `bq` disponíveis em `/usr/local/bin`          |
+| Binários         | `gcloud`, `gsutil`, `bq`, `kubectl`, `docker` em `/usr/local/bin` |
+| Pacotes          | `ca-certificates`, `bash`, `python3`                              |
+| Usuário padrão   | `app` (não-root), HOME: `/home/app`                               |
 
 Observações:
 
@@ -98,7 +100,7 @@ Para pipelines reprodutíveis, prefira a versão completa.
 ## Como verificar versões dentro da imagem
 
 ```powershell
-docker run --rm --entrypoint sh ghcr.io/tooark/gcloud-cli:latest -c "gcloud --version; gsutil --version; bq version; kubectl version --client; dpkg -l | grep -E 'ca-certificates|bash|python3'"
+docker run --rm --entrypoint sh ghcr.io/tooark/gcloud-cli:latest -c "gcloud --version; gsutil --version; bq version; kubectl version --client; docker --version; docker buildx version; dpkg -l | grep -E 'ca-certificates|bash|python3'"
 ```
 
 ## Multi-arquitetura
@@ -107,6 +109,8 @@ O `Dockerfile` detecta `TARGETARCH` e baixa:
 
 - O Google Cloud SDK da arquitetura correspondente
 - O binário `kubectl` da arquitetura correspondente
+- O Docker CLI estático da arquitetura correspondente
+- O plugin Docker Buildx da arquitetura correspondente
 
 Arquiteturas suportadas:
 
@@ -226,11 +230,15 @@ Ao construir localmente, publique tags equivalentes para a mesma imagem (versão
 ```powershell
 $version = "548.0.0"   # Google Cloud SDK
 $kubectl = "1.30.4"    # kubectl
+$docker  = "28.1.1"    # Docker CLI
+$buildx  = "0.26.1"    # Buildx
 $short = ($version -split '\\.')[0..1] -join '.'
 
 docker build `
   --build-arg GCLOUD_VERSION=$version `
   --build-arg KUBECTL_VERSION=$kubectl `
+  --build-arg DOCKER_VERSION=$docker `
+  --build-arg DOCKER_BUILDX_VERSION=$buildx `
   -t gcloud-cli:$version `
   -t gcloud-cli:$short `
   -t gcloud-cli:latest `
@@ -243,6 +251,10 @@ docker build `
   - [Notas de lançamento](https://cloud.google.com/sdk/docs/release-notes)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
   - [Notas de lançamento](https://kubernetes.io/releases/)
+- [Docker CLI](https://docs.docker.com/engine/release-notes/)
+  - [Releases](https://github.com/docker/cli/releases)
+- [Docker Buildx](https://docs.docker.com/build/buildx/)
+  - [Releases](https://github.com/docker/buildx/releases)
 
 ## Licença
 
