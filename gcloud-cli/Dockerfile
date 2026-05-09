@@ -146,7 +146,9 @@ COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/loc
 RUN ln -sf /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
   && ln -sf /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
   && ln -sf /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq \
-  && adduser --disabled-password --gecos "" app
+  && RUN addgroup --gid 998 docker \
+  && adduser --disabled-password --gecos "" app \
+  && adduser app docker
 
 # Desabilita prompts interativos por padrão (útil para CI) e define Python explícito
 ENV CLOUDSDK_CORE_DISABLE_PROMPTS=1 \

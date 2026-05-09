@@ -129,9 +129,11 @@ COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 
 # Cria um symlink em /usr/local/bin apontando para o binário dentro da árvore do aws-cli
-# Cria usuário não-root e ajusta permissões dos binários
+# Cria grupo docker, usuário não-root e ajusta permissões dos binários
 RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
-  && adduser --disabled-password --gecos "" app
+  && addgroup --gid 998 docker \
+  && adduser --disabled-password --gecos "" app \
+  && adduser app docker
 
 # Muda para o usuário não-root
 USER app

@@ -99,7 +99,9 @@ COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 
 # Cria usuário não-root
-RUN adduser --disabled-password --gecos "" app
+RUN addgroup --gid 998 docker \
+  && adduser --disabled-password --gecos "" app \
+  && adduser app docker
 
 # Muda para o usuário não-root
 USER app
