@@ -38,7 +38,7 @@ jobs:
           - terraform-aws-gcloud
           - sonar-scanner
           - trivy-hadolint
-          - docker
+          - dockerx
     env:
       REGISTRY: ghcr.io/tooark
       TRIVY_SCANNER_IMAGE: ghcr.io/tooark/trivy-hadolint:1.70
