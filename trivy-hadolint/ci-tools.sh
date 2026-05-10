@@ -25,7 +25,7 @@ Commands:
   config-scan [path]            - IaC scan (Terraform, K8s YAML, etc.) (aliases: cfg-scan, cs)
   repo-scan [path|url]          - Local or remote repository scan (aliases: rp-scan, rs)
   dockerfile-lint [Dockerfile]  - Lints Dockerfile with Hadolint (aliases: hadolint, dl)
-  full-scan <image> [path]      - Executes all scans and consolidates report (aliases: full)
+  container <image> [options]   - Combined scan: image + source + Dockerfile lint (aliases: ctr)
   send-report [file]            - Sends JSON report via HTTP POST (aliases: send)
   help                          - Show this help (aliases: -h, --help)
 
@@ -49,6 +49,13 @@ Configuration variables:
   HADOLINT_CONFIG        (ex: ".hadolint.yaml")
   HADOLINT_FAILURE_LEVEL (ex: "warning" | "error")
   REPORT_DIR             (default: "/tmp/ci-reports")
+
+Variables for container command:
+  CONTAINER_PATH         (default: auto-detect CI env or $PWD)
+  CONTAINER_DOCKERFILES  (default: "Dockerfile") Comma-separated list
+  CONTAINER_SCAN_MODE    (default: "fs" | "repo")
+  CONTAINER_SKIP_IMAGE   (default: "false")
+  CONTAINER_SKIP_LINT    (default: "false")
 
 Variables for sending reports (webhook):
   REPORT_URL             (required for send-report) One or more URLs separated by
@@ -167,22 +174,45 @@ Notes:
 EOF
 }
 
-# Ajuda específica para full-scan
-usage_full_scan() {
+# Ajuda específica para container
+usage_container() {
   cat <<'EOF'
 Usage:
-  ci-tools full-scan <image> [path] [-- <extra-flags>]
+  ci-tools container <image> [options] [-- <trivy-extra-flags>]
+
+Options:
+  --path <dir>              Project path (default: auto-detect CI env or $PWD)
+  --dockerfiles <list>      Comma-separated Dockerfiles (default: "Dockerfile")
+  --scan-mode fs|repo       Source scan mode (default: "fs")
+  --skip-image              Skip the image scan step
+  --skip-lint               Skip the Dockerfile lint step
+  --sbom[=format]           Generate SBOM alongside image scan
+  --sbom-format <format>    SBOM format (default: "cyclonedx")
 
 Examples:
-  ci-tools full-scan nginx:latest .
-  ci-tools full-scan tooark/app:1.2.3 /workspace -- --timeout 10m
-  ci-tools full nginx:latest
+  ci-tools container nginx:latest
+  ci-tools container myapp:1.0 --path /workspace
+  ci-tools container myapp:1.0 --dockerfiles "Dockerfile,docker/Dockerfile.worker"
+  ci-tools container myapp:1.0 --scan-mode repo --skip-lint
+  ci-tools container myapp:1.0 -- --timeout 10m
+  ci-tools ctr myapp:1.0
+
+Environment variables (override defaults):
+  CONTAINER_PATH           Project path (default: auto-detect or $PWD)
+  CONTAINER_DOCKERFILES    Comma-separated Dockerfiles (default: "Dockerfile")
+  CONTAINER_SCAN_MODE      "fs" or "repo" (default: "fs")
+  CONTAINER_SKIP_IMAGE     "true" to skip image scan (default: "false")
+  CONTAINER_SKIP_LINT      "true" to skip Dockerfile lint (default: "false")
 
 Notes:
-  - Executes image, filesystem, config and Dockerfile lint scans.
-  - Consolidates outputs into ${REPORT_DIR}/full-report.json.
-  - Uses TRIVY_EXIT_CODE=0 during collection and evaluates failure at the end.
-  - Use "--" to pass additional flags to Trivy/Hadolint.
+  - Executes up to 3 steps: image-scan, source-scan (fs or repo), Dockerfile lint.
+  - Auto-detects project path from CI environment variables (GitLab CI, GitHub
+    Actions, Azure DevOps, Bitbucket Pipelines) when --path is not specified.
+  - Multiple Dockerfiles are linted individually; reports are named by file.
+  - Extra flags after "--" are passed only to Trivy commands (not Hadolint).
+  - Consolidates all results into ${REPORT_DIR}/container-report.json.
+  - Failure is evaluated at the end using TRIVY_SEVERITY_FAIL for Trivy reports
+    and HADOLINT_FAILURE_LEVEL for Dockerfile lint.
 EOF
 }
 
@@ -304,7 +334,7 @@ trivy_failure_gate() {
   for sev in "${fail_sev_array[@]}"; do
     local sev_upper="${sev^^}"
     local sev_count
-    
+
     sev_count=$(jq --arg sev "$sev_upper" '
       [
         .Results[]? | (
@@ -346,6 +376,42 @@ trivy_failure_gate() {
 
   log_ok "No vulnerabilities matching TRIVY_SEVERITY_FAIL=${fail_severity} found. Gate passed."
   return 0
+}
+
+# Detecta o path do projeto automaticamente baseado em variáveis de CI conhecidas
+auto_detect_path() {
+  # GitLab CI
+  if [[ -n "${CI_PROJECT_DIR:-}" ]]; then
+    echo "${CI_PROJECT_DIR}"
+    return 0
+  fi
+
+  # GitHub Actions
+  if [[ -n "${GITHUB_WORKSPACE:-}" ]]; then
+    echo "${GITHUB_WORKSPACE}"
+    return 0
+  fi
+
+  # Azure DevOps
+  if [[ -n "${BUILD_SOURCESDIRECTORY:-}" ]]; then
+    echo "${BUILD_SOURCESDIRECTORY}"
+    return 0
+  fi
+
+  # Bitbucket Pipelines
+  if [[ -n "${BITBUCKET_CLONE_DIR:-}" ]]; then
+    echo "${BITBUCKET_CLONE_DIR}"
+    return 0
+  fi
+
+  # Jenkins
+  if [[ -n "${WORKSPACE:-}" ]]; then
+    echo "${WORKSPACE}"
+    return 0
+  fi
+
+  # Fallback
+  echo "$PWD"
 }
 
 # ── Envio de relatório via HTTP POST ──────────────────────────────────────────
@@ -440,11 +506,10 @@ do_version() {
   echo "---"
   trivy --version 2>/dev/null    || echo "trivy: not found"
   hadolint --version 2>/dev/null || echo "hadolint: not found"
-
 }
 
 # ── Scan de imagem ────────────────────────────────────────────────────────────
-do_image_scan() { 
+do_image_scan() {
   local image=""
   local sbom_enabled="false"
   local sbom_format="${SBOM_FORMAT:-cyclonedx}"
@@ -691,7 +756,6 @@ do_filesystem_scan() {
 do_config_scan() {
   local target="$PWD"
   local target_set="false"
-  local sbom_enabled="false"
 
   # Processa argumentos posicionais e opções
   while [[ $# -gt 0 ]]; do
@@ -776,7 +840,7 @@ do_config_scan() {
   fi
 
   # Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
-  if [[ "${sbom_enabled}" != "true" ]] && [[ "${fail_exit_code}" != "0" ]]; then
+  if [[ "${fail_exit_code}" != "0" ]]; then
     trivy_failure_gate "${format}" "${output}" "${fail_severity}" || return $?
   fi
 
@@ -789,7 +853,6 @@ do_config_scan() {
 do_repo_scan() {
   local target="$PWD"
   local target_set="false"
-  local sbom_enabled="false"
 
   # Processa argumentos posicionais e opções
   while [[ $# -gt 0 ]]; do
@@ -873,7 +936,7 @@ do_repo_scan() {
   fi
 
   # Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
-  if [[ "${sbom_enabled}" != "true" ]] && [[ "${fail_exit_code}" != "0" ]]; then
+  if [[ "${fail_exit_code}" != "0" ]]; then
     trivy_failure_gate "${format}" "${output}" "${fail_severity}" || return $?
   fi
 
@@ -950,28 +1013,127 @@ do_dockerfile_lint() {
   return ${rc}
 }
 
-# ── Full scan (todos os scans + consolidação + envio) ─────────────────────────
-do_full_scan() {
-  local image="${1:-}"
-  local scan_path="$PWD"
+# ── Container scan (image + source + Dockerfile lint + consolidação) ──────────
+do_container() {
+  local image=""
+  local scan_path=""
+  local dockerfiles=""
+  local scan_mode=""
+  local skip_image=""
+  local skip_lint=""
+  local sbom_enabled="false"
+  local sbom_format="${SBOM_FORMAT:-cyclonedx}"
+  local trivy_extras=()
 
-  if [[ "${image}" == "help" || "${image}" == "-h" || "${image}" == "--help" || -z "${image}" ]]; then
-    usage_full_scan
-    [[ -z "${image}" ]] && return 2
-    return 0
+  # Processa argumentos posicionais e opções
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      help|-h|--help)
+        usage_container
+        return 0
+        ;;
+      --path)
+        if [[ -z "${2:-}" ]]; then
+          log_warn "Missing value for --path"
+          return 2
+        fi
+        scan_path="${2}"
+        shift 2
+        ;;
+      --path=*)
+        scan_path="${1#--path=}"
+        shift
+        ;;
+      --dockerfiles)
+        if [[ -z "${2:-}" ]]; then
+          log_warn "Missing value for --dockerfiles"
+          return 2
+        fi
+        dockerfiles="${2}"
+        shift 2
+        ;;
+      --dockerfiles=*)
+        dockerfiles="${1#--dockerfiles=}"
+        shift
+        ;;
+      --scan-mode)
+        if [[ -z "${2:-}" ]]; then
+          log_warn "Missing value for --scan-mode"
+          return 2
+        fi
+        scan_mode="${2}"
+        shift 2
+        ;;
+      --scan-mode=*)
+        scan_mode="${1#--scan-mode=}"
+        shift
+        ;;
+      --skip-image)
+        skip_image="true"
+        shift
+        ;;
+      --skip-lint)
+        skip_lint="true"
+        shift
+        ;;
+      --sbom)
+        sbom_enabled="true"
+        shift
+        ;;
+      --sbom=*)
+        sbom_enabled="true"
+        sbom_format="${1#--sbom=}"
+        shift
+        ;;
+      --sbom-format)
+        if [[ -z "${2:-}" ]]; then
+          log_warn "Missing value for --sbom-format"
+          return 2
+        fi
+        sbom_enabled="true"
+        sbom_format="${2}"
+        shift 2
+        ;;
+      --)
+        shift
+        trivy_extras=("$@")
+        break
+        ;;
+      *)
+        if [[ -z "${image}" ]]; then
+          image="${1}"
+          shift
+        else
+          log_warn "Unknown option: ${1}"
+          return 2
+        fi
+        ;;
+    esac
+  done
+
+  # Aplica defaults a partir de variáveis de ambiente (CLI flags têm prioridade)
+  scan_path="${scan_path:-${CONTAINER_PATH:-$(auto_detect_path)}}"
+  dockerfiles="${dockerfiles:-${CONTAINER_DOCKERFILES:-Dockerfile}}"
+  scan_mode="${scan_mode:-${CONTAINER_SCAN_MODE:-fs}}"
+  skip_image="${skip_image:-${CONTAINER_SKIP_IMAGE:-false}}"
+  skip_lint="${skip_lint:-${CONTAINER_SKIP_LINT:-false}}"
+
+  # Verifica se a imagem foi fornecida (obrigatória quando skip_image é false)
+  if [[ -z "${image}" ]] && ! is_true "${skip_image}"; then
+    log_err "Error: <image> is required (or use --skip-image)."
+    usage_container
+    return 2
   fi
 
-  if [[ -n "${2:-}" && "${2:-}" != "--" ]]; then
-    scan_path="${2}"
-    shift 2
-  else
-    shift || true
+  # Valida scan_mode
+  if [[ "${scan_mode}" != "fs" && "${scan_mode}" != "repo" ]]; then
+    log_err "Error: --scan-mode must be 'fs' or 'repo' (got: '${scan_mode}')."
+    return 2
   fi
 
-  [[ "${1:-}" == "--" ]] && shift || true
-
+  # Valida que o path existe
   if [[ ! -d "${scan_path}" ]]; then
-    log "Scan path not found: ${scan_path}"
+    log_err "Error: scan path not found: ${scan_path}"
     return 2
   fi
 
@@ -982,89 +1144,191 @@ do_full_scan() {
   export TRIVY_EXIT_CODE=0
 
   local errors=0
+  local step=0
+  local total_steps=0
 
-  log "=== Full scan started ==="
-  log "Image: ${image}"
+  # Calcula total de steps
+  is_true "${skip_image}" || total_steps=$((total_steps + 1))
+  total_steps=$((total_steps + 1)) # source scan sempre roda
+  is_true "${skip_lint}" || total_steps=$((total_steps + 1))
+
+  log "=== Container scan started ==="
+  [[ -n "${image}" ]] && log "Image: ${image}"
   log "Path: ${scan_path}"
+  log "Scan mode: ${scan_mode}"
+  log "Dockerfiles: ${dockerfiles}"
   log ""
 
-  # 1. Image scan
-  log "-- [1/4] Image scan --"
-  local img_report
-  local rc=0
-  img_report=$(TRIVY_OUTPUT="${REPORT_DIR}/trivy-image.json" do_image_scan "${image}" "$@") || rc=$?
-  if [[ ${rc} -ne 0 ]]; then
-    log "Image scan finished with error (exit ${rc})."
-    errors=$((errors + 1))
-  fi
+  # ── Step: Image scan ──────────────────────────────────────────────────────
+  local img_report=""
+  if ! is_true "${skip_image}"; then
+    step=$((step + 1))
+    log "-- [${step}/${total_steps}] Image scan --"
 
-  # 2. Filesystem scan
-  log "-- [2/4] Filesystem scan --"
-  local fs_report
-  rc=0
-  fs_report=$(TRIVY_OUTPUT="${REPORT_DIR}/trivy-filesystem.json" do_filesystem_scan "${scan_path}" "$@") || rc=$?
-  if [[ ${rc} -ne 0 ]]; then
-    log "Filesystem scan finished with error (exit ${rc})."
-    errors=$((errors + 1))
-  fi
+    local rc=0
+    local img_scan_args=()
 
-  # 3. Config scan (IaC)
-  log "-- [3/4] Configuration scan (IaC) --"
-  local cfg_report
-  rc=0
-  cfg_report=$(TRIVY_OUTPUT="${REPORT_DIR}/trivy-config.json" do_config_scan "${scan_path}" "$@") || rc=$?
-  if [[ ${rc} -ne 0 ]]; then
-    log "Config scan finished with error (exit ${rc})."
-    errors=$((errors + 1))
-  fi
+    if [[ "${sbom_enabled}" == "true" ]]; then
+      img_scan_args+=( --sbom-format "${sbom_format}" )
+    fi
 
-  # 4. Dockerfile lint
-  log "-- [4/4] Dockerfile lint --"
-  local dockerfile="${scan_path}/Dockerfile"
-  local lint_report=""
-  if [[ -f "${dockerfile}" ]]; then
-    rc=0
-    lint_report=$(HADOLINT_OUTPUT="${REPORT_DIR}/hadolint.json" do_dockerfile_lint "${dockerfile}") || rc=$?
+    img_scan_args+=( "${image}" )
+
+    # Adiciona extra flags do Trivy se houver
+    if [[ ${#trivy_extras[@]} -gt 0 ]]; then
+      img_scan_args+=( -- "${trivy_extras[@]}" )
+    fi
+
+    img_report=$(
+      TRIVY_OUTPUT="${REPORT_DIR}/trivy-image.json" \
+        do_image_scan "${img_scan_args[@]}"
+    ) || rc=$?
+
     if [[ ${rc} -ne 0 ]]; then
-      log "Dockerfile lint finished with error (exit ${rc})."
+      log_err "Image scan finished with error (exit ${rc})."
       errors=$((errors + 1))
     fi
-  else
-    log "Dockerfile not found in ${scan_path}, skipping lint."
   fi
 
-  # Consolidar relatório
-  local consolidated="${REPORT_DIR}/full-report.json"
+  # ── Step: Source scan (filesystem ou repo) ────────────────────────────────
+  step=$((step + 1))
+  log "-- [${step}/${total_steps}] Source scan (${scan_mode}) --"
+
+  local source_report=""
+  local rc=0
+  local source_output=""
+
+  if [[ "${scan_mode}" == "fs" ]]; then
+    source_output="${REPORT_DIR}/trivy-filesystem.json"
+
+    local fs_scan_args=( "${scan_path}" )
+    if [[ ${#trivy_extras[@]} -gt 0 ]]; then
+      fs_scan_args+=( -- "${trivy_extras[@]}" )
+    fi
+
+    source_report=$(
+      TRIVY_OUTPUT="${source_output}" \
+        do_filesystem_scan "${fs_scan_args[@]}"
+    ) || rc=$?
+  else
+    source_output="${REPORT_DIR}/trivy-repo.json"
+
+    local repo_scan_args=( "${scan_path}" )
+    if [[ ${#trivy_extras[@]} -gt 0 ]]; then
+      repo_scan_args+=( -- "${trivy_extras[@]}" )
+    fi
+
+    source_report=$(
+      TRIVY_OUTPUT="${source_output}" \
+        do_repo_scan "${repo_scan_args[@]}"
+    ) || rc=$?
+  fi
+
+  if [[ ${rc} -ne 0 ]]; then
+    log_err "Source scan (${scan_mode}) finished with error (exit ${rc})."
+    errors=$((errors + 1))
+  fi
+
+  # ── Step: Dockerfile lint ─────────────────────────────────────────────────
+  local lint_reports_json="[]"
+  if ! is_true "${skip_lint}"; then
+    step=$((step + 1))
+    log "-- [${step}/${total_steps}] Dockerfile lint --"
+
+    local lint_errors=0
+    local df_list=()
+    IFS=',' read -ra df_list <<< "${dockerfiles}"
+
+    for df in "${df_list[@]}"; do
+      # Trim whitespace
+      df="${df#"${df%%[![:space:]]*}"}"
+      df="${df%"${df##*[![:space:]]}"}"
+
+      # Ignora entradas vazias
+      [[ -z "${df}" ]] && continue
+
+      # Resolve path relativo ao scan_path
+      local df_path="${df}"
+      [[ "${df}" != /* ]] && df_path="${scan_path}/${df}"
+
+      if [[ -f "${df_path}" ]]; then
+        log "Linting: ${df_path}"
+
+        # Gera nome de output único baseado no path do Dockerfile
+        local df_safe_name
+        df_safe_name=$(echo "${df}" | tr '/' '-' | tr '.' '-' | sed 's/^-//')
+        local lint_output="${REPORT_DIR}/hadolint-${df_safe_name}.json"
+
+        rc=0
+        HADOLINT_OUTPUT="${lint_output}" \
+          do_dockerfile_lint "${df_path}" || rc=$?
+
+        if [[ ${rc} -ne 0 && ${rc} -ne 1 ]]; then
+          # rc=1 é "issues found" (tratado pelo hadolint); rc>1 é erro inesperado
+          log_err "Dockerfile lint for '${df}' finished with unexpected error (exit ${rc})."
+          lint_errors=$((lint_errors + 1))
+        elif [[ ${rc} -eq 1 ]]; then
+          lint_errors=$((lint_errors + 1))
+        fi
+      else
+        log_warn "Dockerfile not found: ${df_path}, skipping."
+      fi
+    done
+
+    if [[ ${lint_errors} -gt 0 ]]; then
+      errors=$((errors + 1))
+    fi
+
+    # Constrói array JSON com os relatórios de lint encontrados
+    lint_reports_json=$(
+      for f in "${REPORT_DIR}"/hadolint-*.json; do
+        [[ -f "${f}" ]] || continue
+        local df_name
+        df_name=$(basename "${f}" .json | sed 's/^hadolint-//' | tr '-' '/')
+        jq -n --arg file "${df_name}" --slurpfile report "${f}" \
+          '{ file: $file, report: ($report[0] // null) }'
+      done | jq -s '.'
+    ) || lint_reports_json="[]"
+  fi
+
+  # ── Consolidação do relatório ─────────────────────────────────────────────
+  local consolidated="${REPORT_DIR}/container-report.json"
   log ""
   log "-- Consolidating reports --"
 
-  # Garante que todos os campos existam no relatório final, mesmo que algum scan tenha falhado  
-  for f in trivy-image.json trivy-filesystem.json trivy-config.json hadolint.json; do
-    [[ -f "${REPORT_DIR}/${f}" ]] || echo 'null' > "${REPORT_DIR}/${f}"
-  done
+  # Prepara referências para os relatórios (usa null se não existirem)
+  local img_json="null"
+  if [[ -f "${REPORT_DIR}/trivy-image.json" ]]; then
+    img_json=$(cat "${REPORT_DIR}/trivy-image.json")
+  fi
 
-  # Usa jq para criar um relatório consolidado com metadados e resultados de cada scan
+  local source_json="null"
+  if [[ -n "${source_output}" && -f "${source_output}" ]]; then
+    source_json=$(cat "${source_output}")
+  fi
+
+  # Gera relatório consolidado com metadados e resultados
   jq -n \
-    --arg schema  "ci-tools-full-report" \
-    --arg version "1.0" \
-    --arg ts      "$(now_iso)" \
-    --arg image   "${image}" \
-    --arg path    "${scan_path}" \
-    --slurpfile img  "${REPORT_DIR}/trivy-image.json" \
-    --slurpfile fs   "${REPORT_DIR}/trivy-filesystem.json" \
-    --slurpfile cfg  "${REPORT_DIR}/trivy-config.json" \
-    --slurpfile lint "${REPORT_DIR}/hadolint.json" \
+    --arg schema     "ci-tools-container-report" \
+    --arg version    "2.0" \
+    --arg ts         "$(now_iso)" \
+    --arg image      "${image}" \
+    --arg path       "${scan_path}" \
+    --arg scan_mode  "${scan_mode}" \
+    --argjson img    "${img_json}" \
+    --argjson source "${source_json}" \
+    --argjson lints  "${lint_reports_json}" \
     '{
       schema: $schema,
       version: $version,
       timestamp: $ts,
       image: $image,
       scan_path: $path,
+      scan_mode: $scan_mode,
       results: {
-        image_scan:      ($img[0]  // null),
-        filesystem_scan: ($fs[0]   // null),
-        config_scan:     ($cfg[0]  // null),
-        dockerfile_lint: ($lint[0] // null)
+        image_scan: $img,
+        source_scan: $source,
+        dockerfile_lints: $lints
       }
     }' > "${consolidated}"
 
@@ -1073,24 +1337,21 @@ do_full_scan() {
   # Enviar relatório se URL configurada
   send_report "${consolidated}"
 
-  # Restaurar exit-code e avaliar resultado
+  # ── Avaliação final do gate de falha ──────────────────────────────────────
   export TRIVY_EXIT_CODE="${orig_exit_code}"
 
-  # Verifica se o exit code original já indica falha, e se sim, aplica gate de falha por severidade em cada relatório individual
   if [[ "${orig_exit_code}" != "0" ]]; then
-    # Iterar sobre os relatórios individuais para aplicar gate de falha por severidade (TRIVY_SEVERITY_FAIL) se aplicável.    
-    for report_file in trivy-image.json trivy-filesystem.json trivy-config.json; do
+    # Aplica gate de falha por severidade em cada relatório Trivy individual
+    for report_file in trivy-image.json trivy-filesystem.json trivy-repo.json; do
       local rpath="${REPORT_DIR}/${report_file}"
-
-      # Verifica se o relatório existe e não é vazio antes de tentar aplicar o gate de falha.
-      if [[ -f "${rpath}" && "$(cat "${rpath}")" != "null" ]]; then
+      if [[ -f "${rpath}" ]] && [[ "$(cat "${rpath}")" != "null" ]]; then
         trivy_failure_gate "json" "${rpath}" "${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}" || errors=$((errors + 1))
       fi
     done
   fi
 
   log ""
-  log "=== Full scan finished ==="
+  log "=== Container scan finished ==="
   log "Reports in: ${REPORT_DIR}/"
   ls -la "${REPORT_DIR}/" >&2
 
@@ -1136,12 +1397,12 @@ case "${cmd}" in
     do_dockerfile_lint "$@"
     ;;
 
-  full-scan|full)
-    do_full_scan "$@"
+  container|ctr)
+    do_container "$@"
     ;;
 
   send-report|send)
-    file="${1:-${REPORT_DIR}/full-report.json}"
+    file="${1:-${REPORT_DIR}/container-report.json}"
     send_report "${file}"
     ;;
 
