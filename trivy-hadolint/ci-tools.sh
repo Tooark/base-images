@@ -2,6 +2,13 @@
 
 set -euo pipefail
 
+# Configura cores para logs se o stderr for um terminal e NO_COLOR não estiver definido.
+if [[ -t 2 ]] && [[ "${NO_COLOR:-}" != "1" ]]; then
+  RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+else
+  RED=''; GREEN=''; YELLOW=''; NC=''
+fi
+
 # ── Diretório temporário para relatórios ──────────────────────────────────────
 REPORT_DIR="${REPORT_DIR:-/tmp/ci-reports}"
 mkdir -p "${REPORT_DIR}"
@@ -185,7 +192,10 @@ EOF
 now_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
 # Log com prefixo
-log() { echo "[ci-tools] $*" >&2; }
+log()       { echo "[ci-tools] $*" >&2; }
+log_ok()    { echo -e "${GREEN}[ci-tools]${NC} $*" >&2; }
+log_warn()  { echo -e "${YELLOW}[ci-tools]${NC} $*" >&2; }
+log_err()   { echo -e "${RED}[ci-tools]${NC} $*" >&2; }
 
 # Boolean helper (true/false, 1/0, yes/no, on/off)
 is_true() {
@@ -227,6 +237,7 @@ trivy_common_flags() {
   local include_server="${2:-true}"
   local severity="${3:-${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}}"
   local exit_code="${4:-${TRIVY_EXIT_CODE:-1}}"
+  local timeout="${TRIVY_TIMEOUT:-10m}"
   local server_flags=()
 
   # Validação de argumento obrigatório (output_var)
@@ -241,8 +252,8 @@ trivy_common_flags() {
 
   flags_ref+=( --severity "${severity}" )
   flags_ref+=( --exit-code "${exit_code}" )
+  flags_ref+=( --timeout "${timeout}" )
   [[ "${TRIVY_IGNORE_UNFIXED:-true}" == "true" ]] && flags_ref+=( --ignore-unfixed )
-  [[ -n "${TRIVY_TIMEOUT:-}" ]] && flags_ref+=( --timeout "${TRIVY_TIMEOUT}" )
   [[ -n "${TRIVY_SCANNERS:-}" ]] && flags_ref+=( --scanners "${TRIVY_SCANNERS}" )
 
   # Inclui flags de servidor se aplicável
@@ -278,7 +289,7 @@ trivy_failure_gate() {
 
   # Verifica se o formato é JSON para análise e se o arquivo existe antes de tentar processar.
   if [[ "${format}" != "json" || ! -f "${output}" ]]; then
-    log "Warning: Cannot analyze failure gate for non-JSON format. Skipping gate."
+    log_warn "Warning: Cannot analyze failure gate for non-JSON format. Skipping gate."
     return 0
   fi
 
@@ -293,7 +304,17 @@ trivy_failure_gate() {
   for sev in "${fail_sev_array[@]}"; do
     local sev_upper="${sev^^}"
     local sev_count
-    sev_count=$(jq --arg sev "$sev_upper" '[.Results[]?.Vulnerabilities[]? | select(.Severity == $sev)] | length' "$output" 2>/dev/null || echo 0)
+    
+    sev_count=$(jq --arg sev "$sev_upper" '
+      [
+        .Results[]? | (
+          (.Vulnerabilities[]? // empty),
+          (.Misconfigurations[]? // empty),
+          (.Secrets[]? // empty)
+        ) | select(.Severity == $sev)
+      ] | length
+    ' "$output" 2>/dev/null || echo 0)
+
     vuln_found_count=$((vuln_found_count + sev_count))
   done
 
@@ -301,7 +322,7 @@ trivy_failure_gate() {
   local severity_summary=""
   severity_summary=$(jq -r --arg severities "${fail_severity}" '
     ($severities | split(",") | map(gsub("^\\s+|\\s+$"; "") | ascii_upcase)) as $slist
-    | [ .Results[]?.Vulnerabilities[]? ] as $v
+    | [ .Results[]? | ((.Vulnerabilities[]? // empty), (.Misconfigurations[]? // empty), (.Secrets[]? // empty)) ] as $v
     | $slist
     | map(. as $sev | "\($sev): \($v | map(select(.Severity == $sev)) | length)")
     | .[]
@@ -309,21 +330,21 @@ trivy_failure_gate() {
 
   # Verifica se o resumo por severidade foi gerado e exibe no log
   if [[ -n "${severity_summary}" ]]; then
-    log "Failure gate summary by severity (from JSON report):"
+    log_err "Failure gate summary by severity (from JSON report):"
 
     # Itera sobre o resumo e imprime cada linha no log
     while IFS= read -r line; do
-      log "  ${line}"
+      log_err "  ${line}"
     done <<< "${severity_summary}"
   fi
 
   # Verifica se encontrou vulnerabilidades que correspondem ao critério de falha
   if [[ ${vuln_found_count} -gt 0 ]]; then
-    log "Failure gate triggered: found ${vuln_found_count} vulnerability(ies) matching TRIVY_SEVERITY_FAIL=${fail_severity}."
+    log_err "Failure gate triggered: found ${vuln_found_count} vulnerability(ies) matching TRIVY_SEVERITY_FAIL=${fail_severity}."
     return 1
   fi
 
-  log "No vulnerabilities matching TRIVY_SEVERITY_FAIL=${fail_severity} found. Gate passed."
+  log_ok "No vulnerabilities matching TRIVY_SEVERITY_FAIL=${fail_severity} found. Gate passed."
   return 0
 }
 
@@ -364,10 +385,10 @@ _send_to_url() {
 
   # Verifica código HTTP
   if [[ "${http_code}" =~ ^2[0-9]{2}$ ]]; then
-    log "Report uploaded successfully (HTTP ${http_code})"
+    log_ok "Report uploaded successfully (HTTP ${http_code})"
     return 0
   else
-    log "Failed to upload report (HTTP ${http_code}): ${body}"
+    log_err "Failed to upload report (HTTP ${http_code}): ${body}"
     return 1
   fi
 }
@@ -379,13 +400,13 @@ send_report() {
 
   # Verifica se url esta definida
   if [[ -z "${urls}" ]]; then
-    log "REPORT_URL is not set. Skipping report upload."
+    log_warn "REPORT_URL is not set. Skipping report upload."
     return 0
   fi
 
   # Verifica se o arquivo existe
   if [[ -z "${file}" || ! -f "${file}" ]]; then
-    log "Report file not found: ${file}"
+    log_warn "Report file not found: ${file}"
     [[ "${REPORT_FAIL_ON_ERROR:-false}" == "true" ]] && return 1
     return 0
   fi
@@ -417,8 +438,9 @@ send_report() {
 do_version() {
   echo "ci-tools wrapper"
   echo "---"
-  trivy --version 2>/dev/null || echo "trivy: not found"
+  trivy --version 2>/dev/null    || echo "trivy: not found"
   hadolint --version 2>/dev/null || echo "hadolint: not found"
+
 }
 
 # ── Scan de imagem ────────────────────────────────────────────────────────────
@@ -501,7 +523,7 @@ do_image_scan() {
 
   # Fallback para scan local se o servidor falhar e TRIVY_SERVER_REQUIRED não for true.
   if [[ ${rc} -ne 0 && -n "${TRIVY_SERVER:-}" && ! -s "${output}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}"; then
-    log "Trivy server scan failed (exit ${rc}); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
+    log_warn "Trivy server scan failed (exit ${rc}); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
 
     # Relatório deve usar severidade de relatório para garantir que o gate funcione mesmo sem servidor.
     trivy_common_flags trivy_flags false "${report_severity}" "0" || return $?
@@ -517,18 +539,18 @@ do_image_scan() {
   # Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ ${rc} -ne 0 ]]; then
     if [[ "${format}" == "table" && -s "${output}" ]]; then
-      log "Trivy table report (failed run, exit ${rc}):"
+      log_warn "Trivy table report (failed run, exit ${rc}):"
       cat "${output}" >&2 || true
     fi
 
-    log "Error executing 'trivy' (exit ${rc})."
-    [[ -f "${output}" ]] || log "Report not found: ${output}"
+    log_err "Error executing 'trivy' (exit ${rc})."
+    [[ -f "${output}" ]] || log_warn "Report not found: ${output}"
     return ${rc}
   fi
 
   # Verifica se o relatório foi gerado e não está vazio.
   if [[ ! -s "${output}" ]]; then
-    log "Report is empty or not generated: ${output}"
+    log_warn "Report is empty or not generated: ${output}"
     return 1
   fi
 
@@ -905,20 +927,20 @@ do_dockerfile_lint() {
   # Avalia resultado do hadolint
   case ${rc} in
     0)
-      log "Dockerfile OK - no issues found."
+      log_ok "Dockerfile OK - no issues found."
       ;;
     1)
-      log "Hadolint found issues (details in ${output})."
+      log_warn "Hadolint found issues at or above threshold (details in ${output})."
       ;;
     *)
-      log "Unexpected error running hadolint (exit ${rc})."
+      log_err "Unexpected error running hadolint (exit ${rc})."
       return ${rc}
       ;;
   esac
 
   # Verifica se o relatório foi gerado
   if [[ ! -s "${output}" ]]; then
-    log "Report is empty or not generated: ${output}"
+    log_err "Report is empty or not generated: ${output}"
     return 1
   fi
 
@@ -1054,19 +1076,17 @@ do_full_scan() {
   # Restaurar exit-code e avaliar resultado
   export TRIVY_EXIT_CODE="${orig_exit_code}"
 
+  # Verifica se o exit code original já indica falha, e se sim, aplica gate de falha por severidade em cada relatório individual
   if [[ "${orig_exit_code}" != "0" ]]; then
-    # Revalida vulnerabilidades no scan de imagem para manter semântica de falha
-    if [[ -f "${REPORT_DIR}/trivy-image.json" ]]; then
-      local vuln_count
-      
-      vuln_count=$(jq '[.Results[]?.Vulnerabilities // [] | length] | add // 0' \
-        "${REPORT_DIR}/trivy-image.json")
+    # Iterar sobre os relatórios individuais para aplicar gate de falha por severidade (TRIVY_SEVERITY_FAIL) se aplicável.    
+    for report_file in trivy-image.json trivy-filesystem.json trivy-config.json; do
+      local rpath="${REPORT_DIR}/${report_file}"
 
-      if [[ "${vuln_count}" -gt 0 ]]; then
-        log "WARNING: ${vuln_count} vulnerability(ies) found in image scan."
-        errors=$((errors + 1))
+      # Verifica se o relatório existe e não é vazio antes de tentar aplicar o gate de falha.
+      if [[ -f "${rpath}" && "$(cat "${rpath}")" != "null" ]]; then
+        trivy_failure_gate "json" "${rpath}" "${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}" || errors=$((errors + 1))
       fi
-    fi
+    done
   fi
 
   log ""
@@ -1075,7 +1095,7 @@ do_full_scan() {
   ls -la "${REPORT_DIR}/" >&2
 
   if [[ ${errors} -gt 0 && "${orig_exit_code}" != "0" ]]; then
-    log "Pipeline should fail: ${errors} issue(s) detected."
+    log_err "Pipeline should fail: ${errors} issue(s) detected."
     return 1
   fi
 
