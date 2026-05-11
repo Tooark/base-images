@@ -1672,7 +1672,7 @@ case "$cmd" in
     ;;
 
   send-report|send)
-    file="${1:-$REPORT_DIR/container-report.json}"
+    file="${1:-}"
     send_report "$file"
     ;;
 
