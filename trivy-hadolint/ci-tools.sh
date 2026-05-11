@@ -21,10 +21,10 @@ ci-tools - commands for Trivy and Hadolint
 
 Commands:
   image-scan <image>            - Image scan (vulnerabilities) (aliases: img-scan, is)
-  filesystem-scan <path>         - Filesystem scan (default: $PWD) (aliases: fs-scan, fs)
-  config-scan <path>             - IaC scan (Terraform, K8s YAML, etc.) (aliases: cfg-scan, cs)
+  filesystem-scan <path>        - Filesystem scan (default: $PWD) (aliases: fs-scan, fs)
+  config-scan <path>            - IaC scan (Terraform, K8s YAML, etc.) (aliases: cfg-scan, cs)
   repo-scan <path|url>          - Local or remote repository scan (aliases: rp-scan, rs)
-  dockerfile-lint <Dockerfile>   - Lints Dockerfile with Hadolint (aliases: hadolint, dl)
+  dockerfile-lint <Dockerfile>  - Lints Dockerfile with Hadolint (aliases: hadolint, dl)
   container [options] <image>   - Combined scan: image + source + Dockerfile lint (aliases: ctr)
   send-report <file>            - Sends JSON report via HTTP POST (aliases: send)
   help                          - Show this help (aliases: -h, --help)
@@ -257,6 +257,31 @@ is_true() {
   esac
 }
 
+## Cria arquivo temporário com conteúdo "null" para uso com --slurpfile
+## quando o relatório original não existe ou está vazio.
+_null_json_file() {
+  local null_file="$REPORT_DIR/.null.json"
+  
+  ## Cria o arquivo apenas se não existir
+  if [[ ! -f "$null_file" ]]; then
+    echo "null" > "$null_file"
+  fi
+
+  echo "$null_file"
+}
+
+## Retorna o path do arquivo se existir e não estiver vazio, senão retorna o null file.
+_report_file_or_null() {
+  local file="${1:-}"
+
+  ## Verifica se o arquivo existe e não está vazio
+  if [[ -n "$file" && -f "$file" && -s "$file" ]]; then
+    echo "$file"
+  else
+    _null_json_file
+  fi
+}
+
 ## Flags de integração com Trivy Server
 trivy_server_flags() {
   local output_var="${1:-}"
@@ -355,13 +380,7 @@ trivy_failure_gate() {
     local sev_count
     sev_count=$(jq -r \
       --arg sev "$sev_upper" \
-      '[
-        .Results[]? | (
-          (.Vulnerabilities[]? // empty),
-          (.Misconfigurations[]? // empty),
-          (.Secrets[]? // empty)
-        ) | select(.Severity == $sev)
-      ] | length' \
+      '[ .Results[]? | ((.Vulnerabilities[]? // empty), (.Misconfigurations[]? // empty), (.Secrets[]? // empty)) | select(.Severity == $sev) ] | length' \
       "$output" 2>/dev/null || echo "0")
     vuln_found_count=$((vuln_found_count + sev_count))
   done
@@ -426,6 +445,7 @@ auto_detect_path() {
 
 ## ── Relatório padronizado (ci-tools-report) ───────────────────────────────────
 ## Envolve a saída bruta de uma ferramenta no schema ci-tools-report.
+## Usa --slurpfile para evitar "Argument list too long" em relatórios grandes.
 ## Uso: wrap_ci_report <command> <target> <tool> <raw_report_file> <output_file> [sbom_enabled]
 wrap_ci_report() {
   local command="$1"
@@ -442,11 +462,11 @@ wrap_ci_report() {
     return 0
   fi
 
-  local report_content="null"
-  if [[ -f "$report_file" && -s "$report_file" ]]; then
-    report_content=$(cat "$report_file")
-  fi
+  ## Usa _report_file_or_null para garantir que o arquivo exista
+  local safe_report_file
+  safe_report_file=$(_report_file_or_null "$report_file")
 
+  ## --slurpfile lê do arquivo sem passar pelo ARG_MAX do OS
   jq -n \
     --arg schema "ci-tools-report" \
     --arg version "1.0" \
@@ -455,7 +475,7 @@ wrap_ci_report() {
     --arg target "$target" \
     --arg tool "$tool" \
     --argjson sbom_enabled "$sbom_enabled" \
-    --argjson report "$report_content" \
+    --slurpfile report "$safe_report_file" \
     '{
       schema: $schema,
       version: $version,
@@ -464,7 +484,7 @@ wrap_ci_report() {
       target: $target,
       tool: $tool,
       sbom_enabled: $sbom_enabled,
-      report: $report
+      report: $report[0]
     }' > "$output_file"
 
   log "Wrapped report (ci-tools-report) saved to: $output_file"
@@ -887,7 +907,7 @@ do_filesystem_scan() {
     trivy_failure_gate "$format" "$output" "$fail_severity" || return $?
   fi
 
-  log_ok "Filesystem report saved in: $output"
+  log "Filesystem report saved in: $output"
 
   ## ── SBOM (scan adicional, se habilitado) ──────────────────────────────────
   local sbom_output=""
@@ -1451,7 +1471,9 @@ do_container() {
   fi
 
   ## ── Step: Dockerfile lint ─────────────────────────────────────────────────
-  local lint_reports_json="[]"
+  local lint_reports_file="$REPORT_DIR/.lint-results.json"
+  echo "[]" > "$lint_reports_file"
+
   if ! is_true "$skip_lint"; then
     step=$((step + 1))
     log "-- [$step/$total_steps] Dockerfile lint --"
@@ -1492,15 +1514,15 @@ do_container() {
         local lint_entry
         lint_entry=$(jq -n \
           --arg file "$df" \
-          --argjson report "$(cat "$lint_output")" \
-          '{ file: $file, report: $report }')
+          --slurpfile report "$lint_output" \
+          '{ file: $file, report: $report[0] }')
         lint_results+=("$lint_entry")
       fi
     done <<< "${dockerfiles//,/$'\n'}"
 
-    ## Combina todos os resultados de lint em um array JSON
+    ## Combina todos os resultados de lint em um array JSON (via arquivo)
     if [[ ${#lint_results[@]} -gt 0 ]]; then
-      lint_reports_json=$(printf '%s\n' "${lint_results[@]}" | jq -s '.')
+      printf '%s\n' "${lint_results[@]}" | jq -s '.' > "$lint_reports_file"
     fi
   fi
 
@@ -1509,18 +1531,14 @@ do_container() {
   log ""
   log "-- Consolidating reports --"
 
-  ## Prepara referências para os relatórios (usa null se não existirem)
-  local img_json="null"
-  if [[ -f "$REPORT_DIR/trivy-image.json" && -s "$REPORT_DIR/trivy-image.json" ]]; then
-    img_json=$(cat "$REPORT_DIR/trivy-image.json")
-  fi
+  ## Usa _report_file_or_null para referências seguras (sem ARG_MAX)
+  local img_file
+  img_file=$(_report_file_or_null "$REPORT_DIR/trivy-image.json")
 
-  local source_json="null"
-  if [[ -n "$source_report" && -s "$source_report" ]]; then
-    source_json=$(cat "$source_report")
-  fi
+  local src_file
+  src_file=$(_report_file_or_null "$source_report")
 
-  ## Gera relatório consolidado com schema ci-tools-report
+  ## Gera relatório consolidado com schema ci-tools-report usando --slurpfile
   jq -n \
     --arg schema "ci-tools-report" \
     --arg version "1.0" \
@@ -1532,9 +1550,9 @@ do_container() {
     --arg path "$scan_path" \
     --arg scan_mode "$scan_mode" \
     --arg dfiles "$dockerfiles" \
-    --argjson img "$img_json" \
-    --argjson source "$source_json" \
-    --argjson lints "$lint_reports_json" \
+    --slurpfile img "$img_file" \
+    --slurpfile source "$src_file" \
+    --slurpfile lints "$lint_reports_file" \
     '{
       schema: $schema,
       version: $version,
@@ -1549,9 +1567,9 @@ do_container() {
         dockerfiles: $dfiles
       },
       results: {
-        image_scan: $img,
-        source_scan: $source,
-        dockerfile_lints: $lints
+        image_scan: $img[0],
+        source_scan: $source[0],
+        dockerfile_lints: $lints[0]
       }
     }' > "$consolidated"
 
@@ -1565,6 +1583,9 @@ do_container() {
     send_sbom_report "$sbom_output"
   fi
 
+  ## ── Limpeza de arquivos temporários ─────────────────────────────────────
+  rm -f "$REPORT_DIR/.null.json" "$lint_reports_file"
+
   ## ── Avaliação final do gate de falha ──────────────────────────────────────
   export TRIVY_EXIT_CODE="$orig_exit_code"
 
@@ -1572,15 +1593,20 @@ do_container() {
     ## Aplica gate de falha por severidade em cada relatório Trivy individual
     for report_file in trivy-image.json trivy-filesystem.json trivy-repo.json; do
       local rpath="$REPORT_DIR/$report_file"
-      if [[ -f "$rpath" && -s "$rpath" ]] && [[ "$(cat "$rpath")" != "null" ]]; then
-        trivy_failure_gate "json" "$rpath" "${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}" || errors=$((errors + 1))
+      if [[ -f "$rpath" && -s "$rpath" ]]; then
+        ## Verifica se o conteúdo não é "null" antes de processar
+        local first_char
+        first_char=$(head -c1 "$rpath")
+        if [[ "$first_char" != "n" ]]; then
+          trivy_failure_gate "json" "$rpath" "${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}" || errors=$((errors + 1))
+        fi
       fi
     done
 
     ## Avalia lint pelo HADOLINT_FAILURE_LEVEL
     if ! is_true "$skip_lint" && [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]]; then
       local lint_error_count
-      lint_error_count=$(echo "$lint_reports_json" | jq '[.[]?.report[]? | select(.level == "error")] | length' 2>/dev/null || echo "0")
+      lint_error_count=$(jq '[.[]?.report[]? | select(.level == "error")] | length' "$lint_reports_file" 2>/dev/null || echo "0")
       if [[ $lint_error_count -gt 0 ]]; then
         log_err "Hadolint failure gate: $lint_error_count error(s) found."
         errors=$((errors + 1))
@@ -1640,7 +1666,7 @@ case "$cmd" in
     ;;
 
   send-report|send)
-    file="${1:-}"
+    file="${1:-$REPORT_DIR/container-report.json}"
     send_report "$file"
     ;;
 
