@@ -47,7 +47,7 @@ LABEL org.opencontainers.image.title="trivy-hadolint" \
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates bash jq git \
+ && apt-get install -y --no-install-recommends ca-certificates bash jq git curl \
  && update-ca-certificates
 
 # Garante shell mais estrita
@@ -59,6 +59,10 @@ COPY --from=trivy_src --chmod=0755 /usr/local/bin/trivy /usr/local/bin/trivy
 
 # Copia o wrapper CLI
 COPY --chmod=0755 ci-tools.sh /usr/local/bin/ci-tools
+
+# Remove carriage returns (CR) e BOM (Byte Order Mark) para evitar problemas de execução em ambientes Unix/Linux
+RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/ci-tools \
+ && sed -i 's/\r$//' /usr/local/bin/ci-tools
 
 # Usuário não-root
 RUN adduser --disabled-password --gecos "" app || useradd -m -s /bin/sh app \
