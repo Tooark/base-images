@@ -88,6 +88,7 @@ docker run --rm ghcr.io/tooark/sonar-scanner:latest java -version
 ```bash
 docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools version
 docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools image-scan nginx:latest
+docker run --rm -v "$PWD":/workspace ghcr.io/tooark/trivy-hadolint:latest ci-tools container nginx:latest --path /workspace
 ```
 
 ## 2) GitHub Actions

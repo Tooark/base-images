@@ -79,3 +79,9 @@ jobs:
         run: docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools version
       - name: image scan sample
         run: docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools image-scan nginx:latest
+      - name: container scan sample
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            ghcr.io/tooark/trivy-hadolint:latest \
+            ci-tools container nginx:latest --path /workspace

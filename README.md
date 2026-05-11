@@ -51,6 +51,7 @@ Quando o script `update-versions.py` detecta uma nova versão de ferramenta, ele
 | `terraform-gcloud`     | `terraform` + `gcloud-cli`             |
 | `terraform-aws-gcloud` | `terraform` + `aws-cli` + `gcloud-cli` |
 | `trivy-hadolint`       | `trivy` + `hadolint`                   |
+| `trivy-hadolint`       | `trivy` + `hadolint`                   |
 
 > Exemplo: se apenas `GCLOUD_VERSION` muda, o `.trivyignore` de `gcloud-cli/` é limpo. O `.trivyignore` de `terraform-gcloud/` é reconstruído apenas com o conteúdo de `terraform/.trivyignore` (gcloud agora está vazio).
 

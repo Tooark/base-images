@@ -380,7 +380,13 @@ trivy_failure_gate() {
     local sev_count
     sev_count=$(jq -r \
       --arg sev "$sev_upper" \
-      '[ .Results[]? | ((.Vulnerabilities[]? // empty), (.Misconfigurations[]? // empty), (.Secrets[]? // empty)) | select(.Severity == $sev) ] | length' \
+      '[
+        .Results[]? | (
+          (.Vulnerabilities[]? // empty),
+          (.Misconfigurations[]? // empty),
+          (.Secrets[]? // empty)
+        ) | select(.Severity == $sev)
+      ] | length' \
       "$output" 2>/dev/null || echo "0")
     vuln_found_count=$((vuln_found_count + sev_count))
   done
