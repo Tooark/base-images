@@ -255,8 +255,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/workspace:ro" \
             -w /workspace \
             --group-add "$DOCKER_GID" \
-            -e TRIVY_FORMAT="json" \
-            -e TRIVY_EXIT_CODE=0 \
+            -e TRIVY_FORMAT="table" \
             "${DOCKER_IGNORE_ARGS[@]}" \
             "$TRIVY_SCANNER_IMAGE" \
             image-scan "$SCAN_IMAGE"
