@@ -722,8 +722,15 @@ do_image_scan() {
   ## Verifica se o comando 'trivy' está disponível
   require_command trivy || return 127
 
-  local output="${TRIVY_OUTPUT:-$REPORT_DIR/trivy-image.json}"
   local format="${TRIVY_FORMAT:-json}"
+  ## Arquivo JSON interno: sempre usado para gate, wrap e relatório padronizado.
+  ## Quando TRIVY_FORMAT é JSON, respeita TRIVY_OUTPUT; caso contrário, usa o path padrão.
+  local json_output
+  if [[ "$format" == "json" ]]; then
+    json_output="${TRIVY_OUTPUT:-$REPORT_DIR/trivy-image.json}"
+  else
+    json_output="$REPORT_DIR/trivy-image.json"
+  fi
   local report_severity="${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}"
   local fail_severity="${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}"
   local fail_exit_code="${TRIVY_EXIT_CODE:-1}"
@@ -735,52 +742,59 @@ do_image_scan() {
   local rc=0
   trivy image \
     "${trivy_flags[@]}" \
-    --format "$format" \
-    --output "$output" \
+    --format json \
+    --output "$json_output" \
     "$@" \
     "$image" || rc=$?
 
   ## Fallback para scan local se o servidor falhar e TRIVY_SERVER_REQUIRED não for true.
-  if [[ $rc -ne 0 && -n "${TRIVY_SERVER:-}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" && [[ ! -s "$output" ]]; then
+  if [[ $rc -ne 0 && -n "${TRIVY_SERVER:-}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" && [[ ! -s "$json_output" ]]; then
     log_warn "Trivy server scan failed (exit $rc); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
     local local_flags=()
     trivy_common_flags local_flags false "$report_severity" "0" || return $?
     rc=0
     trivy image \
       "${local_flags[@]}" \
-      --format "$format" \
-      --output "$output" \
+      --format json \
+      --output "$json_output" \
       "$@" \
       "$image" || rc=$?
   fi
 
   ## Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ $rc -ne 0 ]]; then
-    if [[ "$format" == "table" && -f "$output" ]]; then
-      log_warn "Trivy table report (failed run, exit $rc):"
-      cat "$output" >&2 || true
+    if [[ -f "$json_output" && -s "$json_output" ]]; then
+      log_warn "Trivy report (failed run, exit $rc):"
+      cat "$json_output" >&2 || true
     fi
     log_err "Trivy scan failed with exit code $rc."
   fi
 
   ## Verifica se o relatório foi gerado e não está vazio.
-  if [[ ! -s "$output" ]]; then
-    log_warn "Report is empty or not generated: $output"
+  if [[ ! -s "$json_output" ]]; then
+    log_warn "Report is empty or not generated: $json_output"
     return 1
   fi
 
-  ## Se o relatório for table, imprime no log para facilitar análise.
-  if [[ "$format" == "table" ]]; then
-    log "Trivy table report (severity=$report_severity):"
-    cat "$output" >&2
+  ## Exibe relatório em formato solicitado se diferente de JSON (usa trivy convert).
+  if [[ "$format" != "json" ]]; then
+    log "Trivy $format report (severity=$report_severity):"
+    if [[ -n "${TRIVY_OUTPUT:-}" ]]; then
+      trivy convert --format "$format" --output "$TRIVY_OUTPUT" "$json_output" 2>/dev/null || \
+        log_warn "Could not convert report to '$format' format."
+      cat "$TRIVY_OUTPUT" >&2 2>/dev/null || true
+    else
+      trivy convert --format "$format" "$json_output" >&2 2>/dev/null || \
+        log_warn "Could not convert report to '$format' format."
+    fi
   fi
 
   ## Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
   if [[ "$fail_exit_code" != "0" ]]; then
-    trivy_failure_gate "$format" "$output" "$fail_severity" || return $?
+    trivy_failure_gate "json" "$json_output" "$fail_severity" || return $?
   fi
 
-  log "Image report saved in: $output"
+  log "Image report saved in: $json_output"
 
   ## ── SBOM (scan adicional, se habilitado) ──────────────────────────────────
   local sbom_output=""
@@ -791,7 +805,7 @@ do_image_scan() {
 
   ## ── Relatório padronizado (ci-tools-report) ───────────────────────────────
   local wrapped_report="$REPORT_DIR/ci-tools-report-image-scan.json"
-  wrap_ci_report "image-scan" "$image" "trivy" "$output" "$wrapped_report" "$sbom_enabled"
+  wrap_ci_report "image-scan" "$image" "trivy" "$json_output" "$wrapped_report" "$sbom_enabled"
 
   ## ── Envio de relatórios ───────────────────────────────────────────────────
   if is_true "${REPORT_SEND_EACH_SCAN:-false}"; then
@@ -801,7 +815,7 @@ do_image_scan() {
     fi
   fi
 
-  echo "$output"
+  echo "$json_output"
 }
 
 ## ── Scan de filesystem ────────────────────────────────────────────────────────
@@ -855,8 +869,15 @@ do_filesystem_scan() {
   ## Verifica se o comando 'trivy' está disponível
   require_command trivy || return 127
 
-  local output="${TRIVY_OUTPUT:-$REPORT_DIR/trivy-filesystem.json}"
   local format="${TRIVY_FORMAT:-json}"
+  ## Arquivo JSON interno: sempre usado para gate, wrap e relatório padronizado.
+  ## Quando TRIVY_FORMAT é JSON, respeita TRIVY_OUTPUT; caso contrário, usa o path padrão.
+  local json_output
+  if [[ "$format" == "json" ]]; then
+    json_output="${TRIVY_OUTPUT:-$REPORT_DIR/trivy-filesystem.json}"
+  else
+    json_output="$REPORT_DIR/trivy-filesystem.json"
+  fi
   local report_severity="${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}"
   local fail_severity="${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}"
   local fail_exit_code="${TRIVY_EXIT_CODE:-1}"
@@ -868,52 +889,59 @@ do_filesystem_scan() {
   local rc=0
   trivy filesystem \
     "${trivy_flags[@]}" \
-    --format "$format" \
-    --output "$output" \
+    --format json \
+    --output "$json_output" \
     "$@" \
     "$target" || rc=$?
 
   ## Fallback para scan local se o servidor falhar e TRIVY_SERVER_REQUIRED não for true.
-  if [[ $rc -ne 0 && -n "${TRIVY_SERVER:-}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" && [[ ! -s "$output" ]]; then
+  if [[ $rc -ne 0 && -n "${TRIVY_SERVER:-}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" && [[ ! -s "$json_output" ]]; then
     log_warn "Trivy server scan failed (exit $rc); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
     local local_flags=()
     trivy_common_flags local_flags false "$report_severity" "0" || return $?
     rc=0
     trivy filesystem \
       "${local_flags[@]}" \
-      --format "$format" \
-      --output "$output" \
+      --format json \
+      --output "$json_output" \
       "$@" \
       "$target" || rc=$?
   fi
 
   ## Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ $rc -ne 0 ]]; then
-    if [[ "$format" == "table" && -f "$output" ]]; then
-      log_warn "Trivy table report (failed run, exit $rc):"
-      cat "$output" >&2 || true
+    if [[ -f "$json_output" && -s "$json_output" ]]; then
+      log_warn "Trivy report (failed run, exit $rc):"
+      cat "$json_output" >&2 || true
     fi
     log_err "Trivy scan failed with exit code $rc."
   fi
 
   ## Verifica se o relatório foi gerado e não está vazio.
-  if [[ ! -s "$output" ]]; then
-    log_warn "Report is empty or not generated: $output"
+  if [[ ! -s "$json_output" ]]; then
+    log_warn "Report is empty or not generated: $json_output"
     return 1
   fi
 
-  ## Se o relatório for table, imprime no log para facilitar análise.
-  if [[ "$format" == "table" ]]; then
-    log "Trivy table report (severity=$report_severity):"
-    cat "$output" >&2
+  ## Exibe relatório em formato solicitado se diferente de JSON (usa trivy convert).
+  if [[ "$format" != "json" ]]; then
+    log "Trivy $format report (severity=$report_severity):"
+    if [[ -n "${TRIVY_OUTPUT:-}" ]]; then
+      trivy convert --format "$format" --output "$TRIVY_OUTPUT" "$json_output" 2>/dev/null || \
+        log_warn "Could not convert report to '$format' format."
+      cat "$TRIVY_OUTPUT" >&2 2>/dev/null || true
+    else
+      trivy convert --format "$format" "$json_output" >&2 2>/dev/null || \
+        log_warn "Could not convert report to '$format' format."
+    fi
   fi
 
   ## Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
   if [[ "$fail_exit_code" != "0" ]]; then
-    trivy_failure_gate "$format" "$output" "$fail_severity" || return $?
+    trivy_failure_gate "json" "$json_output" "$fail_severity" || return $?
   fi
 
-  log "Filesystem report saved in: $output"
+  log "Filesystem report saved in: $json_output"
 
   ## ── SBOM (scan adicional, se habilitado) ──────────────────────────────────
   local sbom_output=""
@@ -924,7 +952,7 @@ do_filesystem_scan() {
 
   ## ── Relatório padronizado (ci-tools-report) ───────────────────────────────
   local wrapped_report="$REPORT_DIR/ci-tools-report-filesystem-scan.json"
-  wrap_ci_report "filesystem-scan" "$target" "trivy" "$output" "$wrapped_report" "$sbom_enabled"
+  wrap_ci_report "filesystem-scan" "$target" "trivy" "$json_output" "$wrapped_report" "$sbom_enabled"
 
   ## ── Envio de relatórios ───────────────────────────────────────────────────
   if is_true "${REPORT_SEND_EACH_SCAN:-false}"; then
@@ -934,7 +962,7 @@ do_filesystem_scan() {
     fi
   fi
 
-  echo "$output"
+  echo "$json_output"
 }
 
 ## ── Scan de configuração (IaC) ────────────────────────────────────────────────
@@ -968,8 +996,15 @@ do_config_scan() {
   ## Verifica se o comando 'trivy' está disponível
   require_command trivy || return 127
 
-  local output="${TRIVY_OUTPUT:-$REPORT_DIR/trivy-config.json}"
   local format="${TRIVY_FORMAT:-json}"
+  ## Arquivo JSON interno: sempre usado para gate, wrap e relatório padronizado.
+  ## Quando TRIVY_FORMAT é JSON, respeita TRIVY_OUTPUT; caso contrário, usa o path padrão.
+  local json_output
+  if [[ "$format" == "json" ]]; then
+    json_output="${TRIVY_OUTPUT:-$REPORT_DIR/trivy-config.json}"
+  else
+    json_output="$REPORT_DIR/trivy-config.json"
+  fi
   local report_severity="${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}"
   local fail_severity="${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}"
   local fail_exit_code="${TRIVY_EXIT_CODE:-1}"
@@ -981,63 +1016,70 @@ do_config_scan() {
   local rc=0
   trivy config \
     "${trivy_flags[@]}" \
-    --format "$format" \
-    --output "$output" \
+    --format json \
+    --output "$json_output" \
     "$@" \
     "$target" || rc=$?
 
   ## Fallback para scan local se o servidor falhar e TRIVY_SERVER_REQUIRED não for true.
-  if [[ $rc -ne 0 && -n "${TRIVY_SERVER:-}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" && [[ ! -s "$output" ]]; then
+  if [[ $rc -ne 0 && -n "${TRIVY_SERVER:-}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" && [[ ! -s "$json_output" ]]; then
     log_warn "Trivy server scan failed (exit $rc); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
     local local_flags=()
     trivy_common_flags local_flags false "$report_severity" "0" || return $?
     rc=0
     trivy config \
       "${local_flags[@]}" \
-      --format "$format" \
-      --output "$output" \
+      --format json \
+      --output "$json_output" \
       "$@" \
       "$target" || rc=$?
   fi
 
   ## Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ $rc -ne 0 ]]; then
-    if [[ "$format" == "table" && -f "$output" ]]; then
-      log_warn "Trivy table report (failed run, exit $rc):"
-      cat "$output" >&2 || true
+    if [[ -f "$json_output" && -s "$json_output" ]]; then
+      log_warn "Trivy report (failed run, exit $rc):"
+      cat "$json_output" >&2 || true
     fi
     log_err "Trivy scan failed with exit code $rc."
   fi
 
   ## Verifica se o relatório foi gerado e não está vazio.
-  if [[ ! -s "$output" ]]; then
-    log_warn "Report is empty or not generated: $output"
+  if [[ ! -s "$json_output" ]]; then
+    log_warn "Report is empty or not generated: $json_output"
     return 1
   fi
 
-  ## Se o relatório for table, imprime no log para facilitar análise.
-  if [[ "$format" == "table" ]]; then
-    log "Trivy table report (severity=$report_severity):"
-    cat "$output" >&2
+  ## Exibe relatório em formato solicitado se diferente de JSON (usa trivy convert).
+  if [[ "$format" != "json" ]]; then
+    log "Trivy $format report (severity=$report_severity):"
+    if [[ -n "${TRIVY_OUTPUT:-}" ]]; then
+      trivy convert --format "$format" --output "$TRIVY_OUTPUT" "$json_output" 2>/dev/null || \
+        log_warn "Could not convert report to '$format' format."
+      cat "$TRIVY_OUTPUT" >&2 2>/dev/null || true
+    else
+      trivy convert --format "$format" "$json_output" >&2 2>/dev/null || \
+        log_warn "Could not convert report to '$format' format."
+    fi
   fi
 
   ## Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
   if [[ "$fail_exit_code" != "0" ]]; then
-    trivy_failure_gate "$format" "$output" "$fail_severity" || return $?
+    trivy_failure_gate "json" "$json_output" "$fail_severity" || return $?
   fi
 
-  log "Config report saved in: $output"
+  log "Config report saved in: $json_output"
 
   ## ── Relatório padronizado (ci-tools-report) ───────────────────────────────
   local wrapped_report="$REPORT_DIR/ci-tools-report-config-scan.json"
-  wrap_ci_report "config-scan" "$target" "trivy" "$output" "$wrapped_report" "false"
+  wrap_ci_report "config-scan" "$target" "trivy" "$json_output" "$wrapped_report" "false"
 
   ## ── Envio de relatórios ───────────────────────────────────────────────────
   if is_true "${REPORT_SEND_EACH_SCAN:-false}"; then
     send_report "$wrapped_report"
   fi
 
-  echo "$output"
+  echo "$json_output"
 }
 
 ## ── Scan de repositório ──────────────────────────────────────────────────────
@@ -1070,8 +1112,15 @@ do_repo_scan() {
 
   require_command trivy || return 127
 
-  local output="${TRIVY_OUTPUT:-$REPORT_DIR/trivy-repo.json}"
   local format="${TRIVY_FORMAT:-json}"
+  ## Arquivo JSON interno: sempre usado para gate, wrap e relatório padronizado.
+  ## Quando TRIVY_FORMAT é JSON, respeita TRIVY_OUTPUT; caso contrário, usa o path padrão.
+  local json_output
+  if [[ "$format" == "json" ]]; then
+    json_output="${TRIVY_OUTPUT:-$REPORT_DIR/trivy-repo.json}"
+  else
+    json_output="$REPORT_DIR/trivy-repo.json"
+  fi
   local report_severity="${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}"
   local fail_severity="${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}"
   local fail_exit_code="${TRIVY_EXIT_CODE:-1}"
@@ -1083,63 +1132,70 @@ do_repo_scan() {
   local rc=0
   trivy repo \
     "${trivy_flags[@]}" \
-    --format "$format" \
-    --output "$output" \
+    --format json \
+    --output "$json_output" \
     "$@" \
     "$target" || rc=$?
 
   ## Fallback para scan local se o servidor falhar e TRIVY_SERVER_REQUIRED não for true.
-  if [[ $rc -ne 0 && -n "${TRIVY_SERVER:-}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" && [[ ! -s "$output" ]]; then
+  if [[ $rc -ne 0 && -n "${TRIVY_SERVER:-}" ]] && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" && [[ ! -s "$json_output" ]]; then
     log_warn "Trivy server scan failed (exit $rc); trying local fallback (TRIVY_SERVER_REQUIRED=false)."
     local local_flags=()
     trivy_common_flags local_flags false "$report_severity" "0" || return $?
     rc=0
     trivy repo \
       "${local_flags[@]}" \
-      --format "$format" \
-      --output "$output" \
+      --format json \
+      --output "$json_output" \
       "$@" \
       "$target" || rc=$?
   fi
 
   ## Verifica o resultado do scan (servidor ou local) e decide se falha ou continua.
   if [[ $rc -ne 0 ]]; then
-    if [[ "$format" == "table" && -f "$output" ]]; then
-      log_warn "Trivy table report (failed run, exit $rc):"
-      cat "$output" >&2 || true
+    if [[ -f "$json_output" && -s "$json_output" ]]; then
+      log_warn "Trivy report (failed run, exit $rc):"
+      cat "$json_output" >&2 || true
     fi
     log_err "Trivy scan failed with exit code $rc."
   fi
 
   ## Verifica se o relatório foi gerado e não está vazio.
-  if [[ ! -s "$output" ]]; then
-    log_warn "Report is empty or not generated: $output"
+  if [[ ! -s "$json_output" ]]; then
+    log_warn "Report is empty or not generated: $json_output"
     return 1
   fi
 
-  ## Se o relatório for table, imprime no log para facilitar análise.
-  if [[ "$format" == "table" ]]; then
-    log "Trivy table report (severity=$report_severity):"
-    cat "$output" >&2
+  ## Exibe relatório em formato solicitado se diferente de JSON (usa trivy convert).
+  if [[ "$format" != "json" ]]; then
+    log "Trivy $format report (severity=$report_severity):"
+    if [[ -n "${TRIVY_OUTPUT:-}" ]]; then
+      trivy convert --format "$format" --output "$TRIVY_OUTPUT" "$json_output" 2>/dev/null || \
+        log_warn "Could not convert report to '$format' format."
+      cat "$TRIVY_OUTPUT" >&2 2>/dev/null || true
+    else
+      trivy convert --format "$format" "$json_output" >&2 2>/dev/null || \
+        log_warn "Could not convert report to '$format' format."
+    fi
   fi
 
   ## Gate de falha por severidade específica (TRIVY_SEVERITY_FAIL).
   if [[ "$fail_exit_code" != "0" ]]; then
-    trivy_failure_gate "$format" "$output" "$fail_severity" || return $?
+    trivy_failure_gate "json" "$json_output" "$fail_severity" || return $?
   fi
 
-  log "Repository report saved in: $output"
+  log "Repository report saved in: $json_output"
 
   ## ── Relatório padronizado (ci-tools-report) ───────────────────────────────
   local wrapped_report="$REPORT_DIR/ci-tools-report-repo-scan.json"
-  wrap_ci_report "repo-scan" "$target" "trivy" "$output" "$wrapped_report" "false"
+  wrap_ci_report "repo-scan" "$target" "trivy" "$json_output" "$wrapped_report" "false"
 
   ## ── Envio de relatórios ───────────────────────────────────────────────────
   if is_true "${REPORT_SEND_EACH_SCAN:-false}"; then
     send_report "$wrapped_report"
   fi
 
-  echo "$output"
+  echo "$json_output"
 }
 
 ## ── Lint de Dockerfile ────────────────────────────────────────────────────────
@@ -1373,15 +1429,15 @@ do_container() {
     step=$((step + 1))
     log "-- [$step/$total_steps] Image scan --"
 
-    local img_output="$REPORT_DIR/trivy-image.json"
     local img_format="${TRIVY_FORMAT:-json}"
+    local img_output="$REPORT_DIR/trivy-image.json"
     local img_flags=()
     trivy_common_flags img_flags true "${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}" "0" || return $?
 
     local img_rc=0
     trivy image \
       "${img_flags[@]}" \
-      --format "$img_format" \
+      --format json \
       --output "$img_output" \
       "${trivy_extras[@]}" \
       "$image" || img_rc=$?
@@ -1394,7 +1450,7 @@ do_container() {
       img_rc=0
       trivy image \
         "${img_local_flags[@]}" \
-        --format "$img_format" \
+        --format json \
         --output "$img_output" \
         "${trivy_extras[@]}" \
         "$image" || img_rc=$?
@@ -1407,6 +1463,17 @@ do_container() {
 
     if [[ -s "$img_output" ]]; then
       img_report="$img_output"
+      if [[ "$img_format" != "json" ]]; then
+        log "Trivy image $img_format report (severity=${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}):"
+        if [[ -n "${TRIVY_OUTPUT:-}" ]]; then
+          trivy convert --format "$img_format" --output "$TRIVY_OUTPUT" "$img_output" 2>/dev/null || \
+            log_warn "Could not convert image report to '$img_format' format."
+          cat "$TRIVY_OUTPUT" >&2 2>/dev/null || true
+        else
+          trivy convert --format "$img_format" "$img_output" >&2 2>/dev/null || \
+            log_warn "Could not convert image report to '$img_format' format."
+        fi
+      fi
     fi
 
     ## SBOM generation (additional pass, if enabled)
@@ -1430,7 +1497,7 @@ do_container() {
     source_output="$REPORT_DIR/trivy-filesystem.json"
     trivy filesystem \
       "${source_flags[@]}" \
-      --format "${TRIVY_FORMAT:-json}" \
+      --format json \
       --output "$source_output" \
       "${trivy_extras[@]}" \
       "$scan_path" || rc=$?
@@ -1438,7 +1505,7 @@ do_container() {
     source_output="$REPORT_DIR/trivy-repo.json"
     trivy repo \
       "${source_flags[@]}" \
-      --format "${TRIVY_FORMAT:-json}" \
+      --format json \
       --output "$source_output" \
       "${trivy_extras[@]}" \
       "$scan_path" || rc=$?
@@ -1453,14 +1520,14 @@ do_container() {
     if [[ "$scan_mode" == "fs" ]]; then
       trivy filesystem \
         "${src_local_flags[@]}" \
-        --format "${TRIVY_FORMAT:-json}" \
+        --format json \
         --output "$source_output" \
         "${trivy_extras[@]}" \
         "$scan_path" || rc=$?
     else
       trivy repo \
         "${src_local_flags[@]}" \
-        --format "${TRIVY_FORMAT:-json}" \
+        --format json \
         --output "$source_output" \
         "${trivy_extras[@]}" \
         "$scan_path" || rc=$?
@@ -1474,6 +1541,17 @@ do_container() {
 
   if [[ -s "$source_output" ]]; then
     source_report="$source_output"
+    if [[ "${TRIVY_FORMAT:-json}" != "json" ]]; then
+      log "Trivy source $scan_mode ${TRIVY_FORMAT:-json} report (severity=${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}):"
+      if [[ -n "${TRIVY_OUTPUT:-}" ]]; then
+        trivy convert --format "${TRIVY_FORMAT:-json}" --output "$TRIVY_OUTPUT" "$source_output" 2>/dev/null || \
+          log_warn "Could not convert source report to '${TRIVY_FORMAT:-json}' format."
+        cat "$TRIVY_OUTPUT" >&2 2>/dev/null || true
+      else
+        trivy convert --format "${TRIVY_FORMAT:-json}" "$source_output" >&2 2>/dev/null || \
+          log_warn "Could not convert source report to '${TRIVY_FORMAT:-json}' format."
+      fi
+    fi
   fi
 
   ## ── Step: Dockerfile lint ─────────────────────────────────────────────────
