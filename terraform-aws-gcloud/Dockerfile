@@ -131,6 +131,7 @@ LABEL org.opencontainers.image.title="terraform-aws-gcloud" \
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
+ && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends ca-certificates bash python3 \
  && update-ca-certificates
 

@@ -47,6 +47,7 @@ LABEL org.opencontainers.image.title="trivy-hadolint" \
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
+ && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends ca-certificates bash jq git curl \
  && update-ca-certificates
 

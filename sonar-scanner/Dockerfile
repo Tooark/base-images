@@ -58,6 +58,7 @@ LABEL org.opencontainers.image.title="sonar-scanner" \
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
+ && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends ca-certificates bash git openjdk-17-jre-headless \
  && update-ca-certificates
 
