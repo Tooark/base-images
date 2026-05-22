@@ -4,13 +4,13 @@
 ARG BASE_IMAGE=debian:12-slim
 
 # Argumento para definir a versão do Trivy e Hadolint (obrigatório)
-ARG TRIVY_HADOLINT_VERSION=2.0.0
+ARG TRIVY_HADOLINT_VERSION
 
 # Argumento para definir a versão do Trivy (obrigatório)
-ARG TRIVY_VERSION=0.67.2
+ARG TRIVY_VERSION
 
 # Argumento para definir a versão do Hadolint (obrigatório)
-ARG HADOLINT_VERSION=2.14.0
+ARG HADOLINT_VERSION
 
 ############################
 # Stage 1: trivy           #
@@ -28,31 +28,37 @@ FROM hadolint/hadolint:v${HADOLINT_VERSION} AS hadolint_src
 # Imagem base de runtime
 FROM ${BASE_IMAGE} AS runtime
 
-# Argumento para definir a versão do Trivy e Hadolint (obrigatório)
+# Re-declara ARGs necessários no escopo do stage final
 ARG TRIVY_HADOLINT_VERSION
 ARG TRIVY_VERSION
 ARG HADOLINT_VERSION
 
-# Metadados da imagem
+# Metadados da imagem (OCI)
 LABEL org.opencontainers.image.title="trivy-hadolint" \
   org.opencontainers.image.description="Base image with integrated Trivy and Hadolint for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${TRIVY_HADOLINT_VERSION}" \
-  org.opencontainers.image.source="https://github.com/Tooark/base-images/trivy-hadolint" \
+  org.opencontainers.image.source="https://github.com/Tooark/base-images/tree/main/trivy-hadolint" \
   io.tooark.trivy.version="${TRIVY_VERSION}" \
   io.tooark.hadolint.version="${HADOLINT_VERSION}"
 
+# Garante shell mais estrita ANTES dos RUN compostos
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Instala dependências mínimas
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get upgrade -y \
- && apt-get install -y --no-install-recommends ca-certificates bash jq git curl \
- && update-ca-certificates
-
-# Garante shell mais estrita
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        bash \
+        jq \
+        git \
+        curl \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copia binários oficiais para o runtime Debian
 COPY --from=hadolint_src --chmod=0755 /bin/hadolint /usr/local/bin/hadolint
@@ -61,25 +67,32 @@ COPY --from=trivy_src --chmod=0755 /usr/local/bin/trivy /usr/local/bin/trivy
 # Copia o wrapper CLI
 COPY --chmod=0755 ci-tools.sh /usr/local/bin/ci-tools
 
-# Remove carriage returns (CR) e BOM (Byte Order Mark) para evitar problemas de execução em ambientes Unix/Linux
+# Remove carriage returns (CR) e BOM para evitar problemas de execução em Unix/Linux
 RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/ci-tools \
  && sed -i 's/\r$//' /usr/local/bin/ci-tools
 
-# Usuário não-root
-RUN adduser --disabled-password --gecos "" app || useradd -m -s /bin/sh app \
-  && mkdir -p /home/app/.cache/trivy \
-  && chown -R app:app /home/app \
-  && trivy --version > /etc/ci-tools-versions \
-  && hadolint --version >> /etc/ci-tools-versions
+# Cria usuário não-root, prepara diretórios de cache/relatórios e versões
+RUN (adduser --disabled-password --gecos "" app || useradd -m -s /bin/bash app) \
+  && mkdir -p /home/app/.cache/trivy /workspace /reports \
+  && chown -R app:app /home/app /workspace /reports \
+  && trivy --version  > /etc/ci-tools-versions \
+  && hadolint --version >> /etc/ci-tools-versions \
+  && (. /etc/os-release && echo "base: ${PRETTY_NAME}") >> /etc/ci-tools-versions
 
-# Desabilita healthcheck para evitar falhas em ambientes que não suportam
+# Desabilita healthcheck (imagem de CLI, não é serviço)
 HEALTHCHECK NONE
 
-# Define o usuário não-root para execução
+# Usuário não-root para execução
 USER app
 
-# Variável de ambiente para cache do Trivy
-ENV TRIVY_CACHE_DIR=/home/app/.cache/trivy
+# Diretório de trabalho default = /workspace
+# Isso evita o erro comum de escanear "/" do container quando alguém roda
+# `filesystem-scan` sem path explícito.
+WORKDIR /workspace
+
+# Variáveis de ambiente padrão
+ENV TRIVY_CACHE_DIR=/home/app/.cache/trivy \
+    REPORT_DIR=/reports
 
 # EntryPoint para comandos amigáveis
 ENTRYPOINT ["/usr/local/bin/ci-tools"]
