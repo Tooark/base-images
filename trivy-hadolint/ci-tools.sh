@@ -20,68 +20,65 @@ usage() {
 ci-tools - commands for Trivy and Hadolint
 
 Commands:
-  image-scan <image>            - Image scan (vulnerabilities) (aliases: img-scan, is)
-  filesystem-scan <path>        - Filesystem scan (default: $PWD) (aliases: fs-scan, fs)
-  config-scan <path>            - IaC scan (Terraform, K8s YAML, etc.) (aliases: cfg-scan, cs)
-  repo-scan <path|url>          - Local or remote repository scan (aliases: rp-scan, rs)
-  dockerfile-lint <Dockerfile>  - Lints Dockerfile with Hadolint (aliases: hadolint, dl)
-  container [options] <image>   - Combined scan: image + source + Dockerfile lint (aliases: ctr)
-  send-report <file>            - Sends JSON report via HTTP POST (aliases: send)
-  help                          - Show this help (aliases: -h, --help)
+  image-scan <image>            Image scan (vulnerabilities)            [aliases: img-scan, is]
+  filesystem-scan <path>        Filesystem scan (default: /workspace)   [aliases: fs-scan, fs]
+  config-scan <path>            IaC scan (Terraform, K8s YAML, etc.)    [aliases: cfg-scan, cs]
+  repo-scan <path|url>          Local or remote repository scan         [aliases: rp-scan, rs]
+  dockerfile-lint <Dockerfile>  Lints Dockerfile with Hadolint          [aliases: hadolint, dl]
+  container [options] <image>   image + source + Dockerfile lint        [aliases: ctr]
+  send-report <file>            Sends JSON report via HTTP POST         [aliases: send]
+  version                       Show versions                           [aliases: -v, --version]
+  help                          Show this help                          [aliases: -h, --help]
 
-Configuration variables:
+Trivy environment variables:
   TRIVY_SEVERITY         (default: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL")
   TRIVY_SEVERITY_FAIL    (default: "HIGH,CRITICAL")
   TRIVY_EXIT_CODE        (default: "1" - pipeline fails on vulnerabilities)
   TRIVY_IGNORE_UNFIXED   (default: "true")
-  TRIVY_FORMAT           (ex: "json", "sarif", "table")
-  TRIVY_OUTPUT           (ex: "trivy.sarif")
-  TRIVY_TIMEOUT          (ex: "5m")
-  TRIVY_SCANNERS         (ex: "vuln,secret,misconfig")
-  TRIVY_TOKEN            (token for Trivy server auth; set TRIVY_TOKEN env var
-                          directly — Trivy reads it natively. Use TRIVY_TOKEN_AS_FLAG=true
-                          only if your setup requires the --token CLI flag)
-  TRIVY_TOKEN_AS_FLAG    (default: "false"; when true, send token via --token flag)
-  TRIVY_SERVER_REQUIRED  (default: "false"; when true, do not fallback to local scan)
-  TRIVY_SERVER           (ex: "http://trivy-server:4954")
-  SBOM_FORMAT            (default: "cyclonedx" | "spdx-json", used with --sbom)
+  TRIVY_FORMAT           (e.g. "json", "sarif", "table")
+  TRIVY_OUTPUT           (e.g. "trivy.sarif")
+  TRIVY_TIMEOUT          (e.g. "5m")
+  TRIVY_SCANNERS         (e.g. "vuln,secret,misconfig,license")
+  TRIVY_IGNOREFILE       path to .trivyignore (auto-detect: /.trivyignore or ./.trivyignore)
+  TRIVY_SERVER           Trivy server endpoint (optional)
+  TRIVY_TOKEN            auth token (env-only by default)
+  TRIVY_TOKEN_AS_FLAG    (default: "false")
+  TRIVY_SERVER_REQUIRED  (default: "false")  No fallback when true
+  SBOM_FORMAT            (default: "cyclonedx" | "spdx-json")
   SBOM_OUTPUT            (default: output file when --sbom is enabled)
-  HADOLINT_CONFIG        (ex: ".hadolint.yaml")
-  HADOLINT_FAILURE_LEVEL (ex: "warning" | "error")
-  REPORT_DIR             (default: "/tmp/ci-reports")
 
-Variables for container command:
-  CONTAINER_PATH         (default: auto-detect CI env or $PWD)
-  CONTAINER_DOCKERFILES  (default: "Dockerfile") Comma-separated list
-  CONTAINER_SCAN_MODE    (default: "fs" | "repo")
-  CONTAINER_SKIP_IMAGE   (default: "false")
-  CONTAINER_SKIP_LINT    (default: "false")
+Hadolint environment variables:
+  HADOLINT_CONFIG        path to .hadolint.yaml
+  HADOLINT_FORMAT        (default: "json")
+  HADOLINT_FAILURE_LEVEL (e.g. "warning", "error")
+  HADOLINT_OUTPUT        hadolint output file path
 
-Variables for sending reports (webhook):
-  REPORT_URL             (required for send-report) One or more URLs separated by
-                          comma (ex: "https://hook1/api,https://hook2/api")
-  REPORT_TOKEN           (optional) Bearer token for authentication
-  REPORT_HEADERS         (optional) Extra headers, format "Key: Value" per line
-  REPORT_METHOD          (default: "POST") HTTP method
-  REPORT_FAIL_ON_ERROR   (default: "false") Fail the pipeline if sending fails
-  REPORT_SEND_EACH_SCAN  (default: "false") Send report after each individual scan
+Container command variables:
+  CONTAINER_PATH         project path (default: auto-detect or $PWD)
+  CONTAINER_DOCKERFILES  comma-separated list (default: "Dockerfile")
+  CONTAINER_SCAN_MODE    "fs" or "repo" (default: "fs")
+  CONTAINER_SKIP_IMAGE   "true" to skip image scan
+  CONTAINER_SKIP_LINT    "true" to skip Dockerfile lint
 
-Variables for sending SBOM reports (webhook override):
-  REPORT_SBOM_URL           (optional) Override URL(s) for SBOM reports
-                              Falls back to REPORT_URL if not set
-  REPORT_SBOM_TOKEN         (optional) Override Bearer token for SBOM endpoint
-                              Falls back to REPORT_TOKEN if not set
-  REPORT_SBOM_HEADERS       (optional) Override extra headers for SBOM endpoint
-                              Falls back to REPORT_HEADERS if not set
-  REPORT_SBOM_METHOD        (optional) Override HTTP method for SBOM endpoint
-                              Falls back to REPORT_METHOD if not set
-  REPORT_SBOM_FAIL_ON_ERROR (optional) Override fail behavior for SBOM sending
-                              Falls back to REPORT_FAIL_ON_ERROR if not set
+Webhook (report send):
+  REPORT_URL             comma-separated URLs (required for send-report)
+  REPORT_TOKEN           Bearer token
+  REPORT_HEADERS         extra headers (one per line)
+  REPORT_METHOD          (default: "POST")
+  REPORT_FAIL_ON_ERROR   (default: "false")
+  REPORT_SEND_EACH_SCAN  (default: "false")
+  REPORT_DIR             (default: "/tmp/ci-reports" or /reports inside image)
+
+Webhook (SBOM-specific overrides):
+  REPORT_SBOM_URL           (optional) if not defined, uses REPORT_URL
+  REPORT_SBOM_TOKEN         (optional) if not defined, uses REPORT_TOKEN
+  REPORT_SBOM_HEADERS       (optional) if not defined, uses REPORT_HEADERS
+  REPORT_SBOM_METHOD        (optional) if not defined, uses REPORT_METHOD
+  REPORT_SBOM_FAIL_ON_ERROR (optional) if not defined, uses REPORT_FAIL_ON_ERROR
 
 Passing extra flags:
   Use "--" to pass additional flags to Trivy/Hadolint.
   Ex.: ci-tools image-scan myimage:tag -- --ignore-unfixed
-
 EOF
 }
 
