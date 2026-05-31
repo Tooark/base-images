@@ -2,7 +2,7 @@
 
 Imagem base com Trivy e Hadolint para uso em pipelines de CI/CD.
 
-A imagem inclui um wrapper CLI (`ci-tools`) para padronizar scans de imagem, filesystem, configuração IaC, repositório e lint de Dockerfile, com suporte a:
+A imagem inclui um wrapper CLI (`ark-tools`) para padronizar scans de imagem, filesystem, configuração IaC, repositório e lint de Dockerfile, com suporte a:
 
 - Relatórios JSON/SARIF/TABLE
 - Geração de SBOM via `image-scan`, `filesystem-scan` e `container`
@@ -27,7 +27,7 @@ A imagem inclui um wrapper CLI (`ci-tools`) para padronizar scans de imagem, fil
 | Base           | `debian:12-slim` (padrão)                           |
 | Trivy          | Instalado como binário em `/usr/local/bin/trivy`    |
 | Hadolint       | Instalado como binário em `/usr/local/bin/hadolint` |
-| Wrapper        | `/usr/local/bin/ci-tools`                           |
+| Wrapper        | `/usr/local/bin/ark-tools`                           |
 | Runtime deps   | `bash`, `curl`, `jq`, `git`, `ca-certificates`      |
 | Usuário padrão | `app` (não-root)                                    |
 | Cache Trivy    | `TRIVY_CACHE_DIR=/home/app/.cache/trivy`            |
@@ -35,15 +35,15 @@ A imagem inclui um wrapper CLI (`ci-tools`) para padronizar scans de imagem, fil
 ## Comandos disponíveis
 
 ```text
-ci-tools help                                                                                        # Exibe ajuda e comandos disponíveis
-ci-tools version                                                                                     # Exibe versões do wrapper, Trivy e Hadolint
-ci-tools image-scan [--sbom[=format]|--sbom-format <format>] <image> [-- <trivy-extra-flags>]        # Scan de imagem Docker
-ci-tools filesystem-scan [--sbom[=format]|--sbom-format <format>] [path] [-- <trivy-extra-flags>]    # Scan de filesystem local
-ci-tools config-scan [path] [-- <trivy-extra-flags>]                                                 # Scan de configuração IaC (Terraform, Kubernetes, etc.)
-ci-tools repo-scan [path|url] [-- <trivy-extra-flags>]                                               # Scan de repositório
-ci-tools dockerfile-lint [Dockerfile] [-- <hadolint-extra-flags>]                                    # Lint de Dockerfile
-ci-tools container [options] <image> [-- <trivy-extra-flags>]                                        # Scan combinado: imagem + fonte + lint de Dockerfile
-ci-tools send-report [file]                                                                          # Envio de relatório via webhook
+ark-tools help                                                                                        # Exibe ajuda e comandos disponíveis
+ark-tools version                                                                                     # Exibe versões do wrapper, Trivy e Hadolint
+ark-tools image-scan [--sbom[=format]|--sbom-format <format>] <image> [-- <trivy-extra-flags>]        # Scan de imagem Docker
+ark-tools filesystem-scan [--sbom[=format]|--sbom-format <format>] [path] [-- <trivy-extra-flags>]    # Scan de filesystem local
+ark-tools config-scan [path] [-- <trivy-extra-flags>]                                                 # Scan de configuração IaC (Terraform, Kubernetes, etc.)
+ark-tools repo-scan [path|url] [-- <trivy-extra-flags>]                                               # Scan de repositório
+ark-tools dockerfile-lint [Dockerfile] [-- <hadolint-extra-flags>]                                    # Lint de Dockerfile
+ark-tools container [options] <image> [-- <trivy-extra-flags>]                                        # Scan combinado: imagem + fonte + lint de Dockerfile
+ark-tools send-report [file]                                                                          # Envio de relatório via webhook
 ```
 
 ## Aliases de comandos
@@ -370,7 +370,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: ci-tools version
+      - name: ark-tools version
         run: docker run --rm ghcr.io/tooark/trivy-hadolint:latest version
       - name: image scan
         run: docker run --rm ghcr.io/tooark/trivy-hadolint:latest image-scan nginx:latest
@@ -441,8 +441,8 @@ security_scan:
   stage: scan
   image: ghcr.io/tooark/trivy-hadolint:latest
   script:
-    - ci-tools version
-    - ci-tools image-scan nginx:latest
+    - ark-tools version
+    - ark-tools image-scan nginx:latest
 ```
 
 ### Exemplo avançado (GitLab CI, container scan + server + webhook + artifacts)
