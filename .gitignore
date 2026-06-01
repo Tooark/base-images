@@ -42,3 +42,4 @@ Thumbs.db
 
 # Json files
 *.json
+!**/schemas/**/*.json

@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tooark:schemas:ark-report-tools:1.1",
+  "title": "ark-report-tools",
+  "description": "Envelope padronizado para relatórios gerados pelo wrapper ark-tools (Trivy + Hadolint).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "timestamp",
+    "command",
+    "target",
+    "tool",
+    "report"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ark-report-tools",
+      "description": "Identificador fixo do envelope."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Versão do envelope (ex.: 1.1)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Momento da geração do relatório (ISO 8601 UTC)."
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "image-scan",
+        "filesystem-scan",
+        "config-scan",
+        "repo-scan",
+        "dockerfile-lint",
+        "container"
+      ],
+      "description": "Comando do ark-tools que gerou o relatório."
+    },
+    "target": {
+      "type": "string",
+      "description": "Alvo do scan (imagem:tag, path local ou URL de repositório)."
+    },
+    "tool": {
+      "type": "string",
+      "description": "Ferramenta geradora.",
+      "examples": [
+        "trivy",
+        "hadolint",
+        "trivy+hadolint"
+      ]
+    },
+    "sbom_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica se SBOM foi solicitado/gerado nesta execução."
+    },
+    "list_all_pkgs": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica se o Trivy foi executado com --list-all-pkgs (inventário completo)."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadados de SCM/CI coletados na execução.",
+      "additionalProperties": true,
+      "properties": {
+        "scm": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "branch": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "commit": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{7,40}$"
+            },
+            "commit_short": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{7,12}$"
+            },
+            "repository": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tag": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "ci": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "platform": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "gitlab",
+                "github",
+                "azure",
+                "bitbucket",
+                "jenkins",
+                null,
+                ""
+              ]
+            },
+            "user": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pipeline_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "job_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "scan_context": {
+          "type": "object",
+          "description": "Contexto adicional (preenchido pelo comando container).",
+          "additionalProperties": true,
+          "properties": {
+            "scan_path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "scan_mode": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "fs",
+                "repo",
+                null,
+                ""
+              ]
+            },
+            "dockerfiles": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "report": {
+      "description": "Payload bruto da ferramenta (Trivy/Hadolint). Estrutura varia por versão.",
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "results": {
+      "description": "Apenas para command=container — agrega sub-relatórios.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "container"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "results": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "image_scan",
+              "source_scan",
+              "dockerfile_lints"
+            ],
+            "properties": {
+              "image_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "source_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "dockerfile_lints": {
+                "type": [
+                  "array",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
