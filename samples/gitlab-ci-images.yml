@@ -76,13 +76,24 @@ sonar_scanner:
 
 trivy_hadolint:
   stage: security
-  image: docker:24
-  services:
-    - docker:24-dind
+  image: ghcr.io/tooark/trivy-hadolint:latest
+  cache:
+    key: trivy-db
+    paths:
+      - .cache/trivy
+  variables:
+    TRIVY_CACHE_DIR: "$CI_PROJECT_DIR/.cache/trivy"
+    REPORT_DIR: "$CI_PROJECT_DIR/scan-reports"
+    TRIVY_SEVERITY: "HIGH,CRITICAL"
+    TRIVY_SEVERITY_FAIL: "HIGH,CRITICAL"
+    TRIVY_IGNORE_UNFIXED: "true"
+    HADOLINT_FAILURE_LEVEL: "warning"
   script:
-    - docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools version
-    - docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools image-scan nginx:latest
-    - docker run --rm
-        -v "$CI_PROJECT_DIR:/workspace"
-        ghcr.io/tooark/trivy-hadolint:latest
-        ci-tools container nginx:latest --path /workspace
+    - ark-tools version
+    - ark-tools image-scan nginx:latest
+    - ark-tools container nginx:latest --path "$CI_PROJECT_DIR"
+  artifacts:
+    when: always
+    paths:
+      - scan-reports/
+    expire_in: 7 days

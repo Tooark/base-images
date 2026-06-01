@@ -75,13 +75,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: ci-tools version
-        run: docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools version
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-cache-${{ runner.os }}
+      - name: ark-tools version
+        run: docker run --rm ghcr.io/tooark/trivy-hadolint:latest ark-tools version
       - name: image scan sample
-        run: docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools image-scan nginx:latest
+        run: |
+          docker run --rm \
+            -v "$HOME/.cache/trivy:/home/app/.cache/trivy" \
+            -v "${{ github.workspace }}/scan-reports:/reports" \
+            -e TRIVY_SEVERITY=HIGH,CRITICAL \
+            -e TRIVY_SEVERITY_FAIL=HIGH,CRITICAL \
+            ghcr.io/tooark/trivy-hadolint:latest \
+            ark-tools image-scan nginx:latest
       - name: container scan sample
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}:/workspace" \
+            -v "${{ github.workspace }}:/workspace:ro" \
+            -v "$HOME/.cache/trivy:/home/app/.cache/trivy" \
+            -v "${{ github.workspace }}/scan-reports:/reports" \
+            -e GITHUB_ACTIONS -e GITHUB_REF_NAME -e GITHUB_SHA \
+            -e GITHUB_REPOSITORY -e GITHUB_ACTOR \
+            -e GITHUB_RUN_ID -e GITHUB_JOB -e GITHUB_SERVER_URL \
+            -e TRIVY_SEVERITY=HIGH,CRITICAL \
+            -e TRIVY_SEVERITY_FAIL=HIGH,CRITICAL \
+            -e TRIVY_IGNORE_UNFIXED=true \
+            -e HADOLINT_FAILURE_LEVEL=warning \
             ghcr.io/tooark/trivy-hadolint:latest \
-            ci-tools container nginx:latest --path /workspace
+            ark-tools container nginx:latest --path /workspace
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-hadolint-reports
+          path: ${{ github.workspace }}/scan-reports/

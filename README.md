@@ -15,7 +15,7 @@ Cada subprojeto possui Dockerfile, versionamento e documentação própria.
 | `terraform-gcloud`     | Terraform + Google Cloud SDK + kubectl                        | [terraform-gcloud/README.md](terraform-gcloud/README.md)         |
 | `terraform-aws-gcloud` | Terraform + AWS CLI v2 + Google Cloud SDK + kubectl           | [terraform-aws-gcloud/README.md](terraform-aws-gcloud/README.md) |
 | `sonar-scanner`        | Sonar Scanner CLI para análises em pipelines CI/CD            | [sonar-scanner/README.md](sonar-scanner/README.md)               |
-| `trivy-hadolint`       | Trivy + Hadolint + wrapper `ci-tools` para scans e relatórios | [trivy-hadolint/README.md](trivy-hadolint/README.md)             |
+| `trivy-hadolint`       | Trivy + Hadolint + wrapper `ark-tools` para scans e relatórios | [trivy-hadolint/README.md](trivy-hadolint/README.md)             |
 | `dockerx`              | Docker CLI + Buildx plugin para build multi-arquitetura       | [dockerx/README.md](dockerx/README.md)                           |
 
 ## Estrutura

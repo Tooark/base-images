@@ -3,13 +3,13 @@
 # Argumento para definir a imagem base
 ARG BASE_IMAGE=debian:12-slim
 
-# Argumento para definir a versão do Trivy e Hadolint (obrigatório)
+# Argumento para definir a versão do Trivy e Hadolint (default; override via --build-arg)
 ARG TRIVY_HADOLINT_VERSION=2.2.0
 
-# Argumento para definir a versão do Trivy (obrigatório)
+# Argumento para definir a versão do Trivy (default; override via --build-arg)
 ARG TRIVY_VERSION=0.67.2
 
-# Argumento para definir a versão do Hadolint (obrigatório)
+# Argumento para definir a versão do Hadolint (default; override via --build-arg)
 ARG HADOLINT_VERSION=2.14.0
 
 ############################
@@ -62,17 +62,20 @@ COPY --from=trivy_src --chmod=0755 /usr/local/bin/trivy /usr/local/bin/trivy
 # Copia o wrapper CLI
 COPY --chmod=0755 ark-tools.sh /usr/local/bin/ark-tools
 
-# Remove carriage returns (CR) e BOM para evitar problemas de execução em Unix/Linux
+# Copia o JSON Schema do envelope ark-report-tools (referência local)
+COPY schemas/ark-report-tools.schema.v1.1.json /usr/local/share/ark-tools/ark-report-tools.schema.v1.1.json
+
+# Remove CR e BOM do wrapper (proteção contra arquivos vindos de Windows)
 RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/ark-tools \
  && sed -i 's/\r$//' /usr/local/bin/ark-tools
 
-# Cria usuário não-root, prepara diretórios de cache/relatórios e versões
+# Cria usuário não-root, prepara diretórios de cache/relatórios e registra versões
 RUN (adduser --disabled-password --gecos "" app || useradd -m -s /bin/bash app) \
-  && mkdir -p /home/app/.cache/trivy /workspace /reports \
-  && chown -R app:app /home/app /workspace /reports \
-  && trivy --version  > /etc/ark-tools-versions \
-  && hadolint --version >> /etc/ark-tools-versions \
-  && (. /etc/os-release && echo "base: ${PRETTY_NAME}") >> /etc/ark-tools-versions
+ && mkdir -p /home/app/.cache/trivy /workspace /reports \
+ && chown -R app:app /home/app /workspace /reports \
+ && trivy --version  > /etc/ark-tools-versions \
+ && hadolint --version >> /etc/ark-tools-versions \
+ && (. /etc/os-release && echo "base: ${PRETTY_NAME}") >> /etc/ark-tools-versions
 
 # Desabilita healthcheck (imagem de CLI, não é serviço)
 HEALTHCHECK NONE
@@ -81,12 +84,13 @@ HEALTHCHECK NONE
 USER app
 
 # Diretório de trabalho default = /workspace
-# Isso evita o erro comum de escanear "/" do container quando`fs` sem path explícito.
+# Evita o erro comum de escanear "/" do container quando `fs` é chamado sem path
 WORKDIR /workspace
 
 # Variáveis de ambiente padrão
 ENV TRIVY_CACHE_DIR=/home/app/.cache/trivy \
-    REPORT_DIR=/reports
+    REPORT_DIR=/reports \
+    ARK_REPORT_SCHEMA=/usr/local/share/ark-tools/ark-report-tools.schema.v1.1.json
 
 # EntryPoint para comandos amigáveis
 ENTRYPOINT ["/usr/local/bin/ark-tools"]

@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# ark-tools - wrapper CLI para Trivy + Hadolint
+# Projeto: https://github.com/Tooark/base-images/tree/main/trivy-hadolint
+# Schema: ark-report-tools v1.1 (envelope padronizado)
+# Licença: MIT
 
 set -euo pipefail
 
@@ -10,7 +14,8 @@ else
 fi
 
 ## --- Diretório de relatórios -------------------------------------------------
-REPORT_DIR="${REPORT_DIR:-/tmp/ark-reports}"
+REPORT_DIR="${REPORT_DIR:-/reports}"
+mkdir -p "$REPORT_DIR" 2>/dev/null || REPORT_DIR="/tmp/ark-reports"
 mkdir -p "$REPORT_DIR"
 
 ## --- Helpers -----------------------------------------------------------------
@@ -23,9 +28,9 @@ log_ok() { echo -e "${GREEN}[ark-tools] $*${NC}" >&2; }
 log_warn() { echo -e "${YELLOW}[ark-tools] $*${NC}" >&2; }
 log_err() { echo -e "${RED}[ark-tools] $*${NC}" >&2; }
 
-## Converte valores para booleano (1, true, True, TRUE, yes, Yes, YES, on, On, ON são true; tudo mais é false)
+## Converte valores para booleano.
 ## Argumentos:
-## $1 value (valor a ser avaliado)
+## $1 value
 is_true() {
   case "${1:-}" in
     1|true|True|TRUE|yes|Yes|YES|on|On|ON)
@@ -37,15 +42,15 @@ is_true() {
   esac
 }
 
-## --- CLI metadata (preenchido por parse_metadata_flags ) ---------------------
+## --- CLI metadata (preenchido por parse_metadata_flags) ----------------------
 CLI_BRANCH=""
 CLI_COMMIT=""
 CLI_USER=""
 CLI_REPOSITORY=""
 CLI_TAG=""
 
-## --- Detecção do path do projeto ---------------------------------------------
-## Detecta o path do projeto a partir de variáveis de ambiente comuns de CI, com fallback para $PWD.
+## --- Detecção de path do projeto ---------------------------------------------
+## Detecta o path do projeto via variáveis comuns de CI, com fallback para /workspace ou $PWD.
 auto_detect_path() {
   if [[ -n "${CI_PROJECT_DIR:-}" ]]; then
     echo "$CI_PROJECT_DIR";
@@ -74,38 +79,34 @@ auto_detect_path() {
   echo "$PWD"
 }
 
-## Verifica se /workspace existe e é um diretório; se sim, usa como padrão, caso contrário usa $PWD.
+## Default seguro para comandos de filesystem.
 default_fs_target() {
   if [[ -d "/workspace" ]]; then
-    echo "/workspace";
+    echo "/workspace"
   else
-    echo "$PWD";
+    echo "$PWD"
   fi
 }
 
-## Verifica se um comando está disponível no PATH; se não, registra um erro e retorna 127.
+## Verifica disponibilidade de comando.
 ## Argumentos:
 ## $1 cmd (nome do comando a verificar)
 require_command() {
   local cmd="${1:-}"
   [[ -z "$cmd" ]] && { log_err "require_command: no command specified"; return 2; }
 
+  ## Verifica se o comando existe no PATH
   if ! command -v "$cmd" >/dev/null 2>&1; then
     log_err "Command '$cmd' not found in PATH."
     return 127
   fi
 }
 
-## --- Relatório Null/Empty para utilizar no --slurpfile -----------------------
+## --- Arquivos auxiliares JSON para --slurpfile ------------------------------
 ## Cria arquivo temporário com conteúdo "null" se não existir o original.
 _null_json_file() {
   local null_file="$REPORT_DIR/.null.json"
-
-  ## Cria o arquivo apenas se não existir
-  if [[ ! -f "$null_file" ]]; then
-    echo "null" > "$null_file"
-  fi
-
+  [[ -f "$null_file" ]] || echo "null" > "$null_file"
   echo "$null_file"
 }
 
@@ -123,38 +124,60 @@ _report_file_or_null() {
   fi
 }
 
-## --- .trivyignore auto-detect ------------------------------------------------
+## --- .trivyignore auto-detect -----------------------------------------------
 ## Verifica se TRIVY_IGNOREFILE está definido e é um arquivo.
 resolve_trivy_ignorefile() {
+  ## Verifica TRIVY_IGNOREFILE primeiro (pode ser absoluto ou relativo ao PWD)
   if [[ -n "${TRIVY_IGNOREFILE:-}" && -f "${TRIVY_IGNOREFILE}" ]]; then
-    echo "${TRIVY_IGNOREFILE}"; return
+    echo "${TRIVY_IGNOREFILE}"
+    return
   fi
 
+  ## Verifica arquivos comuns (ordem de precedência: raiz do FS, PWD)
   [[ -f "/.trivyignore" ]] && { echo "/.trivyignore"; return; }
   [[ -f "$PWD/.trivyignore" ]] && { echo "$PWD/.trivyignore"; return; }
   echo ""
 }
 
-## --- Detecção do --list-all-pkgs ---------------------------------------------
+## --- Detecção de --list-all-pkgs --------------------------------------------
 ## Regras:
-## - TRIVY_ALL_PACKAGES=true (default) e TRIVY_FORMAT=json (default) -> ATIVA
+## - TRIVY_ALL_PACKAGES=true (default) e TRIVY_FORMAT=json -> ATIVA
 ## - TRIVY_ALL_PACKAGES=false -> DESATIVA
-## - TRIVY_FORMAT != json -> DESATIVA (não suportado)
+## - TRIVY_FORMAT != json -> DESATIVA
+## - Apenas comandos image|filesystem|repo usam essa flag (config NÃO suporta)
 should_use_list_all_pkgs() {
   local list_all="${TRIVY_ALL_PACKAGES:-true}"
   local format="${TRIVY_FORMAT:-json}"
 
+  ## Verifica se o valor de list_all é verdadeiro
   if ! is_true "$list_all"; then
-    return 1;
+    return 1
   fi
+
+  ## Verifica se o formato é json
   if [[ "$format" != "json" ]]; then
-    return 1;
+    return 1
   fi
 
   return 0
 }
 
-## --- Server Flags do Trivy ---------------------------------------------------
+## Retorna a flag (ou string vazia) para um comando específico.
+## Argumentos:
+## $1 trivy_cmd (image|filesystem|repo|config)
+trivy_list_all_pkgs_flag() {
+  local cmd="${1:-}"
+
+  ## Aplica regras apenas para comandos que suportam --list-all-pkgs
+  case "$cmd" in
+    image|filesystem|repo)
+      should_use_list_all_pkgs && echo "--list-all-pkgs"
+    ;;
+    *) ;;
+  esac
+}
+
+## --- Server flags do Trivy ---------------------------------------------------
 ## Preenche um array de flags para integração com Trivy Server, se aplicável.
 ## Argumentos:
 ## $1 out_var (nome da variável de array para output, passado por referência)
@@ -193,13 +216,9 @@ trivy_common_flags() {
   local exit_code="${4:-${TRIVY_EXIT_CODE:-1}}"
   local timeout="${TRIVY_TIMEOUT:-10m}"
   local server_flags=()
+  local ignorefile
 
-  ## Validação de argumento obrigatório (output_var)
-  if [[ -z "$output_var" ]]; then
-    log "trivy_common_flags: no output array specified"
-    return 2
-  fi
-
+  [[ -z "$output_var" ]] && { log_err "trivy_common_flags: no output array"; return 2; }
   local -n flags_ref="$output_var"
   flags_ref=()
 
@@ -208,6 +227,9 @@ trivy_common_flags() {
   flags_ref+=( --timeout "$timeout" )
   [[ "${TRIVY_IGNORE_UNFIXED:-true}" == "true" ]] && flags_ref+=( --ignore-unfixed )
   [[ -n "${TRIVY_SCANNERS:-}" ]] && flags_ref+=( --scanners "$TRIVY_SCANNERS" )
+
+  ignorefile="$(resolve_trivy_ignorefile)"
+  [[ -n "$ignorefile" ]] && flags_ref+=( --ignorefile "$ignorefile" )
 
   ## Inclui flags de servidor se aplicável
   trivy_server_flags server_flags "$include_server" || return $?
@@ -227,7 +249,7 @@ trivy_failure_gate() {
 
   ## Verifica se o formato é JSON para análise e se o arquivo existe antes de tentar processar.
   if [[ "$format" != "json" || ! -f "$output" || ! -s "$output" ]]; then
-    log_warn "Warning: Cannot analyze failure gate for non-JSON format. Skipping gate."
+    log_warn "Cannot analyze failure gate for non-JSON format. Skipping gate."
     return 0
   fi
 
@@ -244,7 +266,7 @@ trivy_failure_gate() {
         (.Secrets[]? // empty),
         (.Licenses[]? // empty)
       ) ] as $v
-    | ($slist | map(. as $sev | "\($sev): \($v |  map(select((.Severity // "") | ascii_upcase == $sev)) | length)"))[],
+    | ($slist | map(. as $sev | "\($sev): \($v | map(select((.Severity // "") | ascii_upcase == $sev)) | length)"))[],
       ($slist | map(. as $sev | ($v | map(select((.Severity // "") | ascii_upcase == $sev)) | length)) | add)
   ' "$output" 2>/dev/null || true)
 
@@ -256,11 +278,7 @@ trivy_failure_gate() {
     # última linha é o vuln_found_count; as linhas anteriores são o resumo por severidade
     vuln_found_count=$(printf "%s" "$jq_out" | tail -n1)
     severity_summary=$(printf "%s" "$jq_out" | sed '$d')
-
-    # valida número
-    if ! [[ "$vuln_found_count" =~ ^[0-9]+$ ]]; then
-      vuln_found_count=0
-    fi
+    [[ "$vuln_found_count" =~ ^[0-9]+$ ]] || vuln_found_count=0
   fi
 
   ## Verifica se o resumo por severidade foi gerado.
@@ -281,31 +299,31 @@ trivy_failure_gate() {
 
 ## --- Metadata (SCM + CI) -----------------------------------------------------
 ## Precedência:
-## - CLI flag > env explícita (CI_BRANCH/CI_COMMIT/CI_USER/...) > env nativa do CI > git command > vazio
+## - CLI flag > env explícita (CI_BRANCH/CI_COMMIT/CI_USER/...) > env nativa do CI > git > vazio
 ## Plataformas auto-detectadas:
 ## - GitLab CI, GitHub Actions, Azure DevOps, Bitbucket Pipelines, Jenkins.
 
 ## Detecta metadata plataforma CI
 detect_ci_platform() {
   if [[ -n "${GITLAB_CI:-}" ]]; then
-    echo "gitlab";
-    return;
+    echo "gitlab"
+    return
   fi
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    echo "github";
-    return;
+    echo "github"
+    return
   fi
   if [[ -n "${TF_BUILD:-}" ]]; then
-    echo "azure";
-    return;
+    echo "azure"
+    return
   fi
   if [[ -n "${BITBUCKET_BUILD_NUMBER:-}" ]]; then
-    echo "bitbucket";
-    return;
+    echo "bitbucket"
+    return
   fi
   if [[ -n "${JENKINS_URL:-}" ]]; then
-    echo "jenkins";
-    return;
+    echo "jenkins"
+    return
   fi
   echo ""
 }
@@ -316,6 +334,7 @@ detect_ci_platform() {
 _first_nonempty() {
   local v
 
+  ## Itera sobre os argumentos e retorna o primeiro que não for vazio.
   for v in "$@"; do
     [[ -n "$v" ]] && { echo "$v"; return; }
   done
@@ -333,6 +352,7 @@ _git_value() {
   [[ ! -d "$repo_dir/.git" && ! -f "$repo_dir/.git" ]] && { echo ""; return; }
   command -v git >/dev/null 2>&1 || { echo ""; return; }
 
+  ## Tenta extrair a informação solicitada usando git, redirecionando erros para /dev/null e retornando string vazia em caso de falha.
   case "$what" in
     branch) git -C "$repo_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "" ;;
     commit) git -C "$repo_dir" rev-parse HEAD 2>/dev/null || echo "" ;;
@@ -350,7 +370,12 @@ collect_metadata() {
   platform="$(detect_ci_platform)"
 
   # SCM (branch, commit, repository, tag)
-  local branch commit repository tag
+  local branch=""
+  local commit=""
+  local repository=""
+  local tag=""
+
+  ## Preenche as variáveis de SCM com base na plataforma CI
   case "$platform" in
     gitlab)
       branch="$(_first_nonempty "$CLI_BRANCH" "${CI_BRANCH:-}" "${CI_COMMIT_REF_NAME:-}")"
@@ -399,7 +424,12 @@ collect_metadata() {
   [[ -n "$commit" ]] && commit_short="${commit:0:7}"
 
   # CI (user, pipeline_id, job_id, url)
-  local user pipeline_id job_id url
+  local user=""
+  local pipeline_id=""
+  local job_id=""
+  local url=""
+
+  ## Preenche as variáveis de CI com base na plataforma
   case "$platform" in
     gitlab)
       user="$(_first_nonempty "$CLI_USER" "${CI_USER:-}" "${GITLAB_USER_LOGIN:-}" "${GITLAB_USER_EMAIL:-}")"
@@ -440,6 +470,7 @@ collect_metadata() {
     ;;
   esac
 
+  ## Gera o JSON de metadata usando jq, convertendo strings vazias para null.
   jq -n \
     --arg branch       "$branch" \
     --arg commit       "$commit" \
@@ -471,74 +502,75 @@ collect_metadata() {
     }'
 }
 
-## --- Parse das flags de metadata (compartilhado entre comandos) --------------
+## --- Parse das flags de metadata ---------------------------------------------
+## Esta função PRECISA ser executada no shell pai (não em subshell),
+## pois ela seta CLI_BRANCH/CLI_COMMIT/CLI_USER/CLI_REPOSITORY/CLI_TAG.
 ## Consome as flags reconhecidas (--branch/--commit/--user/--repository/--tag)
-## de $@ e retorna os argumentos restantes via stdout (separados por NUL).
+## Args restantes (não consumidos) ficam disponíveis no array global REMAINING_ARGS.
 ## Uso típico:
-## mapfile -d '' args < <(parse_metadata_flags "$@")
-## set -- "${args[@]}"
-## Argumentos:
-## $1...$n (argumentos a serem processados, incluindo flags de metadata e outros)
+## parse_metadata_flags "$@"
+## set -- "${REMAINING_ARGS[@]}"
+REMAINING_ARGS=()
 parse_metadata_flags() {
-  local remaining=()
+  REMAINING_ARGS=()
 
-  ## Itera sobre os argumentos e extrai as flags de metadata
+  ## Itera sobre os argumentos e processa as flags reconhecidas
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       --branch)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --branch"; return 2; }
-        CLI_BRANCH="${2}";
+        CLI_BRANCH="${2}"
         shift 2
       ;;
       --branch=*)
-        CLI_BRANCH="${1#--branch=}";
+        CLI_BRANCH="${1#--branch=}"
         shift
       ;;
       --commit)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --commit"; return 2; }
-        CLI_COMMIT="${2}";
+        CLI_COMMIT="${2}"
         shift 2
       ;;
       --commit=*)
-        CLI_COMMIT="${1#--commit=}";
+        CLI_COMMIT="${1#--commit=}"
         shift
       ;;
       --user)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --user"; return 2; }
-        CLI_USER="${2}";
+        CLI_USER="${2}"
         shift 2
       ;;
       --user=*)
-        CLI_USER="${1#--user=}";
+        CLI_USER="${1#--user=}"
         shift
       ;;
       --repository|--repo)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --repository"; return 2; }
-        CLI_REPOSITORY="${2}";
+        CLI_REPOSITORY="${2}"
         shift 2
       ;;
       --repository=*|--repo=*)
-        CLI_REPOSITORY="${1#--*=}";
+        CLI_REPOSITORY="${1#--*=}"
         shift
       ;;
       --tag)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --tag"; return 2; }
-        CLI_TAG="${2}";
+        CLI_TAG="${2}"
         shift 2
       ;;
       --tag=*)
-        CLI_TAG="${1#--tag=}";
+        CLI_TAG="${1#--tag=}"
         shift
       ;;
       *)
-        remaining+=("$1");
+        REMAINING_ARGS+=("$1")
         shift
       ;;
     esac
   done
-  printf '%s\0' "${remaining[@]}"
 }
 
+## --- Pós-processamento de scan -----------------------------------------------
 ## Pós-processamento comum após scan Trivy, incluindo geração de SBOM opcional, coleta de metadata e wrapping do relatório no formato ark-report-tools.
 ## Argumentos:
 ## $1 label (label para o relatório, ex: "image-scan", "filesystem-scan", etc)
@@ -565,15 +597,16 @@ _post_scan_artifacts() {
     generate_sbom "$trivy_cmd" "$target" "$sbom_format" "$sbom_output" "$@" || true
   fi
 
-  ## Coleta de metadata SCM + CI
+  ## Define list_all baseado no comando específico
   local list_all="false"
-  should_use_list_all_pkgs && list_all="true"
+  [[ -n "$(trivy_list_all_pkgs_flag "$trivy_cmd")" ]] && list_all="true"
+
   local metadata_json
   metadata_json="$(collect_metadata "$scan_path")"
 
   ## Wrapping do relatório bruto no formato ark-report-tools
-  local wrapped_report="$REPORT_DIR/ark-report-tools-${label}.json"
-  wrap_ci_report "$label" "$target" "trivy" "$json_output" "$wrapped_report" "$sbom_enabled" "$list_all" "$metadata_json"
+  local wrapped_report="$REPORT_DIR/ark-report-${label}.json"
+  wrap_ark_report "$label" "$target" "trivy" "$json_output" "$wrapped_report" "$sbom_enabled" "$list_all" "$metadata_json"
 
   ## Envio do relatório para destino configurado, se aplicável
   if is_true "${REPORT_SEND_EACH_SCAN:-false}"; then
@@ -596,8 +629,8 @@ _post_scan_artifacts() {
 ## $5 output_file
 ## $6 sbom_enabled (true|false)
 ## $7 list_all_pkgs (true|false)
-## $8 metadata_json (string com objeto JSON ou "{}")
-wrap_ci_report() {
+## $8 metadata_json (objeto JSON ou "{}")
+wrap_ark_report() {
   local command="$1"
   local target="$2"
   local tool="$3"
@@ -605,7 +638,8 @@ wrap_ci_report() {
   local output_file="$5"
   local sbom_enabled="${6:-false}"
   local list_all_pkgs="${7:-false}"
-  local metadata_json="${8:-{\}}"
+  local metadata_json="${8:-}"
+  [[ -z "$metadata_json" ]] && metadata_json='{}'
 
   ## Se jq não estiver disponível, copia o relatório bruto como fallback
   if ! command -v jq >/dev/null 2>&1; then
@@ -621,7 +655,7 @@ wrap_ci_report() {
   ## --slurpfile lê do arquivo sem passar pelo ARG_MAX do OS
   jq -n \
     --arg schema "ark-report-tools" \
-    --arg version "1.0" \
+    --arg version "1.1" \
     --arg ts "$(now_iso)" \
     --arg cmd "$command" \
     --arg target "$target" \
@@ -646,7 +680,7 @@ wrap_ci_report() {
   log "Wrapped report (ark-report-tools) saved to: $output_file"
 }
 
-## --- Geração de SBOM (scan adicional) ----------------------------------------
+## --- Geração de SBOM ---------------------------------------------------------
 ## Executa um scan Trivy adicional apenas para gerar o SBOM.
 ## Uso: generate_sbom <trivy_command> <target> <sbom_format> <sbom_output> [extra_flags...]
 ## Argumentos:
@@ -682,7 +716,7 @@ generate_sbom() {
   if [[ $sbom_rc -ne 0 && -n "${TRIVY_SERVER:-}" ]] \
     && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" \
     && [[ ! -s "$sbom_output" ]]; then
-    log_warn "SBOM generation via server failed (exit $sbom_rc); trying local fallback."
+    log_warn "SBOM via server failed (exit $sbom_rc); trying local fallback."
     local local_sbom_flags=()
     [[ -n "${TRIVY_TIMEOUT:-}" ]] && local_sbom_flags+=( --timeout "${TRIVY_TIMEOUT}" )
     sbom_rc=0
@@ -695,15 +729,13 @@ generate_sbom() {
       "$target" || sbom_rc=$?
   fi
 
-  ## Verifica se o comando de geração de SBOM falho.
+  ## Verifica se o comando de geração de SBOM falhou.
   [[ $sbom_rc -ne 0 ]] && { log_warn "SBOM generation failed (exit $sbom_rc)."; return $sbom_rc; }
 
   ## Verifica se o arquivo de SBOM foi gerado e não está vazio.
-  [[ ! -s "$sbom_output" ]] && { log_warn "SBOM report is empty or not generated: $sbom_output"; return 1; }
+  [[ ! -s "$sbom_output" ]] && { log_warn "SBOM empty: $sbom_output"; return 1; }
 
   log_ok "SBOM report saved in: $sbom_output"
-
-  return 0
 }
 
 ## --- Execução genérica de scan Trivy -----------------------------------------
@@ -723,6 +755,11 @@ run_trivy_scan() {
   local report_severity="${TRIVY_SEVERITY:-UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL}"
   trivy_common_flags trivy_flags true "$report_severity" "0" || return $?
 
+  ## Aplica --list-all-pkgs APENAS para comandos que suportam
+  local lap_flag
+  lap_flag="$(trivy_list_all_pkgs_flag "$trivy_cmd")"
+  [[ -n "$lap_flag" ]] && trivy_flags+=( "$lap_flag" )
+
   local rc=0
   trivy "$trivy_cmd" \
     "${trivy_flags[@]}" \
@@ -738,8 +775,8 @@ run_trivy_scan() {
     log_warn "Trivy server scan failed (exit $rc); trying local fallback."
     local local_flags=()
     trivy_common_flags local_flags false "$report_severity" "0" || return $?
+    [[ -n "$lap_flag" ]] && local_flags+=( "$lap_flag" )
     rc=0
-
     trivy "$trivy_cmd" \
       "${local_flags[@]}" \
       --format json \
@@ -837,7 +874,7 @@ convert_report_if_needed() {
   fi
 }
 
-## --- Envio de relatório via HTTP POST ----------------------------------------
+## --- Envio HTTP --------------------------------------------------------------
 ## Função para montar argumentos para curl (headers, token, body), executa curl e verifica retornado.
 ## Argumentos:
 ## $1 file (path do arquivo a ser enviado)
@@ -852,13 +889,9 @@ _send_to_url() {
   local headers="${4:-}"
   local method="${5:-POST}"
 
-  local curl_args=( -s -S -w "\n%{http_code}" -X "$method" )
-  curl_args+=( -H "Content-Type: application/json" )
-
+  local curl_args=( -s -S -w "\n%{http_code}" -X "$method" -H "Content-Type: application/json" )
   ## Token de autenticação
-  if [[ -n "$token" ]]; then
-    curl_args+=( -H "Authorization: Bearer $token" )
-  fi
+  [[ -n "$token" ]] && curl_args+=( -H "Authorization: Bearer $token" )
 
   ## Headers extras (uma linha por header: "Key: Value")
   if [[ -n "$headers" ]]; then
@@ -872,21 +905,22 @@ _send_to_url() {
 
   log "Sending report to $url ..."
   local response
-  response=$(curl "${curl_args[@]}" "$url" 2>&1) || true
-
   local http_code
-  http_code=$(echo "$response" | tail -1)
   local body
+
+  response=$(curl "${curl_args[@]}" "$url" 2>&1) || true
+  http_code=$(echo "$response" | tail -1)
   body=$(echo "$response" | sed '$d')
 
   ## Verifica código HTTP
   if [[ "$http_code" =~ ^2[0-9][0-9]$ ]]; then
     log_ok "Report uploaded successfully (HTTP $http_code)"
     return 0
-  else
-    log_err "Failed to upload report (HTTP $http_code): $body"
-    return 1
   fi
+
+  log_err "Failed to upload report (HTTP $http_code): $body"
+
+  return 1
 }
 
 ## Função genérica de envio de relatório (aceita todos os parâmetros explicitamente)
@@ -941,8 +975,7 @@ _send_report_generic() {
 ## Argumentos:
 ## $1 file (path do arquivo a ser enviado)
 send_report() {
-  local file="${1:-}"
-  _send_report_generic "$file" \
+  _send_report_generic "${1:-}" \
     "${REPORT_URL:-}" \
     "${REPORT_TOKEN:-}" \
     "${REPORT_HEADERS:-}" \
@@ -954,8 +987,7 @@ send_report() {
 ## Argumentos:
 ## $1 file (path do arquivo a ser enviado)
 send_sbom_report() {
-  local file="${1:-}"
-  _send_report_generic "$file" \
+  _send_report_generic "${1:-}" \
     "${REPORT_SBOM_URL:-${REPORT_URL:-}}" \
     "${REPORT_SBOM_TOKEN:-${REPORT_TOKEN:-}}" \
     "${REPORT_SBOM_HEADERS:-${REPORT_HEADERS:-}}" \
@@ -967,24 +999,24 @@ send_sbom_report() {
 ## Exibe a ajuda geral
 usage() {
   cat <<'EOF'
-Ark-Tools - Commands for Security Scanning
+ark-tools - Commands for Security Scanning (Trivy + Hadolint)
 
 Commands:
   image-scan <image>            Image scan (vulnerabilities)            [aliases: img-scan, is]
-  filesystem-scan <path>        Filesystem scan (default: /workspace)   [aliases: fs-scan, fs]
-  config-scan <path>            IaC scan (Terraform, K8s YAML, etc.)    [aliases: cfg-scan, cs]
+  filesystem-scan [path]        Filesystem scan (default: /workspace)   [aliases: fs-scan, fs]
+  config-scan [path]            IaC scan (Terraform, K8s YAML, etc.)    [aliases: cfg-scan, cs]
   repo-scan <path|url>          Local or remote repository scan         [aliases: rp-scan, rs]
-  dockerfile-lint <Dockerfile>  Lints Dockerfile with Hadolint          [aliases: hadolint, dl]
+  dockerfile-lint [Dockerfile]  Lints Dockerfile with Hadolint          [aliases: hadolint, dl]
   container [options] <image>   image + source + Dockerfile lint        [aliases: ctr]
   send-report <file>            Sends JSON report via HTTP POST         [aliases: send]
   version                       Show versions                           [aliases: -v, --version]
   help                          Show this help                          [aliases: -h, --help]
 
-Metadata flags (available in all scan commands):
+Metadata flags (all scan commands):
   --branch <name>      SCM branch
   --commit <sha>       SCM commit SHA
   --user <name>        CI user / triggerer
-  --repository <name>  SCM repository (owner/repo)
+  --repository <name>  SCM repository (owner/repo) (alias: --repo)
   --tag <name>         SCM tag
 
   Precedence: CLI flag > env (CI_BRANCH, CI_COMMIT, CI_USER, CI_REPOSITORY, CI_TAG)
@@ -1040,13 +1072,14 @@ Webhook (SBOM-specific overrides):
   REPORT_SBOM_METHOD        (optional) if not defined, uses REPORT_METHOD
   REPORT_SBOM_FAIL_ON_ERROR (optional) if not defined, uses REPORT_FAIL_ON_ERROR
 
-Passing extra flags:
-  Use "--" to pass additional flags to Trivy/Hadolint.
+Pass-through flags:
+  Use "--" to pass extra flags to Trivy/Hadolint.
   Ex.: image-scan myimage:tag -- --ignore-unfixed
 EOF
 }
 
-## Ajuda específica para image-scan
+## --- Sub-comandos de ajuda específicos ---------------------------------------
+## Ajuda para Image Scan
 usage_image_scan() {
   cat <<'EOF'
 Usage:
@@ -1070,19 +1103,20 @@ Notes:
 EOF
 }
 
-## Ajuda específica para filesystem-scan
+## Ajuda para Filesystem Scan
 usage_filesystem_scan() {
   cat <<'EOF'
 Usage:
   filesystem-scan [--sbom[=format]|--sbom-format <fmt>] [path] [-- <extra-flags>]
 
 Examples:
-  filesystem-scan /path/to/dir
-  filesystem-scan /path/to/dir -- --ignore-unfixed --timeout 10m
-  filesystem-scan --sbom /path/to/dir
-  filesystem-scan --sbom-format spdx-json /path/to/dir
-  fs-scan /path/to/dir
-  fs /path/to/dir
+  filesystem-scan
+  filesystem-scan /workspace
+  filesystem-scan /workspace -- --ignore-unfixed --timeout 10m
+  filesystem-scan --sbom /workspace
+  filesystem-scan --sbom-format spdx-json /workspace
+  fs-scan /workspace
+  fs /workspace
 
 Notes:
   - Uses Trivy filesystem scan with common flags from environment variables.
@@ -1094,17 +1128,18 @@ Notes:
 EOF
 }
 
-## Ajuda específica para config-scan
+## Ajuda para Config Scan
 usage_config_scan() {
   cat <<'EOF'
 Usage:
   config-scan [path] [-- <extra-flags>]
 
 Examples:
-  config-scan /path/to/dir
-  config-scan /path/to/dir -- --ignore-unfixed --timeout 10m
-  cfg-scan /path/to/dir
-  cs /path/to/dir
+  config-scan
+  config-scan /workspace
+  config-scan /workspace -- --ignore-unfixed --timeout 10m
+  cfg-scan /workspace
+  cs /workspace
 
 Notes:
   - Uses Trivy config scan with common flags from environment variables.
@@ -1114,17 +1149,19 @@ Notes:
 EOF
 }
 
-## Ajuda específica para repo-scan
+## Ajuda para Repo Scan
 usage_repo_scan() {
   cat <<'EOF'
 Usage:
-  repo-scan [path] [-- <extra-flags>]
+  repo-scan [path|url] [-- <extra-flags>]
 
 Examples:
-  repo-scan /path/to/dir
-  repo-scan /path/to/dir -- --ignore-unfixed --timeout 10m
-  rp-scan /path/to/dir
-  rs /path/to/dir
+  repo-scan /workspace
+  repo-scan https://github.com/aquasecurity/trivy
+  repo-scan /workspace -- --ignore-unfixed --timeout 10m
+  repo-scan https://github.com/aquasecurity/trivy -- --ignore-unfixed --timeout 10m
+  rp-scan /workspace
+  rs /workspace
 
 Notes:
   - Uses Trivy repo scan with common flags from environment variables.
@@ -1134,19 +1171,17 @@ Notes:
 EOF
 }
 
-## Ajuda específica para hadolint
+## Ajuda para Dockerfile Lint
 usage_dockerfile_lint() {
   cat <<'EOF'
 Usage:
-  dockerfile-lint <Dockerfile> [-- <extra-flags>]
+  dockerfile-lint [Dockerfile] [-- <extra-flags>]
 
 Examples:
-  dockerfile-lint Dockerfile
-  dockerfile-lint Dockerfile -- --ignore DL3003
-  dockerfile-lint /path/to/Dockerfile
-  dockerfile-lint /path/to/Dockerfile -- --ignore DL3003
-  hadolint Dockerfile
-  dl Dockerfile
+  dockerfile-lint
+  dockerfile-lint /workspace/Dockerfile -- --ignore DL3003
+  hadolint /workspace/Dockerfile
+  dl /workspace/Dockerfile
 
 Notes:
   - Uses Hadolint with common flags from environment variables.
@@ -1156,14 +1191,13 @@ Notes:
 EOF
 }
 
-## Ajuda específica para container
-usage_container() {
-  cat <<'EOF'
+## Ajuda para Container (scan combinado)
+usage_container() { cat <<'EOF'
 Usage:
   container [options] <image> [-- <extra-flags>]
 
 Options:
-  --path <dir>          Project path (default: auto-detect CI env or $PWD)
+  --path <dir>          Project path (default: auto-detect or $PWD)
   --dockerfiles <list>  Comma-separated Dockerfiles (default: "Dockerfile")
   --scan-mode fs|repo   Source scan mode (default: "fs")
   --skip-image          Skip the image scan step
@@ -1211,14 +1245,13 @@ do_version() {
   hadolint --version 2>/dev/null || echo "hadolint: not found"
 }
 
-## --- Scan de imagem ----------------------------------------------------------
+## --- image-scan --------------------------------------------------------------
 ## Executa o scan de imagem com Trivy, gera relatório, aplica gate de falha e artefatos pós-scan.
 ## Argumentos:
 ## $@ (flags e argumentos para o comando, incluindo opções de metadata e flags extras para Trivy após "--")
 do_image_scan() {
-  local args=()
-  mapfile -d '' args < <(parse_metadata_flags "$@")
-  set -- "${args[@]}"
+  parse_metadata_flags "$@"
+  set -- "${REMAINING_ARGS[@]}"
 
   local image=""
   local sbom_enabled="false"
@@ -1228,35 +1261,35 @@ do_image_scan() {
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
-        usage_image_scan;
+        usage_image_scan
         return 0
       ;;
       --sbom)
-        sbom_enabled="true";
+        sbom_enabled="true"
         shift
       ;;
       --sbom=*)
-        sbom_enabled="true";
-        sbom_format="${1#--sbom=}";
+        sbom_enabled="true"
+        sbom_format="${1#--sbom=}"
         shift
       ;;
       --sbom-format)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --sbom-format"; return 2; }
-        sbom_enabled="true";
-        sbom_format="${2}";
+        sbom_enabled="true"
+        sbom_format="${2}"
         shift 2
       ;;
       --)
-        shift;
+        shift
         break
       ;;
       *)
         ## Valida se a imagem já foi definida para evitar consumir argumentos extras como imagem
         if [[ -z "$image" ]]; then
-          image="$1";
-          shift;
+          image="$1"
+          shift
         else
-          break;
+          break
         fi
       ;;
     esac
@@ -1273,14 +1306,13 @@ do_image_scan() {
   _do_trivy_scan "image" "image-scan" "trivy-image.json" "$image" "$sbom_enabled" "$sbom_format" "$(default_fs_target)" "$@"
 }
 
-## --- Scan de filesystem ------------------------------------------------------
+## --- filesystem-scan ---------------------------------------------------------
 ## Executa o scan de filesystem com Trivy, gera relatório, aplica gate de falha e artefatos pós-scan.
 ## Argumentos:
 ## $@ (flags e argumentos para o comando, incluindo opções de metadata e flags extras para Trivy após "--")
 do_filesystem_scan() {
-  local args=()
-  mapfile -d '' args < <(parse_metadata_flags "$@")
-  set -- "${args[@]}"
+  parse_metadata_flags "$@"
+  set -- "${REMAINING_ARGS[@]}"
 
   local target=""
   local target_set="false"
@@ -1291,26 +1323,26 @@ do_filesystem_scan() {
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
-        usage_filesystem_scan;
+        usage_filesystem_scan
         return 0
       ;;
       --sbom)
-        sbom_enabled="true";
+        sbom_enabled="true"
         shift
       ;;
       --sbom=*)
-        sbom_enabled="true";
-        sbom_format="${1#--sbom=}";
+        sbom_enabled="true"
+        sbom_format="${1#--sbom=}"
         shift
       ;;
       --sbom-format)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --sbom-format"; return 2; }
-        sbom_enabled="true";
-        sbom_format="${2}";
+        sbom_enabled="true"
+        sbom_format="${2}"
         shift 2
       ;;
       --)
-        shift;
+        shift
         break
       ;;
       *)
@@ -1326,11 +1358,13 @@ do_filesystem_scan() {
     esac
   done
 
+  ## Verifica se o target foi fornecido, caso contrário usa o padrão
   if [[ -z "$target" ]]; then
     target="$(default_fs_target)"
     log "filesystem-scan target not provided, using default: $target"
   fi
 
+  ## Verifica se o target existe
   if [[ ! -e "$target" ]]; then
     log_err "Target not found: $target (did you forget to mount your repo into /workspace?)"
     return 2
@@ -1339,14 +1373,13 @@ do_filesystem_scan() {
   _do_trivy_scan "filesystem" "filesystem-scan" "trivy-filesystem.json" "$target" "$sbom_enabled" "$sbom_format" "$target" "$@"
 }
 
-## --- Scan de configuração (IaC) ----------------------------------------------
+## --- config-scan -------------------------------------------------------------
 ## Executa o scan de configuração com Trivy, gera relatório, aplica gate de falha e artefatos pós-scan.
 ## Argumentos:
 ## $@ (flags e argumentos para o comando, incluindo opções de metadata e flags extras para Trivy após "--")
 do_config_scan() {
-  local args=()
-  mapfile -d '' args < <(parse_metadata_flags "$@")
-  set -- "${args[@]}"
+  parse_metadata_flags "$@"
+  set -- "${REMAINING_ARGS[@]}"
 
   local target=""
   local target_set="false"
@@ -1355,66 +1388,64 @@ do_config_scan() {
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
-        usage_config_scan;
+        usage_config_scan
         return 0
       ;;
       --)
-        shift;
+        shift
         break
       ;;
       *)
         ## Valida se o target já foi definido para evitar consumir argumentos extras como target
         if [[ "$target_set" == "false" ]]; then
-          target="$1";
-          target_set="true";
+          target="$1"
+          target_set="true"
           shift
         else
-          break;
+          break
         fi
       ;;
     esac
   done
 
+  ## Verifica se o target foi fornecido, caso contrário usa o padrão
   [[ -z "$target" ]] && target="$(default_fs_target)"
   if [[ ! -e "$target" ]]; then
-    log_err "Target not found: $target";
-    return 2;
+    log_err "Target not found: $target"
+    return 2
   fi
 
   _do_trivy_scan "config" "config-scan" "trivy-config.json" "$target" "false" "cyclonedx" "$target" "$@"
 }
 
-## --- Scan de repositório -----------------------------------------------------
+## --- repo-scan ---------------------------------------------------------------
 ## Executa o scan de repositório com Trivy, gera relatório, aplica gate de falha e artefatos pós-scan.
 ## Argumentos:
 ## $@ (flags e argumentos para o comando, incluindo opções de metadata e flags extras para Trivy após "--")
 do_repo_scan() {
-  local args=()
-  mapfile -d '' args < <(parse_metadata_flags "$@")
-  set -- "${args[@]}"
+  parse_metadata_flags "$@"
+  set -- "${REMAINING_ARGS[@]}"
 
   local target=""
   local target_set="false"
-
-  ## Processa argumentos posicionais e opções
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
-        usage_repo_scan;
+        usage_repo_scan
         return 0
       ;;
       --)
-        shift;
+        shift
         break
       ;;
       *)
         ## Valida se o target já foi definido para evitar consumir argumentos extras como target
         if [[ "$target_set" == "false" ]]; then
-          target="$1";
-          target_set="true";
+          target="$1"
+          target_set="true"
           shift
         else
-          break;
+          break
         fi
       ;;
     esac
@@ -1425,14 +1456,13 @@ do_repo_scan() {
   _do_trivy_scan "repo" "repo-scan" "trivy-repo.json" "$target" "false" "cyclonedx" "$target" "$@"
 }
 
-## --- Lint de Dockerfile ------------------------------------------------------
+## --- dockerfile-lint ---------------------------------------------------------
 ## Executa o lint de Dockerfile com Hadolint, gera relatório, aplica gate de falha e artefatos pós-scan.
 ## Argumentos:
 ## $@ (flags e argumentos para o comando, incluindo opções de metadata e flags extras para Hadolint após "--")
 do_dockerfile_lint() {
-  local args=()
-  mapfile -d '' args < <(parse_metadata_flags "$@")
-  set -- "${args[@]}"
+  parse_metadata_flags "$@"
+  set -- "${REMAINING_ARGS[@]}"
 
   local file=""
   local file_set="false"
@@ -1441,7 +1471,7 @@ do_dockerfile_lint() {
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
-        usage_dockerfile_lint;
+        usage_dockerfile_lint
         return 0
       ;;
       --)
@@ -1451,11 +1481,11 @@ do_dockerfile_lint() {
       *)
         ## Valida se o arquivo já foi definido para evitar consumir argumentos extras como arquivo
         if [[ "$file_set" == "false" ]]; then
-          file="$1";
-          file_set="true";
+          file="$1"
+          file_set="true"
           shift
         else
-          break;
+          break
         fi
       ;;
     esac
@@ -1466,12 +1496,11 @@ do_dockerfile_lint() {
     ## Verifica se existe um Dockerfile no diretório atual
     if [[ -f "Dockerfile" ]]; then
       file="Dockerfile"
-      ## Verifica se existe um Dockerfile em /workspace (caso o código esteja montado lá, como é comum em CI)
     elif [[ -f "/workspace/Dockerfile" ]]; then
       file="/workspace/Dockerfile"
     else
-      log_err "Dockerfile not provided and no default found.";
-      return 2;
+      log_err "Dockerfile not provided and no default found."
+      return 2
     fi
   fi
 
@@ -1497,7 +1526,7 @@ do_dockerfile_lint() {
       log_warn "Hadolint found issues at or above threshold (details in $output)."
     ;;
     *)
-      log_err "Unexpected error running hadolint (exit $rc).";
+      log_err "Unexpected error running hadolint (exit $rc)."
       return $rc
     ;;
   esac
@@ -1509,8 +1538,8 @@ do_dockerfile_lint() {
   local metadata_json
   metadata_json="$(collect_metadata "$(default_fs_target)")"
 
-  local wrapped_report="$REPORT_DIR/ark-report-tools-dockerfile-lint.json"
-  wrap_ci_report "dockerfile-lint" "$file" "hadolint" "$output" "$wrapped_report" "false" "false" "$metadata_json"
+  local wrapped_report="$REPORT_DIR/ark-report-dockerfile-lint.json"
+  wrap_ark_report "dockerfile-lint" "$file" "hadolint" "$output" "$wrapped_report" "false" "false" "$metadata_json"
 
   ## Envia o relatório do Dockerfile lint se a configuração REPORT_SEND_EACH_SCAN estiver ativa.
   if is_true "${REPORT_SEND_EACH_SCAN:-false}"; then
@@ -1521,7 +1550,7 @@ do_dockerfile_lint() {
   return $rc
 }
 
-## --- Container scan (image + source + Dockerfile lint + consolidação) --------
+## --- container (image + source + lint + consolidação) -----------------------
 ## Executa um fluxo de scan completo para container, incluindo:
 ## - Scan de imagem com Trivy (opcional)
 ## - Scan de código-fonte (filesystem ou repo) com Trivy
@@ -1531,9 +1560,8 @@ do_dockerfile_lint() {
 ## $@ (flags e argumentos para o comando, incluindo opções de metadata, flags extras para Trivy após "--", e opções específicas
 ## de container como --path, --dockerfiles, etc.)
 do_container() {
-  local args=()
-  mapfile -d '' args < <(parse_metadata_flags "$@")
-  set -- "${args[@]}"
+  parse_metadata_flags "$@"
+  set -- "${REMAINING_ARGS[@]}"
 
   local image=""
   local scan_path=""
@@ -1549,72 +1577,72 @@ do_container() {
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
-        usage_container;
+        usage_container
         return 0
       ;;
       --path)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --path"; return 2; }
-        scan_path="${2}";
+        scan_path="${2}"
         shift 2
       ;;
       --path=*)
-        scan_path="${1#--path=}";
+        scan_path="${1#--path=}"
         shift
       ;;
       --dockerfiles)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --dockerfiles"; return 2; }
-        dockerfiles="${2}";
+        dockerfiles="${2}"
         shift 2
       ;;
       --dockerfiles=*)
-        dockerfiles="${1#--dockerfiles=}";
+        dockerfiles="${1#--dockerfiles=}"
         shift
       ;;
       --scan-mode)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --scan-mode"; return 2; }
-        scan_mode="${2}";
+        scan_mode="${2}"
         shift 2
       ;;
       --scan-mode=*)
-        scan_mode="${1#--scan-mode=}";
+        scan_mode="${1#--scan-mode=}"
         shift
       ;;
       --skip-image)
-        skip_image="true";
+        skip_image="true"
         shift
       ;;
       --skip-lint)
-        skip_lint="true";
+        skip_lint="true"
         shift
       ;;
       --sbom)
-        sbom_enabled="true";
+        sbom_enabled="true"
         shift
       ;;
       --sbom=*)
-        sbom_enabled="true";
-        sbom_format="${1#--sbom=}";
+        sbom_enabled="true"
+        sbom_format="${1#--sbom=}"
         shift
       ;;
       --sbom-format)
         [[ -z "${2:-}" ]] && { log_err "Missing value for --sbom-format"; return 2; }
-        sbom_enabled="true";
-        sbom_format="${2}";
+        sbom_enabled="true"
+        sbom_format="${2}"
         shift 2
       ;;
       --)
-        shift;
-        trivy_extras=("$@");
+        shift
+        trivy_extras=("$@")
         break
       ;;
       *)
         ## Valida se a imagem já foi definida para evitar consumir argumentos extras como imagem
         if [[ -z "$image" ]]; then
-          image="$1";
+          image="$1"
           shift
         else
-          log_err "Unknown option: $1";
-          return 2;
+          log_err "Unknown option: $1"
+          return 2
         fi
       ;;
     esac
@@ -1630,7 +1658,7 @@ do_container() {
   ## Verifica se a imagem foi fornecida, a menos que o usuário tenha optado por pular o scan de imagem
   if ! is_true "$skip_image" && [[ -z "$image" ]]; then
     log_err "<image> is required (or use --skip-image)."
-    usage_container;
+    usage_container
     return 2
   fi
 
@@ -1700,7 +1728,7 @@ do_container() {
     if run_trivy_scan "filesystem" "$scan_path" "$source_output" "${trivy_extras[@]}"; then
       source_report="$source_output"
     else
-      errors=$((errors + 1));
+      errors=$((errors + 1))
     fi
   else
     source_output="$REPORT_DIR/trivy-repo.json"
@@ -1709,7 +1737,7 @@ do_container() {
     if run_trivy_scan "repo" "$scan_path" "$source_output" "${trivy_extras[@]}"; then
       source_report="$source_output"
     else
-      errors=$((errors + 1));
+      errors=$((errors + 1))
     fi
   fi
 
@@ -1762,7 +1790,7 @@ do_container() {
           log_warn "Hadolint found issues in '$df'."
         ;;
         *)
-          log_err "Hadolint error for '$df' (exit $lint_rc).";
+          log_err "Hadolint error for '$df' (exit $lint_rc)."
           errors=$((errors + 1))
         ;;
       esac
@@ -1798,7 +1826,7 @@ do_container() {
   ## Consolida os resultados em um único envelope usando o schema ark-report-tools
   jq -n \
     --arg schema "ark-report-tools" \
-    --arg version "1.0" \
+    --arg version "1.1" \
     --arg ts "$(now_iso)" \
     --arg cmd "container" \
     --arg target "$image" \
@@ -1893,10 +1921,16 @@ do_container() {
   return 0
 }
 
-## ── Dispatch ─────────────────────────────────────────────────────────────────
+## --- Dispatch ----------------------------------------------------------------
 ## Processa o comando principal e despacha para a função correspondente.
 ## O comando é o primeiro argumento, e os argumentos restantes são passados para a função de comando.
 ## Se nenhum comando for fornecido, exibe a ajuda geral.
+
+## Permite carregar o script como biblioteca (para testes) sem executar dispatch.
+if [[ "${ARK_TOOLS_LIBRARY_MODE:-0}" == "1" ]]; then
+  return 0 2>/dev/null || true
+fi
+
 cmd="${1:-help}"
 shift || true
 
@@ -1929,8 +1963,8 @@ case "$cmd" in
     send_report "${1:-}"
   ;;
   *)
-    log_err "Unknown command: $cmd";
-    usage;
+    log_err "Unknown command: $cmd"
+    usage
     exit 2
   ;;
 esac

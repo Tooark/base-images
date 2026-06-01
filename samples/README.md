@@ -86,9 +86,22 @@ docker run --rm ghcr.io/tooark/sonar-scanner:latest java -version
 ### trivy-hadolint
 
 ```bash
-docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools version
-docker run --rm ghcr.io/tooark/trivy-hadolint:latest ci-tools image-scan nginx:latest
-docker run --rm -v "$PWD":/workspace ghcr.io/tooark/trivy-hadolint:latest ci-tools container nginx:latest --path /workspace
+docker run --rm ghcr.io/tooark/trivy-hadolint:latest ark-tools version
+docker run --rm \
+  -v "$PWD/scan-reports":/reports \
+  -e TRIVY_SEVERITY=HIGH,CRITICAL \
+  -e TRIVY_SEVERITY_FAIL=HIGH,CRITICAL \
+  ghcr.io/tooark/trivy-hadolint:latest \
+  ark-tools image-scan nginx:latest
+docker run --rm \
+  -v "$PWD":/workspace:ro \
+  -v "$PWD/scan-reports":/reports \
+  ghcr.io/tooark/trivy-hadolint:latest \
+  ark-tools container nginx:latest \
+    --path /workspace \
+    --branch "$(git rev-parse --abbrev-ref HEAD)" \
+    --commit "$(git rev-parse HEAD)" \
+    --repository "tooark/base-images"
 ```
 
 ## 2) GitHub Actions
@@ -119,4 +132,5 @@ Como usar:
 
 - Os exemplos usam latest para simplificar. Em producao, prefira tags fixas.
 - Para comandos autenticados, injete credenciais via variaveis do CI.
+- Os exemplos de trivy-hadolint agora mostram como definir severidade/gate, persistir relatorios e informar metadata quando o comando roda via docker run.
 - O exemplo de trivy-hadolint pode baixar banco de vulnerabilidades na primeira execucao.
