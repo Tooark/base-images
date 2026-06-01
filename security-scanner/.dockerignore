@@ -1,0 +1,10 @@
+# Contexto mínimo para build: inclui apenas arquivos úteis deste módulo
+**
+!Dockerfile
+!.dockerignore
+!README.md
+!DESCRIPTION
+!VERSION
+!ark-tools.sh
+!schemas/
+!schemas/ark-report-tools.schema.v1.1.json
