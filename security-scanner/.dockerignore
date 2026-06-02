@@ -6,5 +6,4 @@
 !DESCRIPTION
 !VERSION
 !ark-tools.sh
-!schemas/
-!schemas/ark-report-tools.schema.v1.1.json
+!**/schemas/**/*.json

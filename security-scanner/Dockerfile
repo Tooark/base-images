@@ -70,7 +70,7 @@ COPY --from=betterleaks_src --chmod=0755 /usr/bin/betterleaks /usr/local/bin/bet
 COPY --chmod=0755 ark-tools.sh /usr/local/bin/ark-tools
 
 # Copia o JSON Schema do envelope ark-report-tools (referência local)
-COPY schemas/ark-report-tools.schema.v1.1.json /usr/local/share/ark-tools/ark-report-tools.schema.v1.2.json
+COPY schemas/ark-report-tools.schema.v1.2.json /usr/local/share/ark-tools/ark-report-tools.schema.v1.2.json
 
 # Remove CR e BOM do wrapper (proteção contra arquivos vindos de Windows)
 RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/ark-tools \

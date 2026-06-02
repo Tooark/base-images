@@ -206,7 +206,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/workspace:ro" \
             -w /workspace \
             --group-add "$DOCKER_GID" \
-            -e TRIVY_FORMAT="json" \
+            -e TRIVY_FORMAT="table" \
             "${DOCKER_IGNORE_ARGS[@]}" \
             "$TRIVY_SCANNER_IMAGE" \
             image-scan "$SCAN_IMAGE"
@@ -329,6 +329,22 @@ jobs:
           printf "| Latest | \`%s:latest\` |\n\n"    "$IMAGE_NAME" >> "$NOTES_FILE"
           printf "### Included Tools\n\n" >> "$NOTES_FILE"
           printf "%b" "$TOOLS_TABLE" >> "$NOTES_FILE"
+
+          # Append 'Conteudo da imagem' section from image README when available
+          README_FILE="./${{ matrix.image }}/README.md"
+          IMAGE_CONTENT_SECTION=""
+          if [ -f "$README_FILE" ]; then
+            IMAGE_CONTENT_SECTION=$(awk '
+              BEGIN { in_section=0 }
+              /^##[[:space:]]+Conte[úu]do da imagem[[:space:]]*$/ { in_section=1; print; next }
+              in_section && /^##[[:space:]]+/ { exit }
+              in_section { print }
+            ' "$README_FILE" | sed -e 's/\r$//')
+          fi
+
+          if [ -n "$IMAGE_CONTENT_SECTION" ]; then
+            printf "\n\n%s\n" "$IMAGE_CONTENT_SECTION" >> "$NOTES_FILE"
+          fi
 
           gh release create "$TAG_NAME" \
             --title "${{ matrix.image }}-${{ steps.tags.outputs.full }}" \
