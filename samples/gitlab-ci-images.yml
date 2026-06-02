@@ -8,8 +8,8 @@ dockerx:
   services:
     - docker:24-dind
   script:
-    - docker run --rm ghcr.io/tooark/docker:latest docker --version
-    - docker run --rm ghcr.io/tooark/docker:latest docker buildx version
+    - docker run --rm ghcr.io/tooark/dockerx:latest docker --version
+    - docker run --rm ghcr.io/tooark/dockerx:latest docker buildx version
 
 aws_cli:
   stage: validate

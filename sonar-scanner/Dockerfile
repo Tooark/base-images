@@ -84,7 +84,8 @@ HEALTHCHECK NONE
 USER app
 
 # Variável de ambiente para o cache do Sonar Scanner
-ENV SONAR_USER_HOME=/home/app/.sonar
+ENV ARK_IMAGE_FAMILY=sonar-scanner \
+    SONAR_USER_HOME=/home/app/.sonar
 
 # CMD default
 CMD ["/bin/bash"]

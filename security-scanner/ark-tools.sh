@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# ark-tools - wrapper CLI para Trivy + Hadolint
-# Projeto: https://github.com/Tooark/base-images/tree/main/trivy-hadolint
-# Schema: ark-report-tools v1.1 (envelope padronizado)
+# ark-tools - Security Scanner (Trivy + Hadolint + Betterleaks)
+# Família: security-scanner
+# Schema: ark-report-tools v1.2
 # Licença: MIT
 
 set -euo pipefail
@@ -18,7 +18,7 @@ REPORT_DIR="${REPORT_DIR:-/reports}"
 mkdir -p "$REPORT_DIR" 2>/dev/null || REPORT_DIR="/tmp/ark-reports"
 mkdir -p "$REPORT_DIR"
 
-## --- Helpers -----------------------------------------------------------------
+## --- Helpers de log ----------------------------------------------------------
 ## Timestamp ISO 8601
 now_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
@@ -42,39 +42,53 @@ is_true() {
   esac
 }
 
-## --- CLI metadata (preenchido por parse_metadata_flags) ----------------------
+## Verifica disponibilidade de comando.
+## Argumentos:
+## $1 cmd (nome do comando a verificar)
+require_command() {
+  local cmd="${1:-}"
+  [[ -z "$cmd" ]] && { log_err "require_command: no command specified"; return 2; }
+
+  ## Verifica se o comando existe no PATH.
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    log_err "Command '$cmd' not found in PATH."
+    return 127
+  fi
+}
+
+## --- CLI metadata ------------------------------------------------------------
 CLI_BRANCH=""
 CLI_COMMIT=""
 CLI_USER=""
 CLI_REPOSITORY=""
 CLI_TAG=""
 
-## --- Detecção de path do projeto ---------------------------------------------
+## --- Auto-detect de path do projeto ------------------------------------------
 ## Detecta o path do projeto via variáveis comuns de CI, com fallback para /workspace ou $PWD.
 auto_detect_path() {
   if [[ -n "${CI_PROJECT_DIR:-}" ]]; then
-    echo "$CI_PROJECT_DIR";
-    return;
+    echo "$CI_PROJECT_DIR"
+    return
   fi
   if [[ -n "${GITHUB_WORKSPACE:-}" ]]; then
-    echo "$GITHUB_WORKSPACE";
-    return;
+    echo "$GITHUB_WORKSPACE"
+    return
   fi
   if [[ -n "${BUILD_SOURCESDIRECTORY:-}" ]]; then
-    echo "$BUILD_SOURCESDIRECTORY";
-    return;
+    echo "$BUILD_SOURCESDIRECTORY"
+    return
   fi
   if [[ -n "${BITBUCKET_CLONE_DIR:-}" ]]; then
-    echo "$BITBUCKET_CLONE_DIR";
-    return;
+    echo "$BITBUCKET_CLONE_DIR"
+    return
   fi
   if [[ -n "${WORKSPACE:-}" ]]; then
-    echo "$WORKSPACE";
-    return;
+    echo "$WORKSPACE"
+    return
   fi
   if [[ -d "/workspace" ]]; then
-    echo "/workspace";
-    return;
+    echo "/workspace"
+    return
   fi
   echo "$PWD"
 }
@@ -88,21 +102,7 @@ default_fs_target() {
   fi
 }
 
-## Verifica disponibilidade de comando.
-## Argumentos:
-## $1 cmd (nome do comando a verificar)
-require_command() {
-  local cmd="${1:-}"
-  [[ -z "$cmd" ]] && { log_err "require_command: no command specified"; return 2; }
-
-  ## Verifica se o comando existe no PATH
-  if ! command -v "$cmd" >/dev/null 2>&1; then
-    log_err "Command '$cmd' not found in PATH."
-    return 127
-  fi
-}
-
-## --- Arquivos auxiliares JSON para --slurpfile ------------------------------
+## --- Arquivos auxiliares JSON para --slurpfile -------------------------------
 ## Cria arquivo temporário com conteúdo "null" se não existir o original.
 _null_json_file() {
   local null_file="$REPORT_DIR/.null.json"
@@ -124,7 +124,7 @@ _report_file_or_null() {
   fi
 }
 
-## --- .trivyignore auto-detect -----------------------------------------------
+## --- .trivyignore auto-detect ------------------------------------------------
 ## Verifica se TRIVY_IGNOREFILE está definido e é um arquivo.
 resolve_trivy_ignorefile() {
   ## Verifica TRIVY_IGNOREFILE primeiro (pode ser absoluto ou relativo ao PWD)
@@ -139,7 +139,7 @@ resolve_trivy_ignorefile() {
   echo ""
 }
 
-## --- Detecção de --list-all-pkgs --------------------------------------------
+## --- Detecção de --list-all-pkgs ---------------------------------------------
 ## Regras:
 ## - TRIVY_ALL_PACKAGES=true (default) e TRIVY_FORMAT=json -> ATIVA
 ## - TRIVY_ALL_PACKAGES=false -> DESATIVA
@@ -222,9 +222,7 @@ trivy_common_flags() {
   local -n flags_ref="$output_var"
   flags_ref=()
 
-  flags_ref+=( --severity "$severity" )
-  flags_ref+=( --exit-code "$exit_code" )
-  flags_ref+=( --timeout "$timeout" )
+  flags_ref+=( --severity "$severity" --exit-code "$exit_code" --timeout "$timeout" )
   [[ "${TRIVY_IGNORE_UNFIXED:-true}" == "true" ]] && flags_ref+=( --ignore-unfixed )
   [[ -n "${TRIVY_SCANNERS:-}" ]] && flags_ref+=( --scanners "$TRIVY_SCANNERS" )
 
@@ -236,7 +234,7 @@ trivy_common_flags() {
   flags_ref+=( "${server_flags[@]}" )
 }
 
-## --- Failure gate ------------------------------------------------------------
+## --- Failure gate Trivy ------------------------------------------------------
 ## Avalia gate de falha por severidade a partir de um relatório JSON do Trivy
 ## Argumentos:
 ## $1 format (formato do relatório, deve ser "json" para análise)
@@ -249,7 +247,7 @@ trivy_failure_gate() {
 
   ## Verifica se o formato é JSON para análise e se o arquivo existe antes de tentar processar.
   if [[ "$format" != "json" || ! -f "$output" || ! -s "$output" ]]; then
-    log_warn "Cannot analyze failure gate for non-JSON format. Skipping gate."
+    log_warn "Cannot analyze failure gate for non-JSON. Skipping."
     return 0
   fi
 
@@ -283,17 +281,17 @@ trivy_failure_gate() {
 
   ## Verifica se o resumo por severidade foi gerado.
   if [[ -n "$severity_summary" ]]; then
-    log_err "Failure gate summary by severity (from JSON report):"
+    log_err "Failure gate summary by severity:"
     echo "$severity_summary" >&2
   fi
 
   ## Verifica se encontrou vulnerabilidades que correspondem ao critério de falha
   if [[ $vuln_found_count -gt 0 ]]; then
-    log_err "Failure gate triggered: found $vuln_found_count vulnerability(ies) at TRIVY_SEVERITY_FAIL=$fail_severity."
+    log_err "Failure gate: $vuln_found_count vulnerability(ies) at $fail_severity."
     return 1
   fi
 
-  log_ok "No vulnerabilities matching TRIVY_SEVERITY_FAIL=$fail_severity found. Gate passed."
+  log_ok "No vulnerabilities at $fail_severity found. Gate passed."
   return 0
 }
 
@@ -354,10 +352,18 @@ _git_value() {
 
   ## Tenta extrair a informação solicitada usando git, redirecionando erros para /dev/null e retornando string vazia em caso de falha.
   case "$what" in
-    branch) git -C "$repo_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "" ;;
-    commit) git -C "$repo_dir" rev-parse HEAD 2>/dev/null || echo "" ;;
-    user) git -C "$repo_dir" config user.email 2>/dev/null || echo "" ;;
-    tag) git -C "$repo_dir" describe --tags --exact-match 2>/dev/null || echo "" ;;
+    branch)
+      git -C "$repo_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""
+    ;;
+    commit)
+      git -C "$repo_dir" rev-parse HEAD 2>/dev/null || echo ""
+    ;;
+    user)
+      git -C "$repo_dir" config user.email 2>/dev/null || echo ""
+    ;;
+    tag)
+      git -C "$repo_dir" describe --tags --exact-match 2>/dev/null || echo ""
+    ;;
   esac
 }
 
@@ -466,7 +472,6 @@ collect_metadata() {
       user="$(_first_nonempty "$CLI_USER" "${CI_USER:-}")"
       pipeline_id="${CI_PIPELINE_ID:-}"
       job_id="${CI_JOB_ID:-}"
-      url=""
     ;;
   esac
 
@@ -493,11 +498,11 @@ collect_metadata() {
         tag:          nz($tag)
       },
       ci: {
-        platform:    nz($platform),
-        user:        nz($user),
-        pipeline_id: nz($pipeline_id),
-        job_id:      nz($job_id),
-        url:         nz($url)
+        platform:     nz($platform),
+        user:         nz($user),
+        pipeline_id:  nz($pipeline_id),
+        job_id:       nz($job_id),
+        url:          nz($url)
       }
     }'
 }
@@ -570,43 +575,45 @@ parse_metadata_flags() {
   done
 }
 
-## --- Pós-processamento de scan -----------------------------------------------
+## --- Pós-scan ----------------------------------------------------------------
 ## Pós-processamento comum após scan Trivy, incluindo geração de SBOM opcional, coleta de metadata e wrapping do relatório no formato ark-report-tools.
 ## Argumentos:
 ## $1 label (label para o relatório, ex: "image-scan", "filesystem-scan", etc)
-## $2 trivy_cmd (comando do Trivy, ex: "image", "fs", "repo", etc)
+## $2 tool (ferramenta ou combo "a+b+c")
 ## $3 target (image:tag ou path)
 ## $4 json_output (path do arquivo de saída JSON do scan Trivy)
 ## $5 sbom_enabled (true|false)
 ## $6 sbom_format (formato do SBOM, ex: spdx-json, cyclonedx-json)
 ## $7 scan_path (diretório para coletar metadata SCM, default: auto_detect_path)
+## $8 trivy_cmd (comando do Trivy, ex: "image", "fs", "repo", etc)
 _post_scan_artifacts() {
   local label="$1"
-  local trivy_cmd="$2"
+  local tool="$2"
   local target="$3"
   local json_output="$4"
   local sbom_enabled="$5"
   local sbom_format="$6"
   local scan_path="$7"
-  shift 7
+  local trivy_cmd="${8:-}"
+  shift 8
 
   ## Geração de SBOM opcional (tenta via servidor, com fallback local se falhar e não for obrigatório)
   local sbom_output=""
-  if [[ "$sbom_enabled" == "true" ]]; then
+  if [[ "$sbom_enabled" == "true" && -n "$trivy_cmd" ]]; then
     sbom_output="${SBOM_OUTPUT:-$REPORT_DIR/trivy-${trivy_cmd}.sbom.json}"
     generate_sbom "$trivy_cmd" "$target" "$sbom_format" "$sbom_output" "$@" || true
   fi
 
   ## Define list_all baseado no comando específico
   local list_all="false"
-  [[ -n "$(trivy_list_all_pkgs_flag "$trivy_cmd")" ]] && list_all="true"
+  [[ -n "$trivy_cmd" ]] && [[ -n "$(trivy_list_all_pkgs_flag "$trivy_cmd")" ]] && list_all="true"
 
   local metadata_json
   metadata_json="$(collect_metadata "$scan_path")"
 
   ## Wrapping do relatório bruto no formato ark-report-tools
   local wrapped_report="$REPORT_DIR/ark-report-${label}.json"
-  wrap_ark_report "$label" "$target" "trivy" "$json_output" "$wrapped_report" "$sbom_enabled" "$list_all" "$metadata_json"
+  wrap_ark_report "$label" "$target" "$tool" "$json_output" "$wrapped_report" "$sbom_enabled" "$list_all" "$metadata_json"
 
   ## Envio do relatório para destino configurado, se aplicável
   if is_true "${REPORT_SEND_EACH_SCAN:-false}"; then
@@ -619,17 +626,18 @@ _post_scan_artifacts() {
   fi
 }
 
-## --- Relatório padronizado (ark-report-tools) --------------------------------
+## --- Relatório padronizado ark-report-tools v1.2 -----------------------------
 ## Envolve a saída bruta de uma ferramenta no schema ark-report-tools.
 ## Argumentos:
-## $1 command (image-scan|filesystem-scan|...)
+## $1 command (image-scan|secret-scan|terraform-scan|full-scan|...)
 ## $2 target (image:tag ou path)
-## $3 tool (trivy|hadolint|trivy+hadolint)
-## $4 report_file (raw)
+## $3 tool (ferramenta ou combo "a+b+c")
+## $4 report_file (raw report)
 ## $5 output_file
-## $6 sbom_enabled (true|false)
-## $7 list_all_pkgs (true|false)
+## $6 sbom_enabled (true|false; default false)
+## $7 list_all_pkgs (true|false; default false)
 ## $8 metadata_json (objeto JSON ou "{}")
+## $9 extras_json (objeto JSON com campos extras; opcional)
 wrap_ark_report() {
   local command="$1"
   local target="$2"
@@ -639,11 +647,13 @@ wrap_ark_report() {
   local sbom_enabled="${6:-false}"
   local list_all_pkgs="${7:-false}"
   local metadata_json="${8:-}"
+  local extras_json="${9:-}"
   [[ -z "$metadata_json" ]] && metadata_json='{}'
+  [[ -z "$extras_json" ]] && extras_json='{}'
 
   ## Se jq não estiver disponível, copia o relatório bruto como fallback
   if ! command -v jq >/dev/null 2>&1; then
-    log_warn "jq not found — skipping ark-report-tools wrapping (raw report copied)."
+    log_warn "jq not found — copying raw report as fallback."
     cp "$report_file" "$output_file" 2>/dev/null || true
     return 0
   fi
@@ -655,7 +665,8 @@ wrap_ark_report() {
   ## --slurpfile lê do arquivo sem passar pelo ARG_MAX do OS
   jq -n \
     --arg schema "ark-report-tools" \
-    --arg version "1.1" \
+    --arg version "1.2" \
+    --arg image_family "${ARK_IMAGE_FAMILY:-unknown}" \
     --arg ts "$(now_iso)" \
     --arg cmd "$command" \
     --arg target "$target" \
@@ -663,10 +674,12 @@ wrap_ark_report() {
     --argjson sbom_enabled  "$sbom_enabled" \
     --argjson list_all_pkgs "$list_all_pkgs" \
     --argjson metadata      "$metadata_json" \
+    --argjson extras        "$extras_json" \
     --slurpfile report      "$safe_report_file" \
     '{
       schema: $schema,
       version: $version,
+      image_family: $image_family,
       timestamp: $ts,
       command: $cmd,
       target: $target,
@@ -675,12 +688,12 @@ wrap_ark_report() {
       list_all_pkgs: $list_all_pkgs,
       metadata: $metadata,
       report: $report[0]
-    }' > "$output_file"
+    } + $extras' > "$output_file"
 
-  log "Wrapped report (ark-report-tools) saved to: $output_file"
+  log "Wrapped report saved to: $output_file"
 }
 
-## --- Geração de SBOM ---------------------------------------------------------
+## --- SBOM generation ---------------------------------------------------------
 ## Executa um scan Trivy adicional apenas para gerar o SBOM.
 ## Uso: generate_sbom <trivy_command> <target> <sbom_format> <sbom_output> [extra_flags...]
 ## Argumentos:
@@ -717,12 +730,12 @@ generate_sbom() {
     && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" \
     && [[ ! -s "$sbom_output" ]]; then
     log_warn "SBOM via server failed (exit $sbom_rc); trying local fallback."
-    local local_sbom_flags=()
-    [[ -n "${TRIVY_TIMEOUT:-}" ]] && local_sbom_flags+=( --timeout "${TRIVY_TIMEOUT}" )
-    sbom_rc=0
+    local local_flags=()
+    [[ -n "${TRIVY_TIMEOUT:-}" ]] && local_flags+=( --timeout "${TRIVY_TIMEOUT}" )
 
+    sbom_rc=0
     trivy "$trivy_cmd" \
-      "${local_sbom_flags[@]}" \
+      "${local_flags[@]}" \
       --format "$sbom_format" \
       --output "$sbom_output" \
       "$@" \
@@ -730,12 +743,12 @@ generate_sbom() {
   fi
 
   ## Verifica se o comando de geração de SBOM falhou.
-  [[ $sbom_rc -ne 0 ]] && { log_warn "SBOM generation failed (exit $sbom_rc)."; return $sbom_rc; }
+  [[ $sbom_rc -ne 0 ]] && { log_warn "SBOM failed (exit $sbom_rc)."; return $sbom_rc; }
 
   ## Verifica se o arquivo de SBOM foi gerado e não está vazio.
   [[ ! -s "$sbom_output" ]] && { log_warn "SBOM empty: $sbom_output"; return 1; }
 
-  log_ok "SBOM report saved in: $sbom_output"
+  log_ok "SBOM saved in: $sbom_output"
 }
 
 ## --- Execução genérica de scan Trivy -----------------------------------------
@@ -773,9 +786,12 @@ run_trivy_scan() {
     && ! is_true "${TRIVY_SERVER_REQUIRED:-false}" \
     && [[ ! -s "$json_output" ]]; then
     log_warn "Trivy server scan failed (exit $rc); trying local fallback."
+
     local local_flags=()
     trivy_common_flags local_flags false "$report_severity" "0" || return $?
+
     [[ -n "$lap_flag" ]] && local_flags+=( "$lap_flag" )
+
     rc=0
     trivy "$trivy_cmd" \
       "${local_flags[@]}" \
@@ -786,7 +802,7 @@ run_trivy_scan() {
   fi
 
   ## Verifica se o comando de scan falhou.
-  [[ $rc -ne 0 ]] && log_err "Trivy $trivy_cmd scan finished with error (exit $rc)."
+  [[ $rc -ne 0 ]] && log_err "Trivy $trivy_cmd error (exit $rc)."
 
   ## Verifica se o arquivo de saída JSON foi gerado e não está vazio.
   [[ ! -s "$json_output" ]] && { log_err "Report empty: $json_output"; return 1; }
@@ -841,15 +857,90 @@ _do_trivy_scan() {
   ## Verifica o gate de falha por severidade a partir do relatório JSON.
   if [[ "$fail_exit_code" != "0" ]]; then
     trivy_failure_gate "json" "$json_output" "$fail_severity" || {
-      _post_scan_artifacts "$label" "$trivy_cmd" "$target" "$json_output" "$sbom_enabled" "$sbom_format" "$scan_path" "$@" || true
+      _post_scan_artifacts "$label" "trivy" "$target" "$json_output" "$sbom_enabled" "$sbom_format" "$scan_path" "$trivy_cmd" "$@" || true
       return 1
     }
   fi
 
   log "$label report saved in: $json_output"
-  _post_scan_artifacts "$label" "$trivy_cmd" "$target" "$json_output" "$sbom_enabled" "$sbom_format" "$scan_path" "$@"
+  _post_scan_artifacts "$label" "trivy" "$target" "$json_output" "$sbom_enabled" "$sbom_format" "$scan_path" "$trivy_cmd" "$@"
 
   echo "$json_output"
+}
+
+## --- Betterleaks -------------------------------------------------------------
+## Função para executar o scan do Betterleaks, processar o relatório e aplicar gate de falha.
+## Argumentos:
+## $1 target (diretório ou repositório a ser escaneado)
+## $2 output (path do arquivo de saída do relatório JSON)
+## $3 no_git (true|false, força scan local sem history; default: false)
+## $4...$n extra_flags (flags adicionais a serem passadas para o comando Betterleaks, ex: --config, --baseline-path)
+run_betterleaks() {
+  local target="$1"
+  local output="$2"
+  shift 2
+  local no_git="${1:-false}"
+  shift || true
+  local format="${BETTERLEAKS_FORMAT:-json}"
+  local config="${BETTERLEAKS_CONFIG:-}"
+  local baseline="${BETTERLEAKS_BASELINE:-}"
+  local exit_code="${BETTERLEAKS_EXIT_CODE:-1}"
+  local force_dir="${BETTERLEAKS_NO_GIT:-$no_git}"
+
+  ## Verifica se o comando Betterleaks está disponível antes de tentar executar o scan.
+  require_command betterleaks || return 127
+
+  ## Seleciona o modo do Betterleaks com base no alvo e nos envs.
+  local betterleaks_cmd="git"
+  if is_true "$force_dir" || [[ ! -d "$target/.git" && ! -f "$target/.git" ]]; then
+    betterleaks_cmd="dir"
+  fi
+
+  ## Monta os argumentos para o comando Betterleaks.
+  local betterleaks_args=( "$betterleaks_cmd" "$target" --report-format "$format" --report-path "$output" --exit-code "$exit_code" )
+
+  [[ -n "$config" ]] && betterleaks_args+=( --config "$config" )
+  [[ -n "$baseline" ]] && betterleaks_args+=( --baseline-path "$baseline" )
+
+  ## Executa o comando Betterleaks e captura o código de saída.
+  local rc=0
+  betterleaks "${betterleaks_args[@]}" "$@" >/dev/null 2>&1 || rc=$?
+
+  ## Betterleaks: 0 = clean, 1 = findings, outros = erro real
+  return $rc
+}
+
+## Função para aplicar gate de falha com base no relatório do Betterleaks.
+## Argumentos:
+## $1 output (path do arquivo de saída do relatório JSON)
+betterleaks_failure_gate() {
+  local output="$1"
+  local fail_on_findings="${BETTERLEAKS_FAIL_ON_FINDINGS:-true}"
+
+  ## Verifica se o arquivo de saída existe e não está vazio.
+  if [[ ! -f "$output" || ! -s "$output" ]]; then
+    log_ok "No secrets found."
+    return 0
+  fi
+
+  ## Tenta contar o número de findings no relatório JSON usando jq. Se falhar, assume 0.
+  local count
+  count=$(jq 'length' "$output" 2>/dev/null || echo "0")
+  if [[ ! "$count" =~ ^[0-9]+$ ]]; then
+    count=0
+  fi
+
+  ## Verifica se o count é 0.
+  if (( count == 0 )); then
+    log_ok "No secrets found."
+    return 0
+  fi
+
+  ## Se encontrou findings, loga o número e decide se deve falhar com base na configuração.
+  log_err "Betterleaks: $count potential secret(s) detected (see $output)"
+  is_true "$fail_on_findings" && return 1
+
+  return 0
 }
 
 ## --- Conversão de relatório para outros formatos (se necessário) -------------
@@ -868,13 +959,11 @@ convert_report_if_needed() {
   log "Converting report to '$format' -> $out_path"
 
   ## Verifica se o comando 'trivy convert' consegue ser executado com o formato desejado
-  if ! trivy convert --format "$format" --output "$out_path" "$json_output" 2>/dev/null; then
-    log_warn "Could not convert report to '$format' format."
-    return 1
-  fi
+  trivy convert --format "$format" --output "$out_path" "$json_output" 2>/dev/null \
+    || { log_warn "Convert failed to '$format' format."; return 1; }
 }
 
-## --- Envio HTTP --------------------------------------------------------------
+## --- HTTP send helpers -------------------------------------------------------
 ## Função para montar argumentos para curl (headers, token, body), executa curl e verifica retornado.
 ## Argumentos:
 ## $1 file (path do arquivo a ser enviado)
@@ -890,9 +979,9 @@ _send_to_url() {
   local method="${5:-POST}"
 
   local curl_args=( -s -S -w "\n%{http_code}" -X "$method" -H "Content-Type: application/json" )
+
   ## Token de autenticação
   [[ -n "$token" ]] && curl_args+=( -H "Authorization: Bearer $token" )
-
   ## Headers extras (uma linha por header: "Key: Value")
   if [[ -n "$headers" ]]; then
     ## Itera sobre as linhas de headers e adiciona cada uma como um argumento -H
@@ -914,11 +1003,11 @@ _send_to_url() {
 
   ## Verifica código HTTP
   if [[ "$http_code" =~ ^2[0-9][0-9]$ ]]; then
-    log_ok "Report uploaded successfully (HTTP $http_code)"
+    log_ok "Report uploaded (HTTP $http_code)"
     return 0
   fi
 
-  log_err "Failed to upload report (HTTP $http_code): $body"
+  log_err "Failed upload (HTTP $http_code): $body"
 
   return 1
 }
@@ -999,24 +1088,25 @@ send_sbom_report() {
 ## Exibe a ajuda geral
 usage() {
   cat <<'EOF'
-ark-tools - Commands for Security Scanning (Trivy + Hadolint)
+ark-tools - Security Scanner (Trivy + Hadolint + Betterleaks)
 
-Commands:
-  image-scan <image>            Image scan (vulnerabilities)            [aliases: img-scan, is]
-  filesystem-scan [path]        Filesystem scan (default: /workspace)   [aliases: fs-scan, fs]
-  config-scan [path]            IaC scan (Terraform, K8s YAML, etc.)    [aliases: cfg-scan, cs]
-  repo-scan <path|url>          Local or remote repository scan         [aliases: rp-scan, rs]
-  dockerfile-lint [Dockerfile]  Lints Dockerfile with Hadolint          [aliases: hadolint, dl]
-  container [options] <image>   image + source + Dockerfile lint        [aliases: ctr]
-  send-report <file>            Sends JSON report via HTTP POST         [aliases: send]
-  version                       Show versions                           [aliases: -v, --version]
-  help                          Show this help                          [aliases: -h, --help]
+Commands:   
+  image-scan <image>            Trivy image scan                              [is, img-scan]
+  filesystem-scan [path]        Trivy filesystem scan                         [fs, fs-scan]
+  config-scan [path]            Trivy IaC config scan                         [cs, cfg-scan]
+  repo-scan <path|url>          Trivy repository scan                         [rs, rp-scan]
+  dockerfile-lint [file]        Hadolint Dockerfile lint                      [dl, hadolint]
+  secret-scan [path]            Betterleaks secret scan                       [ss, sec-scan]
+  full-scan [opts] <image>      All-in-one scan (Trivy+Hadolint+Betterleaks)  [all]
+  send-report <file>            Send report via webhook                       [send]
+  version                       Show versions                                 [-v, --version]
+  help                          Show this help                                [-h, --help]
 
 Metadata flags (all scan commands):
   --branch <name>      SCM branch
   --commit <sha>       SCM commit SHA
-  --user <name>        CI user / triggerer
-  --repository <name>  SCM repository (owner/repo) (alias: --repo)
+  --user <name>        CI user
+  --repository <name>  SCM repository (alias: --repo)
   --tag <name>         SCM tag
 
   Precedence: CLI flag > env (CI_BRANCH, CI_COMMIT, CI_USER, CI_REPOSITORY, CI_TAG)
@@ -1032,7 +1122,7 @@ Trivy environment variables:
   TRIVY_IGNORE_UNFIXED   (default: "true")
   TRIVY_FORMAT           (e.g. "json", "sarif", "table")
   TRIVY_OUTPUT           (e.g. "trivy.sarif")
-  TRIVY_TIMEOUT          (e.g. "5m")
+  TRIVY_TIMEOUT          (default: "10m")
   TRIVY_SCANNERS         (e.g. "vuln,secret,misconfig,license")
   TRIVY_ALL_PACKAGES     (default: "true") includes all packages in report (only JSON)
   TRIVY_IGNOREFILE       path to .trivyignore (auto-detect: /.trivyignore or ./.trivyignore)
@@ -1043,18 +1133,28 @@ Trivy environment variables:
   SBOM_FORMAT            (default: "cyclonedx" | "spdx-json")
   SBOM_OUTPUT            (default: output file when --sbom is enabled)
 
+Betterleaks environment variables:
+  BETTERLEAKS_FORMAT           (default: "json")
+  BETTERLEAKS_OUTPUT           (default: "$REPORT_DIR/betterleaks.json")
+  BETTERLEAKS_NO_GIT           (default: "false")
+  BETTERLEAKS_CONFIG           path to betterleaks config file
+  BETTERLEAKS_BASELINE         path to baseline file
+  BETTERLEAKS_EXIT_CODE        (default: "1")
+  BETTERLEAKS_FAIL_ON_FINDINGS (default: "true")
+
 Hadolint environment variables:
   HADOLINT_CONFIG        path to .hadolint.yaml
   HADOLINT_FORMAT        (default: "json")
   HADOLINT_FAILURE_LEVEL (e.g. "warning", "error")
   HADOLINT_OUTPUT        hadolint output file path
 
-Container command variables:
-  CONTAINER_PATH         project path (default: auto-detect or $PWD)
-  CONTAINER_DOCKERFILES  comma-separated list (default: "Dockerfile")
-  CONTAINER_SCAN_MODE    "fs" or "repo" (default: "fs")
-  CONTAINER_SKIP_IMAGE   "true" to skip image scan
-  CONTAINER_SKIP_LINT    "true" to skip Dockerfile lint
+Full-scan environment variables:
+  FULL_SCAN_PATH          project path (default: auto-detect path)
+  FULL_SCAN_DOCKERFILES   comma-separated list (default: "Dockerfile")
+  FULL_SCAN_MODE          "fs" or "repo" (default: "fs")
+  FULL_SCAN_SKIP_IMAGE    "true" to skip image scan (default: "false")
+  FULL_SCAN_SKIP_LINT     "true" to skip Dockerfile lint (default: "false")
+  FULL_SCAN_SKIP_SECRETS  "true" to skip betterleaks secret scan (default: "false")
 
 Webhook (report send):
   REPORT_URL             comma-separated URLs (required for send-report)
@@ -1063,7 +1163,7 @@ Webhook (report send):
   REPORT_METHOD          (default: "POST")
   REPORT_FAIL_ON_ERROR   (default: "false")
   REPORT_SEND_EACH_SCAN  (default: "false")
-  REPORT_DIR             (default: "/tmp/ark-reports" or /reports inside image)
+  REPORT_DIR             (default: "/reports"; fallback: "/tmp/ark-reports")
 
 Webhook (SBOM-specific overrides):
   REPORT_SBOM_URL           (optional) if not defined, uses REPORT_URL
@@ -1191,10 +1291,33 @@ Notes:
 EOF
 }
 
-## Ajuda para Container (scan combinado)
-usage_container() { cat <<'EOF'
+## Ajuda para Secret Scan
+usage_secret_scan() {
+  cat <<'EOF'
 Usage:
-  container [options] <image> [-- <extra-flags>]
+  secret-scan [path] [--no-git] [--baseline <file>] [-- <extra-flags>]
+
+Examples:
+  secret-scan
+  secret-scan /workspace
+  secret-scan /workspace --no-git
+  secret-scan /workspace --baseline .betterleaks-baseline.json
+  sec-scan /workspace
+  ss /workspace
+
+Notes:
+  - Uses Betterleaks with git/dir scan mode selected from the target and --no-git.
+  - Output defaults to $REPORT_DIR/betterleaks.json (or BETTERLEAKS_OUTPUT when set).
+  - A ark-report-tools envelope is always generated for standardized sending.
+  - Exit code gate is controlled by BETTERLEAKS_FAIL_ON_FINDINGS.
+  - Use "--" to pass additional flags directly to Betterleaks.
+EOF
+}
+
+## Ajuda para Full Scan (scan combinado)
+usage_full_scan() { cat <<'EOF'
+Usage:
+  full-scan [options] <image> [-- <extra-flags>]
 
 Options:
   --path <dir>          Project path (default: auto-detect or $PWD)
@@ -1206,28 +1329,29 @@ Options:
   --sbom-format <fmt>   SBOM format (default: "cyclonedx")
 
 Examples:
-  container nginx:latest
-  container myapp:1.0 --path /workspace
-  container myapp:1.0 --dockerfiles "Dockerfile,docker/Dockerfile.worker"
-  container myapp:1.0 --scan-mode repo --skip-lint
-  container myapp:1.0 --sbom
-  container myapp:1.0 -- --timeout 10m
-  ctr myapp:1.0
+  full-scan nginx:latest
+  full-scan myapp:1.0 --path /workspace
+  full-scan myapp:1.0 --dockerfiles "Dockerfile,docker/Dockerfile.worker"
+  full-scan myapp:1.0 --scan-mode repo --skip-lint
+  full-scan myapp:1.0 --sbom
+  full-scan myapp:1.0 -- --timeout 10m
+  all myapp:1.0
 
 Environment variables (override defaults):
-  CONTAINER_PATH          Project path (default: auto-detect or $PWD)
-  CONTAINER_DOCKERFILES   Comma-separated Dockerfiles (default: "Dockerfile")
-  CONTAINER_SCAN_MODE     "fs" or "repo" (default: "fs")
-  CONTAINER_SKIP_IMAGE    "true" to skip image scan (default: "false")
-  CONTAINER_SKIP_LINT     "true" to skip Dockerfile lint (default: "false")
+  FULL_SCAN_PATH          Project path (default: auto-detect path)
+  FULL_SCAN_DOCKERFILES   Comma-separated Dockerfiles (default: "Dockerfile")
+  FULL_SCAN_MODE          "fs" or "repo" (default: "fs")
+  FULL_SCAN_SKIP_IMAGE    "true" to skip image scan (default: "false")
+  FULL_SCAN_SKIP_LINT     "true" to skip Dockerfile lint (default: "false")
+  FULL_SCAN_SKIP_SECRETS  "true" to skip betterleaks secret scan (default: "false")
 
 Notes:
-  - Executes up to 3 steps: image-scan, source-scan (fs or repo), Dockerfile lint.
+  - Executes up to 4 steps: image-scan, source-scan (fs or repo), secret-scan, Dockerfile lint.
   - Auto-detects project path from CI environment variables (GitLab CI, GitHub
     Actions, Azure DevOps, Bitbucket Pipelines) when --path is not specified.
   - Multiple Dockerfiles are linted individually; reports are named by file.
   - Extra flags after "--" are passed only to Trivy commands (not Hadolint).
-  - Consolidates all results into $REPORT_DIR/container-report.json using the
+  - Consolidates all results into $REPORT_DIR/full-scan-report.json using the
     ark-report-tools schema.
   - When --sbom is active, an additional SBOM report is generated and can be
     sent to a separate endpoint via REPORT_SBOM_* variables.
@@ -1236,13 +1360,17 @@ Notes:
 EOF
 }
 
+## =============================================================================
+## COMMANDS
+## =============================================================================
 ## --- Comando de versão -------------------------------------------------------
 ## Exibe as versões do wrapper e das ferramentas subjacentes (Trivy, Hadolint).
 do_version() {
-  echo "ark-tools wrapper"
+  echo "ark-tools - security-scanner"
   echo "---"
-  trivy --version 2>/dev/null || echo "trivy: not found"
-  hadolint --version 2>/dev/null || echo "hadolint: not found"
+  trivy --version 2>/dev/null | head -1 || echo "trivy: not found"
+  hadolint --version 2>/dev/null | head -1 || echo "hadolint: not found"
+  betterleaks version 2>/dev/null | head -1 || echo "betterleaks: not found"
 }
 
 ## --- image-scan --------------------------------------------------------------
@@ -1274,7 +1402,7 @@ do_image_scan() {
         shift
       ;;
       --sbom-format)
-        [[ -z "${2:-}" ]] && { log_err "Missing value for --sbom-format"; return 2; }
+        [[ -z "${2:-}" ]] && { log_err "Missing --sbom-format value"; return 2; }
         sbom_enabled="true"
         sbom_format="${2}"
         shift 2
@@ -1296,14 +1424,16 @@ do_image_scan() {
   done
 
   ## Verifica se o argumento de imagem foi fornecido
-  if [[ -z "$image" ]]; then
-    log_err "Image is required for image-scan."
-    usage_image_scan
+  [[ -z "$image" ]] && { log_err "Image required for image-scan."; usage_image_scan; return 2; }
 
-    return 2
-  fi
-
-  _do_trivy_scan "image" "image-scan" "trivy-image.json" "$image" "$sbom_enabled" "$sbom_format" "$(default_fs_target)" "$@"
+  _do_trivy_scan "image" \
+    "image-scan" \
+    "trivy-image.json" \
+    "$image" \
+    "$sbom_enabled" \
+    "$sbom_format" \
+    "$(default_fs_target)" \
+    "$@"
 }
 
 ## --- filesystem-scan ---------------------------------------------------------
@@ -1336,7 +1466,7 @@ do_filesystem_scan() {
         shift
       ;;
       --sbom-format)
-        [[ -z "${2:-}" ]] && { log_err "Missing value for --sbom-format"; return 2; }
+        [[ -z "${2:-}" ]] && { log_err "Missing --sbom-format value"; return 2; }
         sbom_enabled="true"
         sbom_format="${2}"
         shift 2
@@ -1348,29 +1478,30 @@ do_filesystem_scan() {
       *)
         ## Valida se o target já foi definido para evitar consumir argumentos extras como target
         if [[ "$target_set" == "false" ]]; then
-          target="$1";
-          target_set="true";
+          target="$1"
+          target_set="true"
           shift
         else
-          break;
+          break
         fi
       ;;
     esac
   done
 
   ## Verifica se o target foi fornecido, caso contrário usa o padrão
-  if [[ -z "$target" ]]; then
-    target="$(default_fs_target)"
-    log "filesystem-scan target not provided, using default: $target"
-  fi
+  [[ -z "$target" ]] && target="$(default_fs_target)"; log "filesystem-scan target not provided, using default: $target"
 
   ## Verifica se o target existe
-  if [[ ! -e "$target" ]]; then
-    log_err "Target not found: $target (did you forget to mount your repo into /workspace?)"
-    return 2
-  fi
+  [[ ! -e "$target" ]] && { log_err "Target not found: $target"; usage_filesystem_scan; return 2; }
 
-  _do_trivy_scan "filesystem" "filesystem-scan" "trivy-filesystem.json" "$target" "$sbom_enabled" "$sbom_format" "$target" "$@"
+  _do_trivy_scan "filesystem" \
+    "filesystem-scan" \
+    "trivy-filesystem.json" \
+    "$target" \
+    "$sbom_enabled" \
+    "$sbom_format" \
+    "$target" \
+    "$@"
 }
 
 ## --- config-scan -------------------------------------------------------------
@@ -1409,13 +1540,19 @@ do_config_scan() {
   done
 
   ## Verifica se o target foi fornecido, caso contrário usa o padrão
-  [[ -z "$target" ]] && target="$(default_fs_target)"
-  if [[ ! -e "$target" ]]; then
-    log_err "Target not found: $target"
-    return 2
-  fi
+  [[ -z "$target" ]] && target="$(default_fs_target)"; log "config-scan target not provided, using default: $target"
 
-  _do_trivy_scan "config" "config-scan" "trivy-config.json" "$target" "false" "cyclonedx" "$target" "$@"
+  ## Verifica se o target existe
+  [[ ! -e "$target" ]] && { log_err "Target not found: $target"; return 2; }
+
+  _do_trivy_scan "config" \
+    "config-scan" \
+    "trivy-config.json" \
+    "$target" \
+    "false" \
+    "cyclonedx" \
+    "$target" \
+    "$@"
 }
 
 ## --- repo-scan ---------------------------------------------------------------
@@ -1428,6 +1565,8 @@ do_repo_scan() {
 
   local target=""
   local target_set="false"
+
+  ## Processa argumentos posicionais e opções
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
@@ -1451,9 +1590,120 @@ do_repo_scan() {
     esac
   done
 
-  [[ -z "$target" ]] && target="$(default_fs_target)"
+  ## Verifica se o target foi fornecido, caso contrário usa o padrão
+  [[ -z "$target" ]] && target="$(default_fs_target)" ; log "repo-scan target not provided, using default: $target"
 
-  _do_trivy_scan "repo" "repo-scan" "trivy-repo.json" "$target" "false" "cyclonedx" "$target" "$@"
+  ## Verifica se o target existe
+  [[ ! -e "$target" ]] && { log_err "Target not found: $target"; usage_repo_scan; return 2; }
+
+  _do_trivy_scan "repo" \
+    "repo-scan" \
+    "trivy-repo.json" \
+    "$target" \
+    "false" \
+    "cyclonedx" \
+    "$target" \
+    "$@"
+}
+
+## --- secret-scan (Betterleaks) ----------------------------------------------
+## Executa o scan de segredos com Betterleaks, gera relatório, aplica gate de falha e artefatos pós-scan.
+## Argumentos:
+## $@ (flags e argumentos para o comando, incluindo opções de metadata, flags extras para Betterleaks após "--" e opções específicas de Betterleaks como --no-git e --baseline)
+do_secret_scan() {
+  parse_metadata_flags "$@"
+  set -- "${REMAINING_ARGS[@]}"
+
+  local target=""
+  local target_set="false"
+  local no_git="false"
+
+  ## Processa argumentos posicionais e opções
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      help|-h|--help)
+        usage_secret_scan
+        return 0
+      ;;
+      --no-git)
+        no_git="true"
+        shift
+      ;;
+      --baseline)
+
+        [[ -z "${2:-}" ]] && { log_err "Missing --baseline value"; return 2; }
+        BETTERLEAKS_BASELINE="${2}"
+        shift 2
+      ;;
+      --baseline=*)
+        BETTERLEAKS_BASELINE="${1#--baseline=}"
+        shift
+      ;;
+      --)
+        shift
+        break
+      ;;
+      *)
+        ## Verifica se o target já foi definido para evitar consumir argumentos extras como target
+        if [[ "$target_set" == "false" ]]; then
+          target="$1"
+          target_set="true"
+          shift
+        else
+          break
+        fi
+      ;;
+    esac
+  done
+
+  ## Verifica se o target foi fornecido, caso contrário usa o padrão
+  [[ -z "$target" ]] && target="$(default_fs_target)"; log "secret-scan target not provided, using default: $target"
+
+  ## Verifica se o target existe
+  [[ ! -e "$target" ]] && { log_err "Target not found: $target"; usage_secret_scan; return 2; }
+
+  ## Verifica se o comando betterleaks está disponível
+  require_command betterleaks || return 127
+
+  local output="${BETTERLEAKS_OUTPUT:-$REPORT_DIR/betterleaks.json}"
+
+  ## Garante que o arquivo de relatório exista (Betterleaks só cria se houver findings)
+  : > "$output"
+
+  ## Executa o Betterleaks e captura o código de saída.
+  local rc=0
+  run_betterleaks "$target" "$output" "$no_git" "$@" || rc=$?
+
+  ## Casos de exit code: 0 = clean (sem arquivo), 1 = findings (com arquivo)
+  if [[ $rc -gt 1 ]]; then
+    log_err "Betterleaks error (exit $rc)."
+    return $rc
+  fi
+
+  ## Garante arquivo válido para envelope (JSON vazio = array vazio)
+  [[ ! -s "$output" ]] && echo "[]" > "$output"
+
+  ## Aplica gate de falha baseado na configuração BETTERLEAKS_FAIL_ON_FINDINGS (default: true)
+  local gate_rc=0
+  betterleaks_failure_gate "$output" || gate_rc=$?
+
+  local metadata_json
+  metadata_json="$(collect_metadata "$target")"
+
+  local wrapped_report="$REPORT_DIR/ark-report-secret-scan.json"
+  wrap_ark_report "secret-scan" \
+    "$target" \
+    "betterleaks" \
+    "$output" \
+    "$wrapped_report" \
+    "false" \
+    "false" \
+    "$metadata_json"
+
+  ## Envia o relatório do secret scan se a configuração REPORT_SEND_EACH_SCAN estiver ativa.
+  is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "$wrapped_report"
+  echo "$output"
+  return $gate_rc
 }
 
 ## --- dockerfile-lint ---------------------------------------------------------
@@ -1475,11 +1725,11 @@ do_dockerfile_lint() {
         return 0
       ;;
       --)
-        shift;
+        shift
         break
       ;;
       *)
-        ## Valida se o arquivo já foi definido para evitar consumir argumentos extras como arquivo
+
         if [[ "$file_set" == "false" ]]; then
           file="$1"
           file_set="true"
@@ -1491,66 +1741,76 @@ do_dockerfile_lint() {
     esac
   done
 
-  ## Se o arquivo não foi fornecido como argumento, tenta encontrar um Dockerfile padrão no diretório atual ou em /workspace
+  ## Verifica se o arquivo foi fornecido, caso contrário tenta detectar o Dockerfile no diretório atual ou em /workspace
   if [[ -z "$file" ]]; then
-    ## Verifica se existe um Dockerfile no diretório atual
     if [[ -f "Dockerfile" ]]; then
       file="Dockerfile"
     elif [[ -f "/workspace/Dockerfile" ]]; then
       file="/workspace/Dockerfile"
     else
-      log_err "Dockerfile not provided and no default found."
+      log_err "Dockerfile not found."
+      usage_dockerfile_lint
       return 2
     fi
   fi
 
-  [[ ! -f "$file" ]] && { log_err "Dockerfile not found: $file"; return 2; }
+  ## Verifica se o arquivo existe
+  [[ ! -f "$file" ]] && { log_err "Dockerfile not found: $file"; usage_dockerfile_lint; return 2; }
 
+  ## Verifica se o comando hadolint está disponível
   require_command hadolint || return 127
 
+  ## Carrega as configurações do Hadolint a partir de variáveis de ambiente e monta os argumentos correspondentes
   local output="${HADOLINT_OUTPUT:-$REPORT_DIR/hadolint.json}"
   local format="${HADOLINT_FORMAT:-json}"
   local rc=0
   local hadolint_args=( --format "$format" )
+
+  ## Adiciona argumentos opcionais de configuração do Hadolint
   [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]] && hadolint_args+=( --failure-threshold "$HADOLINT_FAILURE_LEVEL" )
   [[ -n "${HADOLINT_CONFIG:-}" ]] && hadolint_args+=( --config "$HADOLINT_CONFIG" )
 
+  ## Executa o Hadolint e captura o código de saída.
   hadolint "${hadolint_args[@]}" "$@" "$file" > "$output" 2>&1 || rc=$?
 
   ## Hadolint retorna 0 se não encontrou problemas, 1 se encontrou problemas no nível de falha ou acima, e outros códigos para erros de execução.
   case $rc in
     0)
-      log_ok "Dockerfile OK - no issues found."
+      log_ok "Dockerfile OK."
     ;;
     1)
-      log_warn "Hadolint found issues at or above threshold (details in $output)."
+      log_warn "Hadolint findings (see $output)."
     ;;
     *)
-      log_err "Unexpected error running hadolint (exit $rc)."
+      log_err "Hadolint error (exit $rc)."
       return $rc
     ;;
   esac
 
   [[ ! -s "$output" ]] && { log_err "Report empty: $output"; return 1; }
 
-  log "Dockerfile lint report saved in: $output"
-
   local metadata_json
   metadata_json="$(collect_metadata "$(default_fs_target)")"
 
   local wrapped_report="$REPORT_DIR/ark-report-dockerfile-lint.json"
-  wrap_ark_report "dockerfile-lint" "$file" "hadolint" "$output" "$wrapped_report" "false" "false" "$metadata_json"
+  wrap_ark_report "dockerfile-lint" \
+    "$file" \
+    "hadolint" \
+    "$output" \
+    "$wrapped_report" \
+    "false" \
+    "false" \
+    "$metadata_json"
+
 
   ## Envia o relatório do Dockerfile lint se a configuração REPORT_SEND_EACH_SCAN estiver ativa.
-  if is_true "${REPORT_SEND_EACH_SCAN:-false}"; then
-    send_report "$wrapped_report"
-  fi
-
+  is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "$wrapped_report"
   echo "$output"
+
   return $rc
 }
 
-## --- container (image + source + lint + consolidação) -----------------------
+## --- full-scan (Trivy image + Trivy source + Betterleaks + Hadolint) ---------
 ## Executa um fluxo de scan completo para container, incluindo:
 ## - Scan de imagem com Trivy (opcional)
 ## - Scan de código-fonte (filesystem ou repo) com Trivy
@@ -1559,7 +1819,7 @@ do_dockerfile_lint() {
 ## Argumentos:
 ## $@ (flags e argumentos para o comando, incluindo opções de metadata, flags extras para Trivy após "--", e opções específicas
 ## de container como --path, --dockerfiles, etc.)
-do_container() {
+do_full_scan() {
   parse_metadata_flags "$@"
   set -- "${REMAINING_ARGS[@]}"
 
@@ -1569,6 +1829,7 @@ do_container() {
   local scan_mode=""
   local skip_image=""
   local skip_lint=""
+  local skip_secrets=""
   local sbom_enabled="false"
   local sbom_format="${SBOM_FORMAT:-cyclonedx}"
   local trivy_extras=()
@@ -1577,11 +1838,11 @@ do_container() {
   while [[ $# -gt 0 ]]; do
     case "${1}" in
       help|-h|--help)
-        usage_container
+        usage_full_scan
         return 0
       ;;
       --path)
-        [[ -z "${2:-}" ]] && { log_err "Missing value for --path"; return 2; }
+        [[ -z "${2:-}" ]] && { log_err "Missing --path value"; return 2; }
         scan_path="${2}"
         shift 2
       ;;
@@ -1590,7 +1851,7 @@ do_container() {
         shift
       ;;
       --dockerfiles)
-        [[ -z "${2:-}" ]] && { log_err "Missing value for --dockerfiles"; return 2; }
+        [[ -z "${2:-}" ]] && { log_err "Missing --dockerfiles value"; return 2; }
         dockerfiles="${2}"
         shift 2
       ;;
@@ -1599,7 +1860,7 @@ do_container() {
         shift
       ;;
       --scan-mode)
-        [[ -z "${2:-}" ]] && { log_err "Missing value for --scan-mode"; return 2; }
+        [[ -z "${2:-}" ]] && { log_err "Missing --scan-mode value"; return 2; }
         scan_mode="${2}"
         shift 2
       ;;
@@ -1615,6 +1876,10 @@ do_container() {
         skip_lint="true"
         shift
       ;;
+      --skip-secrets)
+        skip_secrets="true"
+        shift
+      ;;
       --sbom)
         sbom_enabled="true"
         shift
@@ -1625,7 +1890,7 @@ do_container() {
         shift
       ;;
       --sbom-format)
-        [[ -z "${2:-}" ]] && { log_err "Missing value for --sbom-format"; return 2; }
+        [[ -z "${2:-}" ]] && { log_err "Missing --sbom-format value"; return 2; }
         sbom_enabled="true"
         sbom_format="${2}"
         shift 2
@@ -1649,113 +1914,123 @@ do_container() {
   done
 
   ## Define valores padrão e validações
-  scan_path="${scan_path:-${CONTAINER_PATH:-$(auto_detect_path)}}"
-  dockerfiles="${dockerfiles:-${CONTAINER_DOCKERFILES:-Dockerfile}}"
-  scan_mode="${scan_mode:-${CONTAINER_SCAN_MODE:-fs}}"
-  skip_image="${skip_image:-${CONTAINER_SKIP_IMAGE:-false}}"
-  skip_lint="${skip_lint:-${CONTAINER_SKIP_LINT:-false}}"
+  scan_path="${scan_path:-${FULL_SCAN_PATH:-$(auto_detect_path)}}"
+  dockerfiles="${dockerfiles:-${FULL_SCAN_DOCKERFILES:-Dockerfile}}"
+  scan_mode="${scan_mode:-${FULL_SCAN_MODE:-fs}}"
+  skip_image="${skip_image:-${FULL_SCAN_SKIP_IMAGE:-false}}"
+  skip_lint="${skip_lint:-${FULL_SCAN_SKIP_LINT:-false}}"
+  skip_secrets="${skip_secrets:-${FULL_SCAN_SKIP_SECRETS:-false}}"
 
   ## Verifica se a imagem foi fornecida, a menos que o usuário tenha optado por pular o scan de imagem
   if ! is_true "$skip_image" && [[ -z "$image" ]]; then
-    log_err "<image> is required (or use --skip-image)."
-    usage_container
+    log_err "<image> required (or --skip-image)."
+    usage_full_scan
     return 2
   fi
-
   ## Verifica se o modo de scan é válido e se o caminho existe
   if [[ "$scan_mode" != "fs" && "$scan_mode" != "repo" ]]; then
-    log_err "--scan-mode must be 'fs' or 'repo' (got: '$scan_mode')."
+    log_err "--scan-mode must be fs or repo (got: '$scan_mode')."
+    usage_full_scan
     return 2
   fi
 
-  [[ ! -d "$scan_path" ]] && { log_err "scan path not found: $scan_path"; return 2; }
+  ## Verifica se o caminho de scan existe
+  [[ ! -d "$scan_path" ]] && { log_err "scan path not found: $scan_path"; usage_full_scan; return 2; }
 
+  ## Verifica se o comando jq está disponível
   require_command jq || return 127
 
   local orig_exit_code="${TRIVY_EXIT_CODE:-1}"
   export TRIVY_EXIT_CODE=0
 
-  local errors=0 step=0 total_steps=0
-  is_true "$skip_image" || total_steps=$((total_steps + 1))
-  total_steps=$((total_steps + 1))
-  is_true "$skip_lint" || total_steps=$((total_steps + 1))
+  ## Calcula o número total de etapas para exibição de progresso
+  local errors=0
+  local step=0
+  local total_steps=0
+  is_true "$skip_image"   || total_steps=$((total_steps + 1))
+  total_steps=$((total_steps + 1)) # source sempre
+  is_true "$skip_secrets" || total_steps=$((total_steps + 1))
+  is_true "$skip_lint"    || total_steps=$((total_steps + 1))
 
-  log "=== Container scan started ==="
+  log "=== Full scan started ==="
   [[ -n "$image" ]] && log "Image: $image"
   log "Path: $scan_path"
   log "Scan mode: $scan_mode"
   log "Dockerfiles: $dockerfiles"
-  [[ "$sbom_enabled" == "true" ]] && log "SBOM: enabled ($sbom_format)"
-  should_use_list_all_pkgs && log "List all packages: enabled"
+  [[ "$sbom_enabled" == "true" ]] && log "SBOM: $sbom_format"
   log ""
 
+  ## Step: Image scan
   local img_output="$REPORT_DIR/trivy-image.json"
-  local img_report="" sbom_output=""
+  local sbom_output=""
 
-  ## Etapa 1: Scan de imagem (opcional)
+  ## Verfica se o usuário optou por pular o scan de imagem
   if ! is_true "$skip_image"; then
     step=$((step + 1))
-    log "-- [$step/$total_steps] Image scan --"
+    log "-- [$step/$total_steps] Image scan (Trivy) --"
 
-    ## O scan de imagem é crítico para a avaliação de falha
-    if run_trivy_scan "image" "$image" "$img_output" "${trivy_extras[@]}"; then
-      img_report="$img_output"
+    ## Executa o scan de imagem e captura erros.
+    run_trivy_scan "image" "$image" "$img_output" "${trivy_extras[@]}" || errors=$((errors + 1))
 
-      ## Converte o relatório para outro formato se TRIVY_FORMAT estiver definido e não for json
-      if [[ "${TRIVY_FORMAT:-json}" != "json" ]]; then
-        convert_report_if_needed "$img_output" "$REPORT_DIR/trivy-image.${TRIVY_FORMAT}" || true
-      fi
-    else
-      errors=$((errors + 1))
-    fi
-
-    ## Gera SBOM da imagem se a opção estiver ativa, mas não falha o processo se houver erro na geração do SBOM
+    ## Gera SBOM da imagem se a opção estiver ativa
     if [[ "$sbom_enabled" == "true" ]]; then
       sbom_output="${SBOM_OUTPUT:-$REPORT_DIR/trivy-image.sbom.json}"
       generate_sbom image "$image" "$sbom_format" "$sbom_output" "${trivy_extras[@]}" || true
     fi
   fi
 
+  ## Step: Source scan
   step=$((step + 1))
-  log "-- [$step/$total_steps] Source scan ($scan_mode) --"
-  local source_report="" source_output
+  log "-- [$step/$total_steps] Source scan ($scan_mode) (Trivy) --"
+  local source_output
 
-  ## Etapa 2: Scan de código-fonte (filesystem ou repositório)
+  ## Verifica o modo de scan e executa o scan de código-fonte correspondente, capturando erros.
   if [[ "$scan_mode" == "fs" ]]; then
     source_output="$REPORT_DIR/trivy-filesystem.json"
 
-    ## O scan de filesystem é crítico para a avaliação de falha, pois geralmente contém as dependências do projeto
-    if run_trivy_scan "filesystem" "$scan_path" "$source_output" "${trivy_extras[@]}"; then
-      source_report="$source_output"
-    else
-      errors=$((errors + 1))
-    fi
+    ## Executa o scan de filesystem e captura erros.
+    run_trivy_scan "filesystem" "$scan_path" "$source_output" "${trivy_extras[@]}" || errors=$((errors + 1))
   else
     source_output="$REPORT_DIR/trivy-repo.json"
 
-    ## O scan de repositório é considerado menos crítico
-    if run_trivy_scan "repo" "$scan_path" "$source_output" "${trivy_extras[@]}"; then
-      source_report="$source_output"
-    else
+    ## Executa o scan de repositório e captura erros.
+    run_trivy_scan "repo" "$scan_path" "$source_output" "${trivy_extras[@]}" || errors=$((errors + 1))
+  fi
+
+  ## Step: Secret scan (Betterleaks)
+  local secret_output="${BETTERLEAKS_OUTPUT:-$REPORT_DIR/betterleaks.json}"
+
+  ## Verifica se o usuário optou por pular o scan de segredos.
+  if ! is_true "$skip_secrets"; then
+    step=$((step + 1))
+    log "-- [$step/$total_steps] Secret scan (Betterleaks) --"
+    : > "$secret_output"
+    local gl_rc=0
+
+    ## Executa o scan de segredos e captura erros.
+    run_betterleaks "$scan_path" "$secret_output" "false" || gl_rc=$?
+
+    ## Verifica o código de saída do Betterleaks: 0 = clean, 1 = findings, >1 = error.
+    if [[ $gl_rc -gt 1 ]]; then
+      log_err "Betterleaks error (exit $gl_rc)."
       errors=$((errors + 1))
     fi
+
+    ## Garante arquivo válido para envelope (JSON vazio = array vazio)
+    [[ ! -s "$secret_output" ]] && echo "[]" > "$secret_output"
   fi
 
-  ## Converte o relatório de código-fonte para outro formato se TRIVY_FORMAT estiver definido e não for json
-  if [[ -n "$source_report" && "${TRIVY_FORMAT:-json}" != "json" ]]; then
-    convert_report_if_needed "$source_report" "$REPORT_DIR/trivy-source.${TRIVY_FORMAT}" || true
-  fi
-
+  ## Step: Dockerfile lint
   local lint_reports_file="$REPORT_DIR/.lint-results.json"
   echo "[]" > "$lint_reports_file"
 
-  ## Etapa 3: Lint de Dockerfile(s) com Hadolint (opcional)
+  ## Verifica se o usuário optou por pular o lint de Dockerfile.
   if ! is_true "$skip_lint"; then
     step=$((step + 1))
-    log "-- [$step/$total_steps] Dockerfile lint --"
+    log "-- [$step/$total_steps] Dockerfile lint (Hadolint) --"
     local lint_results=() df
 
-    ## Itera sobre a lista de Dockerfiles, executa o lint e coleta os resultados
+    ## Itera sobre a lista de Dockerfiles
     while IFS= read -r df; do
       df="${df#"${df%%[![:space:]]*}"}"
       df="${df%"${df##*[![:space:]]}"}"
@@ -1763,17 +2038,13 @@ do_container() {
       local df_path="$scan_path/$df"
 
       ## Verifica se o Dockerfile existe antes de tentar lintar
-      if [[ ! -f "$df_path" ]]; then
-        log_warn "Dockerfile not found: $df_path (skipping)"
-        continue
-      fi
+      [[ ! -f "$df_path" ]] && { log_warn "Dockerfile not found: $df_path"; continue; }
 
       local safe_name
       safe_name=$(echo "$df" | tr '/' '-' | tr '.' '-')
       local lint_output="$REPORT_DIR/hadolint-${safe_name}.json"
-      local lint_format="${HADOLINT_FORMAT:-json}"
       local lint_rc=0
-      local hadolint_args=( --format "$lint_format" )
+      local hadolint_args=( --format "${HADOLINT_FORMAT:-json}" )
       [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]] && hadolint_args+=( --failure-threshold "$HADOLINT_FAILURE_LEVEL" )
       [[ -n "${HADOLINT_CONFIG:-}" ]] && hadolint_args+=( --config "$HADOLINT_CONFIG" )
       hadolint "${hadolint_args[@]}" "$df_path" > "$lint_output" 2>&1 || lint_rc=$?
@@ -1784,22 +2055,22 @@ do_container() {
       ## outros códigos indicam erros de execução
       case $lint_rc in
         0)
-          log_ok "Dockerfile '$df' OK."
+          log_ok "$df OK."
         ;;
         1)
-          log_warn "Hadolint found issues in '$df'."
+          log_warn "$df has findings."
         ;;
         *)
-          log_err "Hadolint error for '$df' (exit $lint_rc)."
+          log_err "$df error (exit $lint_rc)."
           errors=$((errors + 1))
         ;;
       esac
 
       ## Se o relatório de lint não estiver vazio, adiciona à lista de resultados para consolidação
       if [[ -s "$lint_output" ]]; then
-        local lint_entry
-        lint_entry=$(jq -n --arg file "$df" --slurpfile report "$lint_output" '{ file: $file, report: $report[0] }')
-        lint_results+=("$lint_entry")
+        local entry
+        entry=$(jq -n --arg file "$df" --slurpfile report "$lint_output" '{ file: $file, report: $report[0] }')
+        lint_results+=("$entry")
       fi
     done <<< "${dockerfiles//,/$'\n'}"
 
@@ -1809,16 +2080,15 @@ do_container() {
     fi
   fi
 
-  local consolidated="$REPORT_DIR/container-report.json"
+  ## Consolidação
+  local consolidated="$REPORT_DIR/full-scan-report.json"
   log ""
-  log "-- Consolidating reports --"
+  log "-- Consolidating --"
 
-  local img_file src_file
+  local img_file src_file sec_file
   img_file="$(_report_file_or_null "$img_output")"
-  src_file="$(_report_file_or_null "$source_report")"
-
-  local list_all="false"
-  should_use_list_all_pkgs && list_all="true"
+  src_file="$(_report_file_or_null "$source_output")"
+  sec_file="$(_report_file_or_null "$secret_output")"
 
   local metadata_json
   metadata_json="$(collect_metadata "$scan_path")"
@@ -1826,27 +2096,28 @@ do_container() {
   ## Consolida os resultados em um único envelope usando o schema ark-report-tools
   jq -n \
     --arg schema "ark-report-tools" \
-    --arg version "1.1" \
+    --arg version "1.2" \
+    --arg image_family "${ARK_IMAGE_FAMILY:-security-scanner}" \
     --arg ts "$(now_iso)" \
-    --arg cmd "container" \
     --arg target "$image" \
-    --arg tool "trivy+hadolint" \
     --argjson sbom_enabled  "$sbom_enabled" \
-    --argjson list_all_pkgs "$list_all" \
+    --argjson list_all_pkgs "$(should_use_list_all_pkgs && echo true || echo false)" \
     --argjson metadata      "$metadata_json" \
     --arg path "$scan_path" \
     --arg scan_mode "$scan_mode" \
     --arg dfiles "$dockerfiles" \
     --slurpfile img "$img_file" \
     --slurpfile source "$src_file" \
+    --slurpfile secrets "$sec_file" \
     --slurpfile lints "$lint_reports_file" \
     '{
       schema: $schema,
       version: $version,
+      image_family: $image_family,
       timestamp: $ts,
-      command: $cmd,
+      command: "full-scan",
       target: $target,
-      tool: $tool,
+      tool: "trivy+hadolint+betterleaks",
       sbom_enabled: $sbom_enabled,
       list_all_pkgs: $list_all_pkgs,
       metadata: ($metadata + {
@@ -1857,8 +2128,9 @@ do_container() {
         }
       }),
       results: {
-        image_scan:      $img[0],
-        source_scan:     $source[0],
+        image_scan:       $img[0],
+        source_scan:      $source[0],
+        secret_scan:      $secrets[0],
         dockerfile_lints: $lints[0]
       }
     }' > "$consolidated"
@@ -1871,6 +2143,7 @@ do_container() {
     send_sbom_report "$sbom_output"
   fi
 
+  ## Gates finais
   export TRIVY_EXIT_CODE="$orig_exit_code"
 
   ## Verifica os relatórios de Trivy para aplicar o gate de falha
@@ -1892,6 +2165,11 @@ do_container() {
       fi
     done
 
+    ## Verifica os relatórios de Betterleaks para aplicar o gate de falha
+    if ! is_true "$skip_secrets" && [[ -s "$secret_output" ]]; then
+      betterleaks_failure_gate "$secret_output" || errors=$((errors + 1))
+    fi
+
     ## Verifica o relatório de lint do Dockerfile para aplicar o gate de falha.
     if ! is_true "$skip_lint" && [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]]; then
       local lint_error_count
@@ -1899,16 +2177,17 @@ do_container() {
 
       ## Verifica se a contagem de erros é um número válido e se é maior que zero para determinar se o gate de falha deve ser acionado.
       if [[ "$lint_error_count" =~ ^[0-9]+$ ]] && (( lint_error_count > 0 )); then
-        log_err "Hadolint failure gate: $lint_error_count error(s) found."
+        log_err "Hadolint failure gate: $lint_error_count error(s)."
         errors=$((errors + 1))
       fi
     fi
   fi
 
+  ## Remove arquivos temporários
   rm -f "$REPORT_DIR/.null.json" "$lint_reports_file"
 
   log ""
-  log "=== Container scan finished ==="
+  log "=== Full scan finished ==="
   log "Reports in: $REPORT_DIR/"
   ls -la "$REPORT_DIR/" >&2 || true
 
@@ -1956,8 +2235,11 @@ case "$cmd" in
   dockerfile-lint|hadolint|dl)
     do_dockerfile_lint "$@"
   ;;
-  container|ctr)
-    do_container "$@"
+  secret-scan|sec-scan|ss)
+    do_secret_scan "$@"
+  ;;
+  full-scan|all)
+    do_full_scan "$@"
   ;;
   send-report|send)
     send_report "${1:-}"

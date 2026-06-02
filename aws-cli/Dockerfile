@@ -141,7 +141,8 @@ RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
   && adduser app docker
 
 # Variáveis úteis para Docker
-ENV DOCKER_CLI_HINTS=false \
+ENV ARK_IMAGE_FAMILY=aws-cli \
+    DOCKER_CLI_HINTS=false \
     DOCKER_BUILDKIT=1
 
 # Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)

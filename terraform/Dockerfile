@@ -86,7 +86,8 @@ RUN adduser --disabled-password --gecos "" app
 USER app
 
 # Variáveis úteis para CI
-ENV TF_IN_AUTOMATION=1 \
+ENV ARK_IMAGE_FAMILY=terraform \
+    TF_IN_AUTOMATION=1 \
     TF_INPUT=0 \
     TF_CLI_ARGS="-input=false -no-color"
 

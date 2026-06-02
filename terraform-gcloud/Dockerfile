@@ -139,12 +139,13 @@ USER app
 
 # Desabilita prompts interativos por padrão (útil para CI) e define Python explícito
 ENV CLOUDSDK_CORE_DISABLE_PROMPTS=1 \
-  CLOUDSDK_PYTHON=/usr/bin/python3
+    CLOUDSDK_PYTHON=/usr/bin/python3
 
 # Variáveis úteis
-ENV TF_IN_AUTOMATION=1 \
-  TF_INPUT=0 \
-  TF_CLI_ARGS="-input=false -no-color"
+ENV ARK_IMAGE_FAMILY=terraform-gcloud \
+    TF_IN_AUTOMATION=1 \
+    TF_INPUT=0 \
+    TF_CLI_ARGS="-input=false -no-color"
 
 # Evita ENTRYPOINT para facilitar uso em pipelines; fornece um CMD neutro
 CMD ["/bin/bash"]

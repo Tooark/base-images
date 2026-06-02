@@ -1,57 +1,75 @@
 # gcloud-cli
 
-Esta imagem fornece o Google Cloud SDK (`gcloud`, `gsutil`, `bq`), `kubectl`, `docker` e `docker buildx`, prontos para uso em pipelines e execuções ad-hoc em container.
+Imagem base com `gcloud` (Google Cloud SDK), `gsutil`, `bq`, `kubectl`, `docker`
+e `docker buildx`, prontos para uso em pipelines e execuções ad-hoc em container.
 
-## Nome e tags da imagem
+---
 
-- Nome da imagem: `gcloud-cli` (nome da pasta)
-- Tags publicadas por versão:
-  - Versão completa: `gcloud-cli:<major.minor.patch>`
-  - Versão curta (major.minor): `gcloud-cli:<major.minor>`
-  - Versão menor (major): `gcloud-cli:<major>`
-  - Última estável: `gcloud-cli:latest`
+## Sumário
 
-Substitua os números acima pelos valores da sua build.
+- [Recursos](#recursos)
+- [Tags da imagem](#tags-da-imagem)
+- [Conteúdo da imagem](#conteúdo-da-imagem)
+- [Início rápido](#início-rápido)
+- [Pipelines](#pipelines)
+- [Build local](#build-local)
+- [Documentação oficial](#documentação-oficial)
+- [Licença](#licença)
 
-## O que existe na imagem
+---
 
-| Item             | Descrição                                                         |
-| ---------------- | ----------------------------------------------------------------- |
-| Base             | `debian:12-slim` (padrão)                                         |
-| Google Cloud SDK | Instalado em `/opt/google-cloud-sdk`                              |
-| kubectl          | Instalado em `/usr/local/bin/kubectl`                             |
-| Docker CLI       | Instalado em `/usr/local/bin/docker`                              |
-| Docker Buildx    | Plugin em `/usr/local/libexec/docker/cli-plugins/docker-buildx`   |
-| Symlinks         | `gcloud`, `gsutil`, `bq` disponíveis em `/usr/local/bin`          |
-| Binários         | `gcloud`, `gsutil`, `bq`, `kubectl`, `docker` em `/usr/local/bin` |
-| Pacotes          | `ca-certificates`, `bash`, `python3`                              |
-| Usuário padrão   | `app` (não-root), HOME: `/home/app`                               |
+## Recursos
 
-Observações:
+- **Google Cloud SDK**, **kubectl**, **Docker CLI** e **Buildx** na mesma imagem
+- Base Debian minimalista com usuário não-root
+- Compatível com linux/amd64 e linux/arm64
 
-- O usuário padrão é `app` e o HOME é `/home/app`.
-- A imagem inclui `bash` e `python3` (necessários para os scripts do gcloud).
-- O `CMD` padrão é `/bin/bash`.
-- Prompts interativos são desabilitados por padrão: `CLOUDSDK_CORE_DISABLE_PROMPTS=1`.
-- A imagem é compatível com `linux/amd64` e `linux/arm64`.
+---
 
-## Uso rápido
+## Tags da imagem
+
+| Tag                                             | Descrição       |
+| ----------------------------------------------- | --------------- |
+| `ghcr.io/tooark/gcloud-cli:<MAJOR.MINOR.PATCH>` | Versão completa |
+| `ghcr.io/tooark/gcloud-cli:<MAJOR.MINOR>`       | Versão curta    |
+| `ghcr.io/tooark/gcloud-cli:<MAJOR>`             | Major track     |
+| `ghcr.io/tooark/gcloud-cli:latest`              | Última estável  |
+
+---
+
+## Conteúdo da imagem
+
+| Item                  | Descrição                                                      |
+| --------------------- | -------------------------------------------------------------- |
+| Base                  | `debian:12-slim`                                               |
+| Google Cloud SDK      | `/opt/google-cloud-sdk`                                        |
+| kubectl               | `/usr/local/bin/kubectl`                                       |
+| Docker CLI            | `/usr/local/bin/docker`                                        |
+| Docker Buildx         | `/usr/local/libexec/docker/cli-plugins/docker-buildx`          |
+| Symlink               | `gcloud`, `gsutil`, `bq` -> `/opt/google-cloud-sdk/bin/gcloud` |
+| Runtime deps          | `ca-certificates`, `bash`, `python3`                           |
+| Usuário padrão        | `app` (não-root)                                               |
+| Identificador família | `ARK_IMAGE_FAMILY=gcloud-cli`                                  |
+
+---
+
+## Início rápido
 
 Executar `gcloud --version`:
 
-```powershell
+```bash
 docker run --rm ghcr.io/tooark/gcloud-cli:latest gcloud --version
 ```
 
 Listar informações de configuração atuais (sem autenticar):
 
-```powershell
+```bash
 docker run --rm ghcr.io/tooark/gcloud-cli:latest gcloud info
 ```
 
 Ver versão do kubectl (cliente):
 
-```powershell
+```bash
 docker run --rm ghcr.io/tooark/gcloud-cli:latest kubectl version --client
 ```
 
@@ -59,69 +77,55 @@ docker run --rm ghcr.io/tooark/gcloud-cli:latest kubectl version --client
 
 Em ambientes CI/CD, prefira contas de serviço. Duas formas comuns:
 
-1. Variável `GOOGLE_APPLICATION_CREDENTIALS` apontando para um arquivo JSON montado:
+Variável `GOOGLE_APPLICATION_CREDENTIALS` apontando para um arquivo JSON montado:
 
-   ```powershell
-   docker run --rm `
-     -e GOOGLE_APPLICATION_CREDENTIALS=/home/app/key.json `
-     -v ${env:USERPROFILE}\Downloads\sa.json:/home/app/key.json:ro `
-     ghcr.io/tooark/gcloud-cli:latest gcloud auth activate-service-account --key-file=/home/app/key.json
-   ```
-
-2. Definir projeto/região/zone via variáveis de ambiente:
-
-   ```powershell
-   docker run --rm `
-     -e CLOUDSDK_CORE_PROJECT=meu-projeto `
-     -e CLOUDSDK_COMPUTE_REGION=us-central1 `
-     -e CLOUDSDK_COMPUTE_ZONE=us-central1-a `
-     ghcr.io/tooark/gcloud-cli:latest gcloud config list
-   ```
-
-3. Usar `kubectl get` com kubeconfig montado:
-
-   ```powershell
-   docker run --rm `
-     -v C:\caminho\para\kubeconfig:/home/app/.kube/config:ro `
-     ghcr.io/tooark/gcloud-cli:latest kubectl get nodes --request-timeout=10s
-   ```
-
-> O usuário padrão é `app`; ao montar arquivos de credencial, use caminhos sob `/home/app` dentro do container.
-
-## Variantes de tag
-
-- `gcloud-cli:<major>.<minor>.<patch>`: versão exata do SDK (ex.: `548.0.0`).
-- `gcloud-cli:<major>.<minor>`: acompanha a última patch da série (ex.: `548.0`).
-- `gcloud-cli:<major>`: acompanha a última minor da série (ex.: `548`).
-- `gcloud-cli:latest`: aponta para a última versão estável construída.
-
-Para pipelines reprodutíveis, prefira a versão completa.
-
-## Como verificar versões dentro da imagem
-
-```powershell
-docker run --rm --entrypoint sh ghcr.io/tooark/gcloud-cli:latest -c "gcloud --version; gsutil --version; bq version; kubectl version --client; docker --version; docker buildx version; dpkg -l | grep -E 'ca-certificates|bash|python3'"
+```bash
+docker run --rm \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/home/app/key.json \
+  -v "$HOME/tmp/sa.json:/home/app/key.json:ro" \
+  ghcr.io/tooark/gcloud-cli:latest gcloud auth activate-service-account --key-file=/home/app/key.json
 ```
 
-## Multi-arquitetura
+Definir projeto/região/zone via variáveis de ambiente:
 
-O `Dockerfile` detecta `TARGETARCH` e baixa:
+```bash
+docker run --rm \
+  -e CLOUDSDK_CORE_PROJECT=meu-projeto \
+  -e CLOUDSDK_COMPUTE_REGION=us-central1 \
+  -e CLOUDSDK_COMPUTE_ZONE=us-central1-a \
+  ghcr.io/tooark/gcloud-cli:latest gcloud config list
+```
 
-- O Google Cloud SDK da arquitetura correspondente
-- O binário `kubectl` da arquitetura correspondente
-- O Docker CLI estático da arquitetura correspondente
-- O plugin Docker Buildx da arquitetura correspondente
+Usar `kubectl get` com kubeconfig montado:
 
-Arquiteturas suportadas:
+```bash
+docker run --rm \
+  -v "$HOME/.kube/config:/home/app/.kube/config:ro" \
+  ghcr.io/tooark/gcloud-cli:latest kubectl get nodes --request-timeout=10s
+```
 
-- `linux/amd64`
-- `linux/arm64`
+Para usar `kubectl`, você também pode montar um kubeconfig em `/home/app/.kube/config`.
 
-Builds para arquiteturas diferentes falham explicitamente no estágio de build.
+---
 
-## GitHub Actions
+## Variáveis de ambiente
 
-### Exemplo básico
+### GCLOUD CLI
+
+| Variável                         | Default | Descrição                                       |
+| -------------------------------- | ------- | ----------------------------------------------- |
+| `GOOGLE_APPLICATION_CREDENTIALS` | -       | Caminho para o arquivo JSON da conta de serviço |
+| `CLOUDSDK_CORE_PROJECT`          | -       | Projeto padrão do GCP                           |
+| `CLOUDSDK_COMPUTE_REGION`        | -       | Região padrão do GCP                            |
+| `CLOUDSDK_COMPUTE_ZONE`          | -       | Zona padrão do GCP                              |
+
+---
+
+## Pipelines
+
+### GitHub Actions
+
+#### Exemplo básico (GH)
 
 ```yaml
 name: Deploy GCP
@@ -150,7 +154,7 @@ jobs:
         run: gsutil -m rsync -r ./dist gs://${{ vars.GCS_BUCKET }}
 ```
 
-### Exemplo com kubectl (GKE)
+#### Exemplo com kubectl (GKE) (GH)
 
 ```yaml
 name: Deploy GKE
@@ -184,9 +188,9 @@ jobs:
         run: kubectl rollout status deployment/${{ vars.APP_NAME }} --timeout=120s
 ```
 
-## GitLab CI
+### GitLab CI
 
-### Exemplo básico
+#### Exemplo básico (GL)
 
 ```yaml
 stages:
@@ -204,7 +208,7 @@ deploy_gcs:
     - main
 ```
 
-### Exemplo com kubectl (GKE)
+#### Exemplo com kubectl (GKE) (GL)
 
 ```yaml
 stages:
@@ -223,27 +227,31 @@ deploy_gke:
     - main
 ```
 
-## Notas de build (opcional)
+---
+
+## Build local
 
 Ao construir localmente, publique tags equivalentes para a mesma imagem (versão completa, curta e `latest`).
 
-```powershell
-$version = "548.0.0"   # Google Cloud SDK
-$kubectl = "1.30.4"    # kubectl
-$docker  = "28.1.1"    # Docker CLI
-$buildx  = "0.26.1"    # Buildx
-$short = ($version -split '\\.')[0..1] -join '.'
+```bash
+version="548.0.0"   # Google Cloud SDK
+kubectl="1.30.4"    # kubectl
+docker="28.1.1"     # Docker CLI
+buildx="0.26.1"     # Buildx
+short="$(echo "$version" | cut -d. -f1,2)"
 
-docker build `
-  --build-arg GCLOUD_VERSION=$version `
-  --build-arg KUBECTL_VERSION=$kubectl `
-  --build-arg DOCKER_VERSION=$docker `
-  --build-arg DOCKER_BUILDX_VERSION=$buildx `
-  -t gcloud-cli:$version `
-  -t gcloud-cli:$short `
-  -t gcloud-cli:latest `
+docker build \
+  --build-arg GCLOUD_VERSION="$version" \
+  --build-arg KUBECTL_VERSION="$kubectl" \
+  --build-arg DOCKER_VERSION="$docker" \
+  --build-arg DOCKER_BUILDX_VERSION="$buildx" \
+  -t "gcloud-cli:$version" \
+  -t "gcloud-cli:$short" \
+  -t gcloud-cli:latest \
   ./gcloud-cli
 ```
+
+---
 
 ## Documentação oficial
 
@@ -251,10 +259,12 @@ docker build `
   - [Notas de lançamento](https://cloud.google.com/sdk/docs/release-notes)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
   - [Notas de lançamento](https://kubernetes.io/releases/)
-- [Docker CLI](https://docs.docker.com/engine/release-notes/)
-  - [Releases](https://github.com/docker/cli/releases)
-- [Docker Buildx](https://docs.docker.com/build/buildx/)
-  - [Releases](https://github.com/docker/buildx/releases)
+- [Docker CLI](https://docs.docker.com/reference/cli/docker/)
+  - [Notas de lançamento](https://docs.docker.com/engine/release-notes/)
+- [Docker Buildx](https://docs.docker.com/reference/cli/docker/buildx/)
+  - [Notas de lançamento](https://github.com/docker/buildx/releases/)
+
+---
 
 ## Licença
 

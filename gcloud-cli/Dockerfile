@@ -156,10 +156,11 @@ RUN ln -sf /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
   && adduser app docker
 
 # Desabilita prompts interativos por padrão (útil para CI) e define Python explícito
-ENV CLOUDSDK_CORE_DISABLE_PROMPTS=1 \
-  CLOUDSDK_PYTHON=/usr/bin/python3 \
-  DOCKER_CLI_HINTS=false \
-  DOCKER_BUILDKIT=1
+ENV ARK_IMAGE_FAMILY=gcloud-cli \
+    CLOUDSDK_CORE_DISABLE_PROMPTS=1 \
+    CLOUDSDK_PYTHON=/usr/bin/python3 \
+    DOCKER_CLI_HINTS=false \
+    DOCKER_BUILDKIT=1
 
 # Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
 ENTRYPOINT ["docker-entrypoint.sh"]

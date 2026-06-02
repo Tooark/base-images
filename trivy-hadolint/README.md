@@ -109,15 +109,15 @@ docker run --rm \
 ## Comandos disponíveis
 
 ```text
-ark-tools help                                                                       # Ajuda geral
-ark-tools version                                                                    # Versões
-ark-tools image-scan [--sbom[=fmt]|--sbom-format <fmt>] <image> [-- <extras>]        # Scan de imagem
-ark-tools filesystem-scan [--sbom[=fmt]|--sbom-format <fmt>] [path] [-- <extras>]    # Scan de filesystem
-ark-tools config-scan [path] [-- <extras>]                                           # Scan de IaC
-ark-tools repo-scan [path|url] [-- <extras>]                                         # Scan de repositório
-ark-tools dockerfile-lint [Dockerfile] [-- <extras>]                                 # Lint de Dockerfile
-ark-tools container [options] <image> [-- <extras>]                                  # Combinado (image + source + lint)
-ark-tools send-report <file>                                                         # Envio manual via webhook
+help                                                                       # Ajuda geral
+version                                                                    # Versões
+image-scan [--sbom[=fmt]|--sbom-format <fmt>] <image> [-- <extras>]        # Scan de imagem
+filesystem-scan [--sbom[=fmt]|--sbom-format <fmt>] [path] [-- <extras>]    # Scan de filesystem
+config-scan [path] [-- <extras>]                                           # Scan de IaC
+repo-scan [path|url] [-- <extras>]                                         # Scan de repositório
+dockerfile-lint [Dockerfile] [-- <extras>]                                 # Lint de Dockerfile
+container [options] <image> [-- <extras>]                                  # Combinado (image + source + lint)
+send-report <file>                                                         # Envio manual via webhook
 ```
 
 Todos os comandos de scan aceitam também as
@@ -563,7 +563,7 @@ Todos os relatórios gerados pelo `ark-tools` seguem o envelope
 
 Dentro da imagem, o schema também está disponível em:
 
-```
+```bash
 /usr/local/share/ark-tools/ark-report-tools.schema.v1.1.json
 ```
 

@@ -62,9 +62,10 @@ jobs:
           - sonar-scanner
           - trivy-hadolint
           - dockerx
+          - security-scanner
     env:
       REGISTRY: ghcr.io/tooark
-      TRIVY_SCANNER_IMAGE: ghcr.io/tooark/trivy-hadolint:1.70
+      TRIVY_SCANNER_IMAGE: ghcr.io/tooark/trivy-hadolint:1.71
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -124,73 +125,23 @@ jobs:
           echo "short=$SHORT_VERSION" >> $GITHUB_OUTPUT
           echo "major=$MAJOR_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Check if image folder changed
+      - name: Check if repository tag already exists
         id: detect
         run: |
           set -eu
 
           IMAGE="${{ matrix.image }}"
-          BEFORE="${{ github.event.before }}"
-          CURRENT="${{ github.sha }}"
+          TAG_NAME="${IMAGE}-${{ steps.tags.outputs.full }}"
 
-          # If there is no previous commit (first commit), always build.
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            echo "build=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          echo "Checking repository tag: $TAG_NAME"
 
-          # Load changed files between commits
-          CHANGED_FILES=$(git diff --name-only "$BEFORE" "$CURRENT" || true)
-
-          # Checks if files in the image folder have been modified.
-          if echo "$CHANGED_FILES" | grep -E "^$IMAGE/" >/dev/null 2>&1; then
-            echo "build=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          # Check if relevant version variables have changed.
-          VAR_LIST=""
-          if [ -f "$IMAGE/VERSION" ]; then
-            VAR_LIST=$(grep -v '^[#[:space:]]*$' "$IMAGE/VERSION" | tr -d '\r')
+          if git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+            echo "Repository tag already exists. Skipping build."
+            echo "build=false" >> $GITHUB_OUTPUT
           else
-            VAR_LIST=$(echo "$IMAGE" | tr '[:lower:]-' '[:upper:]_')_VERSION
+            echo "Repository tag not found. Build will run."
+            echo "build=true" >> $GITHUB_OUTPUT
           fi
-
-          echo "Version variables for $IMAGE: $VAR_LIST"
-
-          # Check if versions.env changed relevant variables
-          if echo "$CHANGED_FILES" | grep -q "^versions.env$"; then
-            
-            OLD_VERS=$(git show "$BEFORE":versions.env 2>/dev/null || echo "")
-            NEW_VERS=$(cat versions.env)
-            base_old=$(echo "$OLD_VERS" | awk -F= '$1=="BASE_IMAGE" {print $2}')
-            base_new=$(echo "$NEW_VERS" | awk -F= '$1=="BASE_IMAGE" {print $2}')
-            changed=false
-
-            # Check BASE_IMAGE change
-            if [ "$base_old" != "$base_new" ]; then
-              echo "BASE_IMAGE changed ($base_old -> $base_new)"; changed=true;
-            fi
-            
-            # Check other version variables
-            for var in $VAR_LIST; do
-              old_val=$(echo "$OLD_VERS" | awk -F= -v v="$var" '$1==v {print $2}')
-              new_val=$(echo "$NEW_VERS" | awk -F= -v v="$var" '$1==v {print $2}')
-
-              # Check if variable changed
-              if [ "$old_val" != "$new_val" ]; then
-                echo "$var changed ($old_val -> $new_val)";
-                changed=true;
-              fi
-            done
-
-            # If any relevant variable changed, mark for build
-            if [ "$changed" = true ]; then
-              echo "build=true" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-          fi
-          echo "build=false" >> $GITHUB_OUTPUT
 
       - name: Build image locally for scan (amd64 only)
         if: ${{ steps.detect.outputs.build == 'true' }}
@@ -256,7 +207,6 @@ jobs:
             -w /workspace \
             --group-add "$DOCKER_GID" \
             -e TRIVY_FORMAT="json" \
-            -e TRIVY_EXIT_CODE=0 \
             "${DOCKER_IGNORE_ARGS[@]}" \
             "$TRIVY_SCANNER_IMAGE" \
             image-scan "$SCAN_IMAGE"
@@ -360,7 +310,8 @@ jobs:
                 HADOLINT_VERSION)       TOOL_NAME="Hadolint" ;;
                 DOCKER_VERSION)         TOOL_NAME="Docker CLI" ;;
                 DOCKER_BUILDX_VERSION)  TOOL_NAME="Docker Buildx" ;;
-                *)                 continue ;;
+                BETTERLEAKS_VERSION)    TOOL_NAME="Betterleaks" ;;
+                *)                      continue ;;
               esac
               TOOLS_TABLE="${TOOLS_TABLE}| ${TOOL_NAME} | \`${val}\` |\n"
             done < "./${{ matrix.image }}/VERSION"
@@ -372,7 +323,7 @@ jobs:
           printf "%s\n\n" "$DESCRIPTION" >> "$NOTES_FILE"
           printf "### Docker Image\n\n" >> "$NOTES_FILE"
           printf "| Tag | Image |\n|-----|-------|\n" >> "$NOTES_FILE"
-          printf "| Patch version | \`%s:%s\` |\n"    "$IMAGE_NAME" "${{ steps.tags.outputs.full }}"  >> "$NOTES_FILE"
+          printf "| Patch version | \`%s:%s\` |\n"   "$IMAGE_NAME" "${{ steps.tags.outputs.full }}"  >> "$NOTES_FILE"
           printf "| Minor version | \`%s:%s\` |\n"   "$IMAGE_NAME" "${{ steps.tags.outputs.short }}" >> "$NOTES_FILE"
           printf "| Major version | \`%s:%s\` |\n"   "$IMAGE_NAME" "${{ steps.tags.outputs.major }}" >> "$NOTES_FILE"
           printf "| Latest | \`%s:latest\` |\n\n"    "$IMAGE_NAME" >> "$NOTES_FILE"

@@ -1,92 +1,87 @@
 # terraform
 
-Esta imagem fornece o comando `terraform` (Terraform CLI) pronto para uso em pipelines e execuções ad-hoc em container.
+Imagem base com `terraform` (Terraform CLI) pronto para uso em pipelines e
+execuções ad-hoc em container.
 
-## Nome e tags da imagem
+---
 
-- Nome da imagem: `terraform` (nome da pasta)
-- Tags publicadas por versão:
-  - Versão completa: `terraform:<major.minor.patch>`
-  - Versão curta (major.minor): `terraform:<major.minor>`
-  - Versão menor (major): `terraform:<major>`
-  - Última estável: `terraform:latest`
+## Sumário
 
-Substitua os números acima pelos valores da sua build.
+- [Recursos](#recursos)
+- [Tags da imagem](#tags-da-imagem)
+- [Conteúdo da imagem](#conteúdo-da-imagem)
+- [Início rápido](#início-rápido)
+- [Pipelines](#pipelines)
+- [Build local](#build-local)
+- [Documentação oficial](#documentação-oficial)
+- [Licença](#licença)
 
-## O que existe na imagem
+---
 
-| Item           | Descrição                                      |
-| -------------- | ---------------------------------------------- |
-| Base           | `debian:12-slim` (padrão)                      |
-| Terraform CLI  | Instalado em `/usr/local/bin/terraform`        |
-| Pacote         | `ca-certificates`                              |
-| Usuário padrão | `app` (não-root), HOME: `/home/app`            |
+## Recursos
 
-Observações:
+- **Terraform CLI** pronto para execução em CI/CD
+- Base Debian minimalista com usuário não-root
+- Compatível com linux/amd64 e linux/arm64
 
-- O usuário padrão é `app` e o HOME é `/home/app`.
-- Não há `bash` na imagem; o shell padrão é `/bin/sh`.
-- O `CMD` padrão é `/bin/sh`.
-- Variáveis de CI pré-configuradas: `TF_IN_AUTOMATION=1`, `TF_INPUT=0`, `TF_CLI_ARGS="-input=false -no-color"`.
-- A imagem é compatível com `linux/amd64` e `linux/arm64`.
+---
 
-## Uso rápido
+## Tags da imagem
+
+| Tag                                            | Descrição       |
+| ---------------------------------------------- | --------------- |
+| `ghcr.io/tooark/terraform:<MAJOR.MINOR.PATCH>` | Versão completa |
+| `ghcr.io/tooark/terraform:<MAJOR.MINOR>`       | Versão curta    |
+| `ghcr.io/tooark/terraform:<MAJOR>`             | Major track     |
+| `ghcr.io/tooark/terraform:latest`              | Última estável  |
+
+## Conteúdo da imagem
+
+| Item                  | Descrição                    |
+| --------------------- | ---------------------------- |
+| Base                  | `debian:12-slim`             |
+| Terraform CLI         | `/usr/local/bin/terraform`   |
+| Runtime deps          | `ca-certificates`            |
+| Usuário padrão        | `app` (não-root)             |
+| Identificador família | `ARK_IMAGE_FAMILY=terraform` |
+
+---
+
+## Início rápido
 
 Verificar a versão do Terraform:
 
-```powershell
+```bash
 docker run --rm ghcr.io/tooark/terraform:latest terraform version
 ```
 
 Inicializar um diretório de trabalho (monte seu código):
 
-```powershell
-docker run --rm `
-  -v ${PWD}:/workspace `
-  -w /workspace `
+```bash
+docker run --rm \
+  -v ${PWD}:/workspace \
+  -w /workspace \
   ghcr.io/tooark/terraform:latest terraform init
 ```
 
 Executar plan e apply:
 
-```powershell
-docker run --rm `
-  -v ${PWD}:/workspace `
-  -w /workspace `
+```bash
+docker run --rm \
+  -v ${PWD}:/workspace \
+  -w /workspace \
   ghcr.io/tooark/terraform:latest terraform plan
 ```
 
 > Dica: Para cache de plugins/providers entre execuções, monte um diretório persistente em `/home/app/.terraform.d`.
 
-## Variantes de tag
+---
 
-- `terraform:<major>.<minor>.<patch>`: versão exata do Terraform (ex.: `1.14.0`).
-- `terraform:<major>.<minor>`: acompanha a última patch da série (ex.: `1.14`).
-- `terraform:<major>`: acompanha a última minor da série (ex.: `1`).
-- `terraform:latest`: aponta para a última versão estável construída.
+## Pipelines
 
-Para pipelines reprodutíveis, prefira a versão completa.
+### GitHub Actions
 
-## Como verificar versões dentro da imagem
-
-```powershell
-docker run --rm --entrypoint sh ghcr.io/tooark/terraform:latest -c "terraform version; dpkg -l | grep -E 'ca-certificates'"
-```
-
-## Multi-arquitetura
-
-O `Dockerfile` detecta `TARGETARCH` e baixa o binário adequado do Terraform.
-
-Arquiteturas suportadas:
-
-- `linux/amd64`
-- `linux/arm64`
-
-Builds para arquiteturas diferentes falham explicitamente no estágio de build.
-
-## GitHub Actions
-
-### Exemplo básico
+#### Exemplo básico (GH)
 
 ```yaml
 name: Terraform
@@ -119,9 +114,9 @@ jobs:
         run: terraform apply tfplan
 ```
 
-## GitLab CI
+### GitLab CI
 
-### Exemplo básico
+#### Exemplo básico (GL)
 
 ```yaml
 stages:
@@ -160,26 +155,30 @@ terraform_apply:
   when: manual
 ```
 
-## Notas de build (opcional)
+---
 
-Ao construir localmente, publique tags equivalentes para a mesma imagem (versão completa, curta e `latest`).
+## Build local
 
-```powershell
-$version = "1.14.0"
-$short = ($version -split '\\.')[0..1] -join '.'
+```bash
+version="1.14.0"   # Terraform
+short="$(echo "$version" | cut -d. -f1,2)"
 
-docker build `
-  --build-arg TERRAFORM_VERSION=$version `
-  -t terraform:$version `
-  -t terraform:$short `
-  -t terraform:latest `
+docker build \
+  --build-arg TERRAFORM_VERSION=$version \
+  -t terraform:$version \
+  -t terraform:$short \
+  -t terraform:latest \
   ./terraform
 ```
+
+---
 
 ## Documentação oficial
 
 - [Terraform](https://developer.hashicorp.com/terraform/install#linux)
   - [Notas de lançamento](https://github.com/hashicorp/terraform/releases)
+
+---
 
 ## Licença
 

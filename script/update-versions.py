@@ -4,6 +4,16 @@ import re
 
 
 def parse_semver(version):
+  """
+  Função para analisar uma versão semântica no formato MAJOR.MINOR.PATCH.
+
+  Args:
+    version (str): A string de versão a ser analisada.
+
+  Returns:
+    tuple: Uma tupla (MAJOR, MINOR, PATCH) se a versão for válida, ou None se a versão não for válida.
+  """
+
   m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$", version)
 
   if not m:
@@ -13,6 +23,17 @@ def parse_semver(version):
 
 
 def detect_change_level(old_version, new_version):
+  """
+  Função para detectar o nível de mudança (major, minor, patch) entre duas versões semânticas.
+
+  Args:
+    old_version (str): A versão antiga.
+    new_version (str): A versão nova.
+
+  Returns:
+    str: O nível de mudança ("major", "minor", "patch") ou None se as versões não forem válidas ou se não houver mudança.
+  """
+
   old_semver = parse_semver(old_version)
   new_semver = parse_semver(new_version)
 
@@ -35,6 +56,17 @@ def detect_change_level(old_version, new_version):
 
 
 def bump_semver(version, level):
+  """
+  Função para incrementar uma versão semântica com base no nível de mudança.
+
+  Args:
+    version (str): A versão semântica a ser incrementada.
+    level (str): O nível de mudança ("major", "minor", "patch") que determina qual parte da versão deve ser incrementada.
+
+  Returns:
+    str: A nova versão semântica incrementada de acordo com o nível especificado, ou None se a versão de entrada for inválida ou se o nível for desconhecido.
+  """
+
   semver = parse_semver(version)
 
   if semver is None:
@@ -55,6 +87,16 @@ def bump_semver(version, level):
 
 
 def max_change_level(levels):
+  """
+  Função para determinar o nível de mudança mais significativo a partir de uma lista de níveis.
+
+  Args:
+    levels (list of str): Lista de níveis de mudança (ex.: ["patch", "minor", "major"]).
+
+  Returns:
+    str: O nível de mudança mais significativo.
+  """
+
   priority = {"patch": 1, "minor": 2, "major": 3}
   valid_levels = [level for level in levels if level in priority]
 
@@ -64,15 +106,17 @@ def max_change_level(levels):
   return max(valid_levels, key=lambda level: priority[level])
 
 
+# Mapeamento de chaves de versão composta para suas chaves de dependência.
 COMPOSITE_VERSION_RULES = {
     "TF_AWS_VERSION": ["TERRAFORM_VERSION", "AWSCLI_VERSION"],
     "TF_GCLOUD_VERSION": ["TERRAFORM_VERSION", "GCLOUD_VERSION"],
     "TF_AWS_GCLOUD_VERSION": ["TERRAFORM_VERSION", "AWSCLI_VERSION", "GCLOUD_VERSION"],
     "TRIVY_HADOLINT_VERSION": ["TRIVY_VERSION", "HADOLINT_VERSION"],
     "DOCKERX_VERSION": ["DOCKER_VERSION", "DOCKER_BUILDX_VERSION"],
+    "SECURITY_SCANNER_VERSION": ["TRIVY_VERSION", "HADOLINT_VERSION", "BETTERLEAKS_VERSION"],
 }
 
-# Mapping from base version keys to their image directories.
+# Mapeamento de chaves de versão base para seus diretórios de imagem.
 VERSION_KEY_TO_DIR = {
     "AWSCLI_VERSION": "aws-cli",
     "GCLOUD_VERSION": "gcloud-cli",
@@ -80,13 +124,14 @@ VERSION_KEY_TO_DIR = {
     "SONAR_CLI_VERSION": "sonar-scanner"
 }
 
-# Mapping from composite version keys to their image directories.
+# Mapeamento de chaves de versão composta para seus diretórios de imagem.
 COMPOSITE_KEY_TO_DIR = {
     "TF_AWS_VERSION": "terraform-aws",
     "TF_GCLOUD_VERSION": "terraform-gcloud",
     "TF_AWS_GCLOUD_VERSION": "terraform-aws-gcloud",
     "TRIVY_HADOLINT_VERSION": "trivy-hadolint",
     "DOCKERX_VERSION": "dockerx",
+    "SECURITY_SCANNER_VERSION": "security-scanner"
 }
 
 with open("latest_versions.json", "r", encoding="utf-8") as f:
@@ -107,7 +152,7 @@ for idx, line in enumerate(lines):
 
 changed = []
 
-# Track change level for base tool versions updated from latest_versions.json.
+# Acompanha o nível de mudança para as versões base atualizadas a partir de latest_versions.json.
 base_change_levels = {}
 
 for key, new_val in latest.items():
@@ -119,14 +164,14 @@ for key, new_val in latest.items():
       changed.append((key, old_val, new_val))
       base_change_levels[key] = detect_change_level(old_val, new_val)
   else:
-    # If the key does not exist yet in versions.env, append at the end.
+    # Se a chave não existir ainda em versions.env, adiciona no final.
     if lines and not lines[-1].endswith("\n"):
       lines[-1] += "\n"
 
     lines.append(f"{key}={new_val}\n")
     changed.append((key, "<absent>", new_val))
 
-# Composite image versions are bumped based on dependency version changes.
+# Composição das versões de imagens compostas é feita com base nas mudanças detectadas nas versões das dependências.
 for composite_key, dependency_keys in COMPOSITE_VERSION_RULES.items():
   if composite_key not in key_line_idx:
     continue
@@ -144,7 +189,7 @@ for composite_key, dependency_keys in COMPOSITE_VERSION_RULES.items():
   composite_old_val = key_current_val[composite_key]
   composite_new_val = bump_semver(composite_old_val, bump_level)
 
-  # Skip invalid/non-semver values silently to avoid breaking workflow runs.
+  # Pula atualizações de versão composta se a versão antiga não for válida ou se o nível de mudança for desconhecido.
   if not composite_new_val or composite_new_val == composite_old_val:
     continue
 
@@ -157,7 +202,7 @@ if changed:
 
   changed_keys = {key for key, _, _ in changed}
 
-  # Clear .trivyignore for base directories whose version changed.
+  # Limpa o conteúdo de .trivyignore para as imagens base cujas versões foram alteradas.
   for key in changed_keys:
     dir_name = VERSION_KEY_TO_DIR.get(key)
     if dir_name:
@@ -167,8 +212,7 @@ if changed:
           pass
         print(f"Cleared {trivyignore_path}")
 
-  # Rebuild .trivyignore for composite directories by concatenating
-  # the .trivyignore contents of their base dependency directories.
+  # Rebuild .trivyignore para diretórios compostos concatenando os conteúdos de .trivyignore de seus diretórios de dependências base.
   for composite_key in changed_keys:
     if composite_key not in COMPOSITE_KEY_TO_DIR:
       continue

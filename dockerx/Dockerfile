@@ -109,7 +109,8 @@ RUN addgroup docker \
   && adduser app docker
 
 # Variáveis úteis
-ENV DOCKER_CLI_HINTS=false \
+ENV ARK_IMAGE_FAMILY=dockerx \
+    DOCKER_CLI_HINTS=false \
     DOCKER_BUILDKIT=1
 
 # Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)

@@ -1,0 +1,111 @@
+name: Security Scanner Complete Sample
+
+on:
+  workflow_dispatch:
+
+jobs:
+  security_scanner_complete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: security-scanner-trivy-${{ runner.os }}
+
+      - name: Run full scan with complete env and flags
+        env:
+          REPORT_URL: ${{ secrets.REPORT_URL }}
+          REPORT_TOKEN: ${{ secrets.REPORT_TOKEN }}
+          REPORT_HEADERS: "X-Org: tooark"
+          REPORT_METHOD: "POST"
+          REPORT_FAIL_ON_ERROR: "false"
+          REPORT_SEND_EACH_SCAN: "false"
+          REPORT_SBOM_URL: ${{ secrets.REPORT_SBOM_URL }}
+          REPORT_SBOM_TOKEN: ${{ secrets.REPORT_SBOM_TOKEN }}
+          REPORT_SBOM_HEADERS: "X-Report-Type: sbom"
+          REPORT_SBOM_METHOD: "POST"
+          REPORT_SBOM_FAIL_ON_ERROR: "false"
+
+          TRIVY_SEVERITY: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+          TRIVY_SEVERITY_FAIL: "HIGH,CRITICAL"
+          TRIVY_EXIT_CODE: "1"
+          TRIVY_IGNORE_UNFIXED: "true"
+          TRIVY_FORMAT: "json"
+          TRIVY_OUTPUT: ""
+          TRIVY_TIMEOUT: "10m"
+          TRIVY_SCANNERS: "vuln,secret,misconfig,license"
+          TRIVY_ALL_PACKAGES: "true"
+          TRIVY_IGNOREFILE: "/workspace/.trivyignore"
+          TRIVY_SERVER: ""
+          TRIVY_TOKEN: ""
+          TRIVY_TOKEN_AS_FLAG: "false"
+          TRIVY_SERVER_REQUIRED: "false"
+
+          BETTERLEAKS_CONFIG: "/workspace/.betterleaks.toml"
+          BETTERLEAKS_BASELINE: "/workspace/.betterleaks-baseline.json"
+          BETTERLEAKS_FORMAT: "json"
+          BETTERLEAKS_OUTPUT: ""
+          BETTERLEAKS_NO_GIT: "false"
+          BETTERLEAKS_EXIT_CODE: "1"
+          BETTERLEAKS_FAIL_ON_FINDINGS: "true"
+
+          HADOLINT_CONFIG: "/workspace/.hadolint.yaml"
+          HADOLINT_FORMAT: "json"
+          HADOLINT_FAILURE_LEVEL: "warning"
+          HADOLINT_OUTPUT: ""
+
+          SBOM_FORMAT: "cyclonedx"
+          SBOM_OUTPUT: ""
+
+          FULL_SCAN_PATH: "/workspace"
+          FULL_SCAN_DOCKERFILES: "Dockerfile,docker/Dockerfile.worker"
+          FULL_SCAN_MODE: "repo"
+          FULL_SCAN_SKIP_IMAGE: "false"
+          FULL_SCAN_SKIP_LINT: "false"
+          FULL_SCAN_SKIP_SECRETS: "false"
+
+          CI_BRANCH: ${{ github.ref_name }}
+          CI_COMMIT: ${{ github.sha }}
+          CI_USER: ${{ github.actor }}
+          CI_REPOSITORY: ${{ github.repository }}
+          CI_TAG: ""
+        run: |
+          mkdir -p "${{ github.workspace }}/scan-reports"
+
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -v "${{ github.workspace }}/scan-reports:/reports" \
+            -v "$HOME/.cache/trivy:/home/app/.cache/trivy" \
+            -e REPORT_URL -e REPORT_TOKEN -e REPORT_HEADERS -e REPORT_METHOD -e REPORT_FAIL_ON_ERROR -e REPORT_SEND_EACH_SCAN \
+            -e REPORT_SBOM_URL -e REPORT_SBOM_TOKEN -e REPORT_SBOM_HEADERS -e REPORT_SBOM_METHOD -e REPORT_SBOM_FAIL_ON_ERROR \
+            -e TRIVY_SEVERITY -e TRIVY_SEVERITY_FAIL -e TRIVY_EXIT_CODE -e TRIVY_IGNORE_UNFIXED -e TRIVY_FORMAT -e TRIVY_TIMEOUT \
+            -e TRIVY_SCANNERS -e TRIVY_ALL_PACKAGES -e TRIVY_IGNOREFILE -e TRIVY_SERVER -e TRIVY_TOKEN -e TRIVY_TOKEN_AS_FLAG -e TRIVY_SERVER_REQUIRED \
+            -e BETTERLEAKS_CONFIG -e BETTERLEAKS_BASELINE -e BETTERLEAKS_FORMAT -e BETTERLEAKS_NO_GIT -e BETTERLEAKS_EXIT_CODE -e BETTERLEAKS_FAIL_ON_FINDINGS \
+            -e HADOLINT_CONFIG -e HADOLINT_FORMAT -e HADOLINT_FAILURE_LEVEL \
+            -e SBOM_FORMAT \
+            -e FULL_SCAN_PATH -e FULL_SCAN_DOCKERFILES -e FULL_SCAN_MODE -e FULL_SCAN_SKIP_IMAGE -e FULL_SCAN_SKIP_LINT -e FULL_SCAN_SKIP_SECRETS \
+            -e CI_BRANCH -e CI_COMMIT -e CI_USER -e CI_REPOSITORY -e CI_TAG \
+            ghcr.io/tooark/security-scanner:latest \
+            full-scan \
+            --path /workspace \
+            --dockerfiles "$FULL_SCAN_DOCKERFILES" \
+            --scan-mode "$FULL_SCAN_MODE" \
+            --sbom-format spdx-json \
+            --branch "$CI_BRANCH" \
+            --commit "$CI_COMMIT" \
+            --user "$CI_USER" \
+            --repository "$CI_REPOSITORY" \
+            --tag "$CI_TAG" \
+            myapp:${{ github.sha }} \
+            -- --timeout 15m
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scanner-reports
+          path: ${{ github.workspace }}/scan-reports/

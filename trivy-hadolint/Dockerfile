@@ -88,7 +88,8 @@ USER app
 WORKDIR /workspace
 
 # Variáveis de ambiente padrão
-ENV TRIVY_CACHE_DIR=/home/app/.cache/trivy \
+ENV ARK_IMAGE_FAMILY=trivy-hadolint \
+    TRIVY_CACHE_DIR=/home/app/.cache/trivy \
     REPORT_DIR=/reports \
     ARK_REPORT_SCHEMA=/usr/local/share/ark-tools/ark-report-tools.schema.v1.1.json
 

@@ -1,128 +1,145 @@
 # aws-cli
 
-Esta imagem fornece os comandos `aws` (AWS CLI v2), `kubectl`, `docker` e `docker buildx`, prontos para uso em pipelines e execuções ad-hoc em container.
+Imagem base com `aws` (AWS CLI v2), `kubectl`, `docker` e `docker buildx`,
+prontos para uso em pipelines e execuções ad-hoc em container.
 
-## Nome e tags da imagem
+---
 
-- Nome da imagem: `aws-cli` (nome da pasta)
-- Tags publicadas por versão:
-  - Versão completa: `aws-cli:<major.minor.patch>`
-  - Versão curta (major.minor): `aws-cli:<major.minor>`
-  - Versão menor (major): `aws-cli:<major>`
-  - Última estável: `aws-cli:latest`
+## Sumário
 
-Substitua os números acima pelos valores da sua build.
+- [Recursos](#recursos)
+- [Tags da imagem](#tags-da-imagem)
+- [Conteúdo da imagem](#conteúdo-da-imagem)
+- [Início rápido](#início-rápido)
+- [Pipelines](#pipelines)
+- [Build local](#build-local)
+- [Documentação oficial](#documentação-oficial)
+- [Licença](#licença)
 
-## O que existe na imagem
+---
 
-| Item           | Descrição                                                       |
-| -------------- | --------------------------------------------------------------- |
-| Base           | `debian:12-slim` (padrão)                                       |
-| AWS CLI v2     | Instalado em `/usr/local/aws-cli/v2/current/bin/aws`            |
-| kubectl        | Instalado em `/usr/local/bin/kubectl`                           |
-| Docker CLI     | Instalado em `/usr/local/bin/docker`                            |
-| Docker Buildx  | Plugin em `/usr/local/libexec/docker/cli-plugins/docker-buildx` |
-| Symlink        | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
-| Binários       | `aws`, `kubectl`, `docker` disponíveis em `/usr/local/bin`      |
-| Pacotes        | `ca-certificates` instalado para conexões HTTPS seguras         |
-| Usuário padrão | `app` (não-root)                                                |
+## Recursos
 
-Observações:
+- **AWS CLI v2**, **kubectl**, **Docker CLI** e **Docker Buildx** na mesma imagem
+- Base Debian minimalista com usuário não-root
+- Compatível com linux/amd64 e linux/arm64
 
-- O usuário padrão é `app` e o HOME é `/home/app`.
-- Não há `bash` na imagem; o shell padrão é `/bin/sh`.
-- O `CMD` padrão é `/bin/sh`.
-- A imagem é compatível com `linux/amd64` e `linux/arm64`.
+---
 
-## Uso rápido
+## Tags da imagem
+
+| Tag                                          | Descrição       |
+| -------------------------------------------- | --------------- |
+| `ghcr.io/tooark/aws-cli:<MAJOR.MINOR.PATCH>` | Versão completa |
+| `ghcr.io/tooark/aws-cli:<MAJOR.MINOR>`       | Versão curta    |
+| `ghcr.io/tooark/aws-cli:<MAJOR>`             | Major track     |
+| `ghcr.io/tooark/aws-cli:latest`              | Última estável  |
+
+---
+
+## Conteúdo da imagem
+
+| Item                  | Descrição                                                       |
+| --------------------- | --------------------------------------------------------------- |
+| Base                  | `debian:12-slim`                                                |
+| AWS CLI v2            | `/usr/local/aws-cli/v2/current/bin/aws`                         |
+| kubectl               | `/usr/local/bin/kubectl`                                        |
+| Docker CLI            | `/usr/local/bin/docker`                                         |
+| Docker Buildx         | `/usr/local/libexec/docker/cli-plugins/docker-buildx`           |
+| Symlink               | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
+| Runtime deps          | `ca-certificates`                                               |
+| Usuário padrão        | `app` (não-root)                                                |
+| Identificador família | `ARK_IMAGE_FAMILY=aws-cli`                                      |
+
+---
+
+## Início rápido
 
 Executar `aws --version`:
 
-```powershell
+```bash
 docker run --rm ghcr.io/tooark/aws-cli:latest aws --version
 ```
 
 Executar um subcomando do AWS CLI (ex.: `sts get-caller-identity`).
 
-```powershell
+```bash
 docker run --rm ghcr.io/tooark/aws-cli:latest aws sts get-caller-identity --no-cli-pager
 ```
 
 Ver versão do kubectl (cliente):
 
-```powershell
+```bash
 docker run --rm ghcr.io/tooark/aws-cli:latest kubectl version --client
 ```
 
 Usar `kubectl get` com kubeconfig montado (exemplo):
 
-```powershell
-docker run --rm `
-  -v C:\caminho\para\kubeconfig:/home/app/.kube/config:ro `
+```bash
+docker run --rm \
+  -v "$HOME/.kube/config:/home/app/.kube/config:ro" \
   ghcr.io/tooark/aws-cli:latest kubectl get nodes --request-timeout=10s
+```
+
+Ver versão do Docker CLI:
+
+```bash
+docker run --rm ghcr.io/tooark/aws-cli:latest docker --version
+```
+
+Ver versão do Docker Buildx:
+
+```bash
+docker run --rm ghcr.io/tooark/aws-cli:latest docker buildx version
 ```
 
 ### Passando credenciais ao container
 
 Por variáveis de ambiente:
 
-```powershell
-docker run --rm `
-  -e AWS_ACCESS_KEY_ID=$env:AWS_ACCESS_KEY_ID `
-  -e AWS_SECRET_ACCESS_KEY=$env:AWS_SECRET_ACCESS_KEY `
-  -e AWS_SESSION_TOKEN=$env:AWS_SESSION_TOKEN `
-  -e AWS_REGION=us-east-1 `
+```bash
+docker run --rm \
+  -e AWS_ACCESS_KEY_ID=$env:AWS_ACCESS_KEY_ID \
+  -e AWS_SECRET_ACCESS_KEY=$env:AWS_SECRET_ACCESS_KEY \
+  -e AWS_SESSION_TOKEN=$env:AWS_SESSION_TOKEN \
+  -e AWS_REGION=us-east-1 \
   ghcr.io/tooark/aws-cli:latest aws sts get-caller-identity --no-cli-pager
 ```
 
 Montando o diretório de credenciais do host (`~/.aws`):
 
-```powershell
+```bash
 # A imagem usa usuário não-root 'app'; monte em /home/app/.aws
-docker run --rm `
-  -v ${env:USERPROFILE}\.aws:/home/app/.aws:ro `
+docker run --rm \
+  -v "$HOME/.aws:/home/app/.aws:ro \
   ghcr.io/tooark/aws-cli:latest aws sts get-caller-identity --no-cli-pager
 ```
 
 Para usar `kubectl`, você também pode montar um kubeconfig em `/home/app/.kube/config`.
 
-## Variantes de tag
+---
 
-- `aws-cli:<major>.<minor>.<patch>`: versão exata do AWS CLI (ex.: `2.32.3`).
-- `aws-cli:<major>.<minor>`: acompanha a última patch da série (ex.: `2.32`).
-- `aws-cli:<major>`: acompanha a última minor da série (ex.: `2`).
-- `aws-cli:latest`: aponta para a última versão estável construída.
+## Variáveis de ambiente
 
-Para pipelines reprodutíveis, prefira a versão completa.
+### AWS CLI
 
-## Como verificar versões dentro da imagem
+| Variável                | Default     | Descrição              |
+| ----------------------- | ----------- | ---------------------- |
+| `AWS_ACCESS_KEY_ID`     | -           | Chave de acesso da AWS |
+| `AWS_SECRET_ACCESS_KEY` | -           | Chave secreta da AWS   |
+| `AWS_SESSION_TOKEN`     | -           | Token de sessão da AWS |
+| `AWS_REGION`            | `us-east-1` | Região padrão da AWS   |
 
-```powershell
-docker run --rm --entrypoint sh ghcr.io/tooark/aws-cli:latest -c "aws --version; kubectl version --client; docker --version; docker buildx version; dpkg -l | grep -E 'ca-certificates'"
-```
+---
 
-## Multi-arquitetura
+## Pipelines
 
-O `Dockerfile` detecta `TARGETARCH` e baixa:
+### GitHub Actions
 
-- O instalador adequado do AWS CLI v2
-- O binário `kubectl` da arquitetura correspondente
-- O Docker CLI estático da arquitetura correspondente
-- O plugin Docker Buildx da arquitetura correspondente
-
-Arquiteturas suportadas:
-
-- `linux/amd64`
-- `linux/arm64`
-
-Builds para arquiteturas diferentes falham explicitamente no estágio de build.
-
-## GitHub Actions
-
-### Exemplo básico
+#### Exemplo básico (GH)
 
 ```yaml
-name: Deploy
+name: Deploy AWS
 
 on:
   push:
@@ -147,7 +164,7 @@ jobs:
         run: aws s3 sync ./dist s3://${{ vars.BUCKET_NAME }} --delete
 ```
 
-### Exemplo com kubectl (EKS)
+#### Exemplo com kubectl (EKS) (GH)
 
 ```yaml
 name: Deploy EKS
@@ -178,9 +195,9 @@ jobs:
         run: kubectl rollout status deployment/${{ vars.APP_NAME }} --timeout=120s
 ```
 
-## GitLab CI
+### GitLab CI
 
-### Exemplo básico
+#### Exemplo básico (GL)
 
 ```yaml
 stages:
@@ -200,7 +217,7 @@ deploy_s3:
     - main
 ```
 
-### Exemplo com kubectl (EKS)
+#### Exemplo com kubectl (EKS) (GL)
 
 ```yaml
 stages:
@@ -221,27 +238,29 @@ deploy_eks:
     - main
 ```
 
-## Notas de build (opcional)
+---
 
-Ao construir localmente, publique tags equivalentes para a mesma imagem (versão completa, curta e `latest`).
+## Build local
 
-```powershell
-$version = "2.32.3"   # AWS CLI
-$kubectl = "1.34.2"   # kubectl
-$docker  = "28.1.1"   # Docker CLI
-$buildx  = "0.26.1"   # Buildx
-$short = ($version -split '\\.')[0..1] -join '.'
+```bash
+version="2.32.3"   # AWS CLI
+kubectl="1.34.2"   # kubectl
+docker="28.1.1"    # Docker CLI
+buildx="0.26.1"    # Buildx
+short="$(echo "$version" | cut -d. -f1,2)"
 
-docker build `
-  --build-arg AWSCLI_VERSION=$version `
-  --build-arg KUBECTL_VERSION=$kubectl `
-  --build-arg DOCKER_VERSION=$docker `
-  --build-arg DOCKER_BUILDX_VERSION=$buildx `
-  -t aws-cli:$version `
-  -t aws-cli:$short `
-  -t aws-cli:latest `
+docker build \
+  --build-arg AWSCLI_VERSION=$version \
+  --build-arg KUBECTL_VERSION=$kubectl \
+  --build-arg DOCKER_VERSION=$docker \
+  --build-arg DOCKER_BUILDX_VERSION=$buildx \
+  -t aws-cli:$version \
+  -t aws-cli:$short \
+  -t aws-cli:latest \
   ./aws-cli
 ```
+
+---
 
 ## Documentação oficial
 
@@ -249,10 +268,12 @@ docker build `
   - [Notas de lançamento](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
   - [Notas de lançamento](https://kubernetes.io/releases/)
-- [Docker CLI](https://docs.docker.com/engine/release-notes/)
-  - [Releases](https://github.com/docker/cli/releases)
-- [Docker Buildx](https://docs.docker.com/build/buildx/)
-  - [Releases](https://github.com/docker/buildx/releases)
+- [Docker CLI](https://docs.docker.com/reference/cli/docker/)
+  - [Notas de lançamento](https://docs.docker.com/engine/release-notes/)
+- [Docker Buildx](https://docs.docker.com/reference/cli/docker/buildx/)
+  - [Notas de lançamento](https://github.com/docker/buildx/releases/)
+
+---
 
 ## Licença
 

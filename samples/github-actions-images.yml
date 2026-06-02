@@ -11,9 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: docker version
-        run: docker run --rm ghcr.io/tooark/docker:latest docker --version
+        run: docker run --rm ghcr.io/tooark/dockerx:latest docker --version
       - name: buildx version
-        run: docker run --rm ghcr.io/tooark/docker:latest docker buildx version
+        run: docker run --rm ghcr.io/tooark/dockerx:latest docker buildx version
 
   aws_cli:
     runs-on: ubuntu-latest

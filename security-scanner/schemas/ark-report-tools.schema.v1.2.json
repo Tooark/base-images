@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tooark:schemas:ark-report-tools:1.1",
+  "$id": "urn:tooark:schemas:ark-report-tools:1.2",
   "title": "ark-report-tools",
-  "description": "Envelope padronizado para relatórios gerados pelo wrapper ark-tools (Trivy + Hadolint).",
+  "description": "Envelope padronizado para relatórios gerados pelas imagens da família ark-* (security-scanner, iac-scanner, trivy-hadolint).",
   "type": "object",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "required": [
     "schema",
     "version",
@@ -22,7 +22,21 @@
     "version": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+$",
-      "description": "Versão do envelope (ex.: 1.1)."
+      "description": "Versão do envelope (ex.: 1.2)."
+    },
+    "image_family": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "security-scanner",
+        "iac-scanner",
+        "trivy-hadolint",
+        "unknown",
+        null
+      ],
+      "description": "Família/imagem que gerou o relatório. Útil para roteamento e analytics."
     },
     "timestamp": {
       "type": "string",
@@ -37,7 +51,16 @@
         "config-scan",
         "repo-scan",
         "dockerfile-lint",
-        "container"
+        "secret-scan",
+        "full-scan",
+        "terraform-scan",
+        "kubernetes-scan",
+        "cloudformation-scan",
+        "checkov-scan",
+        "kics-scan",
+        "terrascan-scan",
+        "tflint-scan",
+        "yaml-lint"
       ],
       "description": "Comando do ark-tools que gerou o relatório."
     },
@@ -47,22 +70,17 @@
     },
     "tool": {
       "type": "string",
-      "description": "Ferramenta geradora.",
-      "examples": [
-        "trivy",
-        "hadolint",
-        "trivy+hadolint"
-      ]
+      "description": "Ferramenta ou combinação (ex.: 'trivy', 'betterleaks', 'trivy+hadolint+betterleaks', 'checkov+tflint+yamllint')."
     },
     "sbom_enabled": {
       "type": "boolean",
       "default": false,
-      "description": "Indica se SBOM foi solicitado/gerado nesta execução."
+      "description": "Indica se SBOM foi gerado."
     },
     "list_all_pkgs": {
       "type": "boolean",
       "default": false,
-      "description": "Indica se o Trivy foi executado com --list-all-pkgs (inventário completo)."
+      "description": "Indica se Trivy foi executado com --list-all-pkgs (inventário completo)."
     },
     "metadata": {
       "type": "object",
@@ -154,7 +172,7 @@
         },
         "scan_context": {
           "type": "object",
-          "description": "Contexto adicional (preenchido pelo comando container).",
+          "description": "Contexto adicional (preenchido por comandos compostos como full-scan).",
           "additionalProperties": true,
           "properties": {
             "scan_path": {
@@ -186,7 +204,7 @@
       }
     },
     "report": {
-      "description": "Payload bruto da ferramenta (Trivy/Hadolint). Estrutura varia por versão.",
+      "description": "Payload bruto da ferramenta. Estrutura varia por ferramenta e versão.",
       "type": [
         "object",
         "array",
@@ -194,7 +212,7 @@
       ]
     },
     "results": {
-      "description": "Apenas para command=container — agrega sub-relatórios.",
+      "description": "Apenas para command=full-scan — agrega sub-relatórios.",
       "type": [
         "object",
         "null"
@@ -207,7 +225,7 @@
       "if": {
         "properties": {
           "command": {
-            "const": "container"
+            "const": "full-scan"
           }
         }
       },
@@ -218,12 +236,7 @@
         "properties": {
           "results": {
             "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "image_scan",
-              "source_scan",
-              "dockerfile_lints"
-            ],
+            "additionalProperties": true,
             "properties": {
               "image_scan": {
                 "type": [
@@ -237,8 +250,52 @@
                   "null"
                 ]
               },
+              "secret_scan": {
+                "type": [
+                  "object",
+                  "array",
+                  "null"
+                ]
+              },
               "dockerfile_lints": {
                 "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "terraform_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "kubernetes_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "kics_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "terrascan_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "tflint_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "yaml_lint": {
+                "type": [
+                  "object",
                   "array",
                   "null"
                 ]

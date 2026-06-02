@@ -122,9 +122,10 @@ RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
 USER app
 
 # Variáveis úteis
-ENV TF_IN_AUTOMATION=1 \
-  TF_INPUT=0 \
-  TF_CLI_ARGS="-input=false -no-color"
+ENV ARK_IMAGE_FAMILY=terraform-aws \
+    TF_IN_AUTOMATION=1 \
+    TF_INPUT=0 \
+    TF_CLI_ARGS="-input=false -no-color"
 
 # Configura comando padrão
 CMD ["/bin/sh"]

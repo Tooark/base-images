@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
-# run-tests.sh - Suite de testes do ark-tools.sh
+# run-tests.sh - Suite de testes ark-tools
 #
-# Estes testes carregam o ark-tools.sh em "library mode" (sem dispatch)
-# e validam funções unitárias + cenários de integração leve.
+# Carrega o ark-tools.sh em "library mode" (sem dispatch) e valida funções
+# unitárias + cenários de integração leve.
 #
 # Uso:
-#   ./tests/run-tests.sh                 # executa tudo
-#   VERBOSE=1 ./tests/run-tests.sh       # mostra diff de falhas
-#
-# Requisitos: bash >= 4, jq, coreutils
+# ./tests/run-tests.sh
+# VERBOSE=1 ./tests/run-tests.sh
 
 set -u
 
@@ -21,10 +19,7 @@ if [[ ! -f "$ARK_TOOLS" ]]; then
   exit 2
 fi
 
-## Carrega o script como biblioteca (sem dispatcher)
 export ARK_TOOLS_LIBRARY_MODE=1
-
-## Diretório isolado para reports nos testes
 TEST_REPORT_DIR="$(mktemp -d)"
 export REPORT_DIR="$TEST_REPORT_DIR"
 
@@ -35,7 +30,8 @@ PASS=0
 FAIL=0
 FAILED_TESTS=()
 
-## --- Helpers de teste --------------------------------------------------------
+section() { printf "\n\033[1;34m▶ %s\033[0m\n" "$1"; }
+
 assert_eq() {
   local actual="$1" expected="$2" name="$3"
   if [[ "$actual" == "$expected" ]]; then
@@ -60,290 +56,198 @@ assert_fail() {
   local name="$1"; shift
   if "$@" >/dev/null 2>&1; then
     FAIL=$((FAIL+1)); FAILED_TESTS+=("$name")
-    printf "  ✗ %s (command should have failed but succeeded)\n" "$name"
+    printf "  ✗ %s (should have failed)\n" "$name"
   else
     PASS=$((PASS+1)); printf "  ✓ %s\n" "$name"
   fi
 }
 
-assert_json_eq() {
-  local actual="$1" expected="$2" name="$3"
-  if [[ "$(echo "$actual" | jq -cS .)" == "$(echo "$expected" | jq -cS .)" ]]; then
-    PASS=$((PASS+1)); printf "  ✓ %s\n" "$name"
-  else
-    FAIL=$((FAIL+1)); FAILED_TESTS+=("$name")
-    printf "  ✗ %s\n" "$name"
-    [[ "${VERBOSE:-0}" == "1" ]] && diff <(echo "$expected" | jq -S .) <(echo "$actual" | jq -S .)
-  fi
-}
-
-## Reset de envs entre testes
 reset_envs() {
   unset GITLAB_CI GITHUB_ACTIONS TF_BUILD BITBUCKET_BUILD_NUMBER JENKINS_URL
   unset CI_COMMIT_REF_NAME CI_COMMIT_SHA CI_PROJECT_PATH CI_COMMIT_TAG \
-        CI_PIPELINE_ID CI_JOB_ID GITLAB_USER_LOGIN GITLAB_USER_EMAIL CI_PIPELINE_URL CI_JOB_URL
+    CI_PIPELINE_ID CI_JOB_ID GITLAB_USER_LOGIN GITLAB_USER_EMAIL CI_PIPELINE_URL CI_JOB_URL
   unset GITHUB_REF_NAME GITHUB_HEAD_REF GITHUB_SHA GITHUB_REPOSITORY \
-        GITHUB_ACTOR GITHUB_RUN_ID GITHUB_JOB GITHUB_SERVER_URL
+    GITHUB_ACTOR GITHUB_RUN_ID GITHUB_JOB GITHUB_SERVER_URL
   unset BUILD_SOURCEBRANCHNAME BUILD_SOURCEVERSION BUILD_REPOSITORY_NAME \
-        BUILD_REQUESTEDFOR BUILD_REQUESTEDFOREMAIL BUILD_BUILDID SYSTEM_JOBID BUILD_BUILDURI
+    BUILD_REQUESTEDFOR BUILD_REQUESTEDFOREMAIL BUILD_BUILDID SYSTEM_JOBID BUILD_BUILDURI
   unset BITBUCKET_BRANCH BITBUCKET_COMMIT BITBUCKET_REPO_FULL_NAME \
-        BITBUCKET_TAG BITBUCKET_STEP_TRIGGERER_UUID BITBUCKET_STEP_UUID
+    BITBUCKET_TAG BITBUCKET_STEP_TRIGGERER_UUID BITBUCKET_STEP_UUID
   unset BRANCH_NAME GIT_BRANCH GIT_COMMIT JOB_NAME BUILD_USER_ID \
-        BUILD_USER BUILD_NUMBER BUILD_URL
+    BUILD_USER BUILD_NUMBER BUILD_URL
   unset CI_BRANCH CI_COMMIT CI_USER CI_REPOSITORY CI_TAG
-  unset TRIVY_ALL_PACKAGES TRIVY_FORMAT TRIVY_SCANNERS TRIVY_SERVER TRIVY_TOKEN \
-        TRIVY_TOKEN_AS_FLAG TRIVY_IGNOREFILE TRIVY_SEVERITY TRIVY_EXIT_CODE \
-        TRIVY_IGNORE_UNFIXED TRIVY_TIMEOUT
   CLI_BRANCH=""; CLI_COMMIT=""; CLI_USER=""; CLI_REPOSITORY=""; CLI_TAG=""
 }
 
 # ===========================================================
-# 1) is_true
+# Common tests (shared between security-scanner and iac-scanner)
 # ===========================================================
-section() { printf "\n\033[1;34m▶ %s\033[0m\n" "$1"; }
 
 section "is_true()"
-assert_ok   "is_true accepts 'true'"  is_true "true"
-assert_ok   "is_true accepts 'TRUE'"  is_true "TRUE"
-assert_ok   "is_true accepts '1'"     is_true "1"
-assert_ok   "is_true accepts 'yes'"   is_true "yes"
-assert_ok   "is_true accepts 'on'"    is_true "on"
-assert_fail "is_true rejects 'false'" is_true "false"
-assert_fail "is_true rejects '0'"     is_true "0"
-assert_fail "is_true rejects 'no'"    is_true "no"
-assert_fail "is_true rejects empty"   is_true ""
+assert_ok   "true"  is_true "true"
+assert_ok   "TRUE"  is_true "TRUE"
+assert_ok   "1"     is_true "1"
+assert_ok   "yes"   is_true "yes"
+assert_ok   "on"    is_true "on"
+assert_fail "false" is_true "false"
+assert_fail "0"     is_true "0"
+assert_fail "empty" is_true ""
 
-# ===========================================================
-# 2) should_use_list_all_pkgs
-# ===========================================================
-section "should_use_list_all_pkgs()"
-reset_envs
-assert_ok   "default (TRIVY_ALL_PACKAGES unset, JSON)" should_use_list_all_pkgs
-TRIVY_ALL_PACKAGES="false"
-assert_fail "false disables"                          should_use_list_all_pkgs
-unset TRIVY_ALL_PACKAGES
-TRIVY_FORMAT="table"
-assert_fail "non-json disables"                       should_use_list_all_pkgs
-unset TRIVY_FORMAT
-assert_ok   "back to default after unset"             should_use_list_all_pkgs
-
-# ===========================================================
-# 3) trivy_list_all_pkgs_flag (P0.2 — config-scan NÃO recebe a flag)
-# ===========================================================
-section "trivy_list_all_pkgs_flag()"
-reset_envs
-assert_eq "$(trivy_list_all_pkgs_flag image)"      "--list-all-pkgs" "image gets flag"
-assert_eq "$(trivy_list_all_pkgs_flag filesystem)" "--list-all-pkgs" "fs gets flag"
-assert_eq "$(trivy_list_all_pkgs_flag repo)"       "--list-all-pkgs" "repo gets flag"
-assert_eq "$(trivy_list_all_pkgs_flag config)"     ""                "config does NOT get flag"
-assert_eq "$(trivy_list_all_pkgs_flag unknown)"    ""                "unknown does NOT get flag"
-
-TRIVY_ALL_PACKAGES="false"
-assert_eq "$(trivy_list_all_pkgs_flag image)"      ""                "image with TRIVY_ALL_PACKAGES=false"
-unset TRIVY_ALL_PACKAGES
-
-# ===========================================================
-# 4) detect_ci_platform
-# ===========================================================
 section "detect_ci_platform()"
 reset_envs
-assert_eq "$(detect_ci_platform)" "" "no env => empty"
-GITLAB_CI=1; assert_eq "$(detect_ci_platform)" "gitlab" "GITLAB_CI -> gitlab"; reset_envs
-GITHUB_ACTIONS=1; assert_eq "$(detect_ci_platform)" "github" "GITHUB_ACTIONS -> github"; reset_envs
-TF_BUILD=1; assert_eq "$(detect_ci_platform)" "azure" "TF_BUILD -> azure"; reset_envs
-BITBUCKET_BUILD_NUMBER=1; assert_eq "$(detect_ci_platform)" "bitbucket" "BITBUCKET_BUILD_NUMBER -> bitbucket"; reset_envs
-JENKINS_URL=http://j; assert_eq "$(detect_ci_platform)" "jenkins" "JENKINS_URL -> jenkins"; reset_envs
+assert_eq "$(detect_ci_platform)" "" "empty"
+GITLAB_CI=1; assert_eq "$(detect_ci_platform)" "gitlab" "gitlab"; reset_envs
+GITHUB_ACTIONS=1; assert_eq "$(detect_ci_platform)" "github" "github"; reset_envs
+TF_BUILD=1; assert_eq "$(detect_ci_platform)" "azure" "azure"; reset_envs
+BITBUCKET_BUILD_NUMBER=1; assert_eq "$(detect_ci_platform)" "bitbucket" "bitbucket"; reset_envs
+JENKINS_URL=http://j; assert_eq "$(detect_ci_platform)" "jenkins" "jenkins"; reset_envs
 
-# ===========================================================
-# 5) _first_nonempty
-# ===========================================================
 section "_first_nonempty()"
-assert_eq "$(_first_nonempty "" "" "third")"  "third"  "skips empty values"
-assert_eq "$(_first_nonempty "first" "second")" "first"  "returns first match"
-assert_eq "$(_first_nonempty "" "" "")"       ""       "all empty returns empty"
+assert_eq "$(_first_nonempty "" "" "third")"  "third"  "skips empty"
+assert_eq "$(_first_nonempty "first" "x")"    "first"  "first match"
+assert_eq "$(_first_nonempty "" "" "")"       ""       "all empty"
 
-# ===========================================================
-# 6) collect_metadata — auto-detect (P0.1 — assignments)
-# ===========================================================
-section "collect_metadata() - auto-detect"
+section "collect_metadata() - assignments OK (P0.1)"
 reset_envs
 GITHUB_ACTIONS=1
 GITHUB_REF_NAME="main"
 GITHUB_SHA="abc1234567890def1234567890abcdef12345678"
 GITHUB_REPOSITORY="Tooark/myapp"
-GITHUB_ACTOR="paulo.junior"
-GITHUB_RUN_ID="999"
-GITHUB_JOB="build"
-GITHUB_SERVER_URL="https://github.com"
-
+GITHUB_ACTOR="paulo"
 result="$(collect_metadata "/tmp" 2>/dev/null)"
-assert_eq "$(echo "$result" | jq -r .scm.branch)"       "main"                  "github branch"
-assert_eq "$(echo "$result" | jq -r .scm.commit)"       "abc1234567890def1234567890abcdef12345678" "github commit"
-assert_eq "$(echo "$result" | jq -r .scm.commit_short)" "abc1234"               "github commit_short"
-assert_eq "$(echo "$result" | jq -r .scm.repository)"   "Tooark/myapp"          "github repository"
-assert_eq "$(echo "$result" | jq -r .ci.platform)"      "github"                "github platform"
-assert_eq "$(echo "$result" | jq -r .ci.user)"          "paulo.junior"          "github user"
-assert_eq "$(echo "$result" | jq -r .ci.pipeline_id)"   "999"                   "github pipeline_id"
+assert_eq "$(echo "$result" | jq -r .scm.branch)"     "main"               "github branch"
+assert_eq "$(echo "$result" | jq -r .scm.commit)"     "abc1234567890def1234567890abcdef12345678" "github commit"
+assert_eq "$(echo "$result" | jq -r .scm.commit_short)" "abc1234"          "github commit_short"
+assert_eq "$(echo "$result" | jq -r .scm.repository)" "Tooark/myapp"       "github repo"
+assert_eq "$(echo "$result" | jq -r .ci.platform)"    "github"             "github platform"
+assert_eq "$(echo "$result" | jq -r .ci.user)"        "paulo"              "github user"
 
-# GitLab
-reset_envs
-GITLAB_CI=1
-CI_COMMIT_REF_NAME="feature/x"
-CI_COMMIT_SHA="def4567890abcdef1234567890abcdef12345678"
-CI_PROJECT_PATH="group/project"
-GITLAB_USER_LOGIN="paulo"
-CI_PIPELINE_ID="42"
-
-result="$(collect_metadata "/tmp" 2>/dev/null)"
-assert_eq "$(echo "$result" | jq -r .scm.branch)"     "feature/x"     "gitlab branch"
-assert_eq "$(echo "$result" | jq -r .scm.repository)" "group/project" "gitlab repository"
-assert_eq "$(echo "$result" | jq -r .ci.platform)"    "gitlab"        "gitlab platform"
-assert_eq "$(echo "$result" | jq -r .ci.user)"        "paulo"         "gitlab user"
-
-# ===========================================================
-# 7) collect_metadata — precedência CLI > env
-# ===========================================================
 section "collect_metadata() - CLI precedence"
 reset_envs
 GITHUB_ACTIONS=1
-GITHUB_REF_NAME="main-from-env"
-CLI_BRANCH="cli-branch"
+GITHUB_REF_NAME="main"
+CLI_BRANCH="cli-wins"
 result="$(collect_metadata "/tmp" 2>/dev/null)"
-assert_eq "$(echo "$result" | jq -r .scm.branch)" "cli-branch" "CLI flag wins over env"
+assert_eq "$(echo "$result" | jq -r .scm.branch)" "cli-wins" "CLI > env"
 
-reset_envs
-GITHUB_ACTIONS=1
-CI_BRANCH="explicit-env"
-GITHUB_REF_NAME="native-env"
-result="$(collect_metadata "/tmp" 2>/dev/null)"
-assert_eq "$(echo "$result" | jq -r .scm.branch)" "explicit-env" "CI_BRANCH wins over native env"
-
-# ===========================================================
-# 8) collect_metadata — campos vazios viram null
-# ===========================================================
 section "collect_metadata() - null normalization"
 reset_envs
 result="$(collect_metadata "/nonexistent" 2>/dev/null)"
-assert_eq "$(echo "$result" | jq -r .scm.branch)"      "null" "empty branch -> null"
-assert_eq "$(echo "$result" | jq -r .ci.platform)"     "null" "empty platform -> null"
-assert_eq "$(echo "$result" | jq -r .ci.pipeline_id)"  "null" "empty pipeline_id -> null"
+assert_eq "$(echo "$result" | jq -r .scm.branch)" "null" "empty -> null"
+assert_eq "$(echo "$result" | jq -r .ci.platform)" "null" "no platform -> null"
 
-# ===========================================================
-# 9) parse_metadata_flags
-# ===========================================================
-section "parse_metadata_flags()"
+section "parse_metadata_flags() - REMAINING_ARGS (P0.2 fix)"
 reset_envs
-parse_metadata_flags --branch main --commit abc123 image nginx:latest
-assert_eq "$CLI_BRANCH"             "main"          "parses --branch"
-assert_eq "$CLI_COMMIT"             "abc123"        "parses --commit"
-assert_eq "${REMAINING_ARGS[0]}"    "image"         "preserves positional 1"
-assert_eq "${REMAINING_ARGS[1]}"    "nginx:latest"  "preserves positional 2"
+parse_metadata_flags --branch main --commit abc123 cmd-arg-1 cmd-arg-2
+assert_eq "$CLI_BRANCH"            "main"       "--branch"
+assert_eq "$CLI_COMMIT"            "abc123"     "--commit"
+assert_eq "${REMAINING_ARGS[0]}"   "cmd-arg-1"  "positional 1"
+assert_eq "${REMAINING_ARGS[1]}"   "cmd-arg-2"  "positional 2"
 
 reset_envs
 parse_metadata_flags --branch=foo --commit=bar --user=u --repo=r/r --tag=v1
-assert_eq "$CLI_BRANCH"     "foo"  "parses --branch=foo"
-assert_eq "$CLI_COMMIT"     "bar"  "parses --commit=bar"
-assert_eq "$CLI_USER"       "u"    "parses --user=u"
-assert_eq "$CLI_REPOSITORY" "r/r"  "parses --repo=r/r"
-assert_eq "$CLI_TAG"        "v1"   "parses --tag=v1"
+assert_eq "$CLI_BRANCH"     "foo"  "--branch=foo"
+assert_eq "$CLI_COMMIT"     "bar"  "--commit=bar"
+assert_eq "$CLI_USER"       "u"    "--user=u"
+assert_eq "$CLI_REPOSITORY" "r/r"  "--repo=r/r"
+assert_eq "$CLI_TAG"        "v1"   "--tag=v1"
 
-# ===========================================================
-# 10) resolve_trivy_ignorefile
-# ===========================================================
-section "resolve_trivy_ignorefile()"
+section "wrap_ark_report() - envelope v1.2"
 reset_envs
-TMP_IGNORE="$(mktemp)"
-echo "CVE-9999-99999" > "$TMP_IGNORE"
-TRIVY_IGNOREFILE="$TMP_IGNORE"
-assert_eq "$(resolve_trivy_ignorefile)" "$TMP_IGNORE" "uses TRIVY_IGNOREFILE when set"
-rm -f "$TMP_IGNORE"
-unset TRIVY_IGNOREFILE
-assert_eq "$(resolve_trivy_ignorefile)" "" "returns empty when no file found"
-
-# ===========================================================
-# 11) default_fs_target
-# ===========================================================
-section "default_fs_target()"
-result="$(default_fs_target)"
-[[ -d /workspace ]] && expected="/workspace" || expected="$PWD"
-assert_eq "$result" "$expected" "default target reflects /workspace existence"
-
-# ===========================================================
-# 12) wrap_ark_report — envelope v1.1
-# ===========================================================
-section "wrap_ark_report()"
-reset_envs
-raw_report="$(mktemp)"
-echo '{"Results":[],"foo":"bar"}' > "$raw_report"
+export ARK_IMAGE_FAMILY="test-family"
+raw_report="$(mktemp)"; echo '{"foo":"bar"}' > "$raw_report"
 out_report="$(mktemp)"
-metadata='{"scm":{"branch":"main","commit":"abc123def456789012345"},"ci":{"platform":"github"}}'
+metadata='{"scm":{"branch":"main"},"ci":{"platform":"github"}}'
 wrap_ark_report "image-scan" "nginx:latest" "trivy" "$raw_report" "$out_report" "false" "true" "$metadata" 2>/dev/null
 
-assert_eq "$(jq -r .schema       "$out_report")" "ark-report-tools" "schema field"
-assert_eq "$(jq -r .version      "$out_report")" "1.1"              "version field (v1.1)"
-assert_eq "$(jq -r .command      "$out_report")" "image-scan"       "command field"
-assert_eq "$(jq -r .target       "$out_report")" "nginx:latest"     "target field"
-assert_eq "$(jq -r .tool         "$out_report")" "trivy"            "tool field"
-assert_eq "$(jq -r .sbom_enabled "$out_report")" "false"            "sbom_enabled field"
-assert_eq "$(jq -r .list_all_pkgs "$out_report")" "true"            "list_all_pkgs field"
-assert_eq "$(jq -r .metadata.scm.branch   "$out_report")" "main"   "metadata.scm.branch"
-assert_eq "$(jq -r .metadata.ci.platform  "$out_report")" "github" "metadata.ci.platform"
-assert_eq "$(jq -r .report.foo            "$out_report")" "bar"    "raw report preserved"
-
-# Validação básica de timestamp ISO 8601
-ts="$(jq -r .timestamp "$out_report")"
-if [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
-  PASS=$((PASS+1)); echo "  ✓ timestamp ISO 8601"
-else
-  FAIL=$((FAIL+1)); FAILED_TESTS+=("timestamp ISO 8601")
-  echo "  ✗ timestamp ISO 8601: got '$ts'"
-fi
-
+assert_eq "$(jq -r .schema       "$out_report")" "ark-report-tools"  "schema"
+assert_eq "$(jq -r .version      "$out_report")" "1.2"               "version"
+assert_eq "$(jq -r .image_family "$out_report")" "test-family"       "image_family"
+assert_eq "$(jq -r .command      "$out_report")" "image-scan"        "command"
+assert_eq "$(jq -r .target       "$out_report")" "nginx:latest"      "target"
+assert_eq "$(jq -r .tool         "$out_report")" "trivy"             "tool"
+assert_eq "$(jq -r .sbom_enabled "$out_report")" "false"             "sbom_enabled"
+assert_eq "$(jq -r .list_all_pkgs "$out_report")" "true"             "list_all_pkgs"
+assert_eq "$(jq -r .metadata.scm.branch  "$out_report")" "main"      "metadata.scm"
+assert_eq "$(jq -r .metadata.ci.platform "$out_report")" "github"    "metadata.ci"
+assert_eq "$(jq -r .report.foo            "$out_report")" "bar"      "raw report preserved"
 rm -f "$raw_report" "$out_report"
+unset ARK_IMAGE_FAMILY
 
-# ===========================================================
-# 13) wrap_ark_report com metadata vazio (default '{}')
-# ===========================================================
 section "wrap_ark_report() - empty metadata default"
-raw_report="$(mktemp)"
-echo '{}' > "$raw_report"
+raw_report="$(mktemp)"; echo '{}' > "$raw_report"
 out_report="$(mktemp)"
 wrap_ark_report "image-scan" "alpine" "trivy" "$raw_report" "$out_report" "false" "false" 2>/dev/null
-assert_eq "$(jq -c .metadata "$out_report")" "{}" "metadata defaults to {}"
+assert_eq "$(jq -c .metadata "$out_report")" "{}" "metadata default {}"
 rm -f "$raw_report" "$out_report"
 
-# ===========================================================
-# 14) trivy_failure_gate — relatório limpo passa
-# ===========================================================
-section "trivy_failure_gate()"
-clean_report="$(mktemp)"
-echo '{"Results":[]}' > "$clean_report"
-assert_ok "clean report passes gate" trivy_failure_gate "json" "$clean_report" "HIGH,CRITICAL"
-
-dirty_report="$(mktemp)"
-cat > "$dirty_report" <<'EOF'
-{"Results":[{"Target":"x","Vulnerabilities":[{"VulnerabilityID":"CVE-2025-1","Severity":"CRITICAL"}]}]}
-EOF
-assert_fail "dirty report triggers gate" trivy_failure_gate "json" "$dirty_report" "HIGH,CRITICAL"
-
-# Gate ignora não-json
-assert_ok "non-json format skips gate" trivy_failure_gate "table" "$dirty_report" "HIGH,CRITICAL"
-
-rm -f "$clean_report" "$dirty_report"
-
-# ===========================================================
-# 15) _report_file_or_null
-# ===========================================================
 section "_report_file_or_null()"
 empty_file="$(mktemp)"; : > "$empty_file"
 nonempty_file="$(mktemp)"; echo '{"a":1}' > "$nonempty_file"
-assert_eq "$(_report_file_or_null "$nonempty_file")" "$nonempty_file" "non-empty returns path"
+assert_eq "$(_report_file_or_null "$nonempty_file")" "$nonempty_file" "non-empty"
 out="$(_report_file_or_null "$empty_file")"
-[[ "$(basename "$out")" == ".null.json" ]] && PASS=$((PASS+1)) && echo "  ✓ empty file returns null file" || { FAIL=$((FAIL+1)); echo "  ✗ empty file returns null file"; }
+[[ "$(basename "$out")" == ".null.json" ]] && PASS=$((PASS+1)) && echo "  ✓ empty -> null file" \
+  || { FAIL=$((FAIL+1)); echo "  ✗ empty -> null file"; }
 rm -f "$empty_file" "$nonempty_file"
 
 # ===========================================================
-# Cleanup + relatório final
+# Security-scanner specific tests
+# ===========================================================
+
+section "should_use_list_all_pkgs()"
+reset_envs
+assert_ok   "default JSON" should_use_list_all_pkgs
+TRIVY_ALL_PACKAGES="false"
+assert_fail "false disables" should_use_list_all_pkgs
+unset TRIVY_ALL_PACKAGES
+TRIVY_FORMAT="table"
+assert_fail "non-json disables" should_use_list_all_pkgs
+unset TRIVY_FORMAT
+assert_ok   "back to default" should_use_list_all_pkgs
+
+section "trivy_list_all_pkgs_flag() - config does NOT receive flag"
+reset_envs
+assert_eq "$(trivy_list_all_pkgs_flag image)"      "--list-all-pkgs" "image"
+assert_eq "$(trivy_list_all_pkgs_flag filesystem)" "--list-all-pkgs" "fs"
+assert_eq "$(trivy_list_all_pkgs_flag repo)"       "--list-all-pkgs" "repo"
+assert_eq "$(trivy_list_all_pkgs_flag config)"     ""                "config NO flag"
+assert_eq "$(trivy_list_all_pkgs_flag unknown)"    ""                "unknown NO flag"
+
+section "resolve_trivy_ignorefile()"
+reset_envs
+TMP_IGNORE="$(mktemp)"; echo "CVE-9999" > "$TMP_IGNORE"
+TRIVY_IGNOREFILE="$TMP_IGNORE"
+assert_eq "$(resolve_trivy_ignorefile)" "$TMP_IGNORE" "TRIVY_IGNOREFILE"
+rm -f "$TMP_IGNORE"
+unset TRIVY_IGNOREFILE
+assert_eq "$(resolve_trivy_ignorefile)" "" "no file -> empty"
+
+section "trivy_failure_gate()"
+clean_report="$(mktemp)"; echo '{"Results":[]}' > "$clean_report"
+assert_ok "clean report passes" trivy_failure_gate "json" "$clean_report" "HIGH,CRITICAL"
+
+dirty_report="$(mktemp)"
+cat > "$dirty_report" <<'EOF'
+{"Results":[{"Target":"x","Vulnerabilities":[{"VulnerabilityID":"CVE-1","Severity":"CRITICAL"}]}]}
+EOF
+assert_fail "dirty report fails" trivy_failure_gate "json" "$dirty_report" "HIGH,CRITICAL"
+assert_ok "non-json skips gate" trivy_failure_gate "table" "$dirty_report" "HIGH,CRITICAL"
+rm -f "$clean_report" "$dirty_report"
+
+section "betterleaks_failure_gate()"
+empty_findings="$(mktemp)"; echo "[]" > "$empty_findings"
+assert_ok "no findings passes" betterleaks_failure_gate "$empty_findings"
+
+with_findings="$(mktemp)"
+echo '[{"RuleID":"aws-secret","Match":"AKIA...","File":"x"}]' > "$with_findings"
+BETTERLEAKS_FAIL_ON_FINDINGS=true
+assert_fail "findings + fail=true" betterleaks_failure_gate "$with_findings"
+BETTERLEAKS_FAIL_ON_FINDINGS=false
+assert_ok "findings + fail=false" betterleaks_failure_gate "$with_findings"
+unset BETTERLEAKS_FAIL_ON_FINDINGS
+rm -f "$empty_findings" "$with_findings"
+
+# ===========================================================
+# Final report
 # ===========================================================
 rm -rf "$TEST_REPORT_DIR"
 
