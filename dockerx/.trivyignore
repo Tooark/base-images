@@ -5,11 +5,8 @@
 # Revisão:
 # 2026-07-05 (ou antes, ao atualizar base/pacotes da imagem).
 
-# Ferramenta docker-buildx com CVEs em suas dependências: github.com/containerd/containerd/v2
-CVE-2026-46680
-
-# Ferramenta docker-buildx com CVEs em suas dependências: github.com/docker/docker
+# usr/local/libexec/docker/cli-plugins/docker-buildx (gobinary)
 CVE-2026-34040
-
-# Ferramentas docker, docker-buildx com CVEs em suas dependências: stdlib
-CVE-2026-42504
+CVE-2026-53488
+CVE-2026-53489
+CVE-2026-53492

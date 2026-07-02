@@ -5,5 +5,5 @@
 # Revisão:
 # 2026-07-05 (ou antes, ao atualizar base/pacotes da imagem).
 
-# Ferramenta terraform com CVEs em suas dependências: stdlib
-CVE-2026-42504
+# usr/local/bin/terraform (gobinary)
+CVE-2026-27145
