@@ -18,3 +18,6 @@ CVE-2026-42502
 # usr/local/bin/terraform (gobinary)
 CVE-2026-27145
 CVE-2026-42504
+
+# oras.land/oras-go/v2
+CVE-2026-50151
