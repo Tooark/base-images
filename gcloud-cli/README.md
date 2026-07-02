@@ -234,10 +234,10 @@ deploy_gke:
 Ao construir localmente, publique tags equivalentes para a mesma imagem (versão completa, curta e `latest`).
 
 ```bash
-version="548.0.0"   # Google Cloud SDK
-kubectl="1.30.4"    # kubectl
-docker="28.1.1"     # Docker CLI
-buildx="0.26.1"     # Buildx
+version="571.0.0"  # Google Cloud SDK
+kubectl="1.36.1"   # kubectl
+docker="29.5.2"    # Docker CLI
+buildx="0.34.1"    # Buildx
 short="$(echo "$version" | cut -d. -f1,2)"
 
 docker build \

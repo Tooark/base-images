@@ -3,6 +3,8 @@
 Imagem base com o `terraform` (Terraform CLI), `aws` (AWS CLI v2) e `kubectl`,
 prontos para uso em pipelines e execuções ad-hoc em container.
 
+> Esta família ficou legada. Para novos fluxos, use [tofu-aws/README.md](../tofu-aws/README.md).
+
 ---
 
 ## Sumário

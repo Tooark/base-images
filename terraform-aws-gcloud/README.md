@@ -3,6 +3,8 @@
 Imagem base com o `terraform` (Terraform CLI), `aws` (AWS CLI v2), `gcloud` (Google Cloud SDK),
 `gsutil`, `bq` e `kubectl`, prontos para uso em pipelines e execuções ad-hoc em container.
 
+> Esta família ficou legada. Para novos fluxos, use [tofu-aws-gcloud/README.md](../tofu-aws-gcloud/README.md).
+
 ---
 
 ## Sumário

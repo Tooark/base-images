@@ -872,6 +872,18 @@ convert_report_if_needed() {
     log_warn "Could not convert report to '$format' format."
     return 1
   fi
+
+  ## Quando o formato for table, imprime o conteúdo em stdout para facilitar a identificação das CVEs no console.
+  if [[ "$format" == "table" ]]; then
+    if [[ -s "$out_path" ]]; then
+      echo
+      echo "=== Trivy report (table) ==="
+      cat "$out_path"
+      echo
+    else
+      log_warn "Table report is empty: $out_path"
+    fi
+  fi
 }
 
 ## --- Envio HTTP --------------------------------------------------------------

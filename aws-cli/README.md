@@ -243,10 +243,10 @@ deploy_eks:
 ## Build local
 
 ```bash
-version="2.32.3"   # AWS CLI
-kubectl="1.34.2"   # kubectl
-docker="28.1.1"    # Docker CLI
-buildx="0.26.1"    # Buildx
+version="2.34.59"  # AWS CLI
+kubectl="1.36.1"   # kubectl
+docker="29.5.2"    # Docker CLI
+buildx="0.34.1"    # Buildx
 short="$(echo "$version" | cut -d. -f1,2)"
 
 docker build \

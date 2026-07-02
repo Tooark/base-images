@@ -1,0 +1,8 @@
+# Contexto mínimo para build: inclui apenas arquivos úteis deste módulo
+**
+!Dockerfile
+!.dockerignore
+!docker-entrypoint.sh
+!README.md
+!DESCRIPTION
+!VERSION

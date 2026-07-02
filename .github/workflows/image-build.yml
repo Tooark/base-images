@@ -8,7 +8,7 @@ on:
   push:
     branches: [main]
     paths:
-      - ".trivyignore"
+      - "**/.trivyignore"
       - "**/Dockerfile"
       - "**/VERSION"
       - ".github/workflows/image-build.yml"
@@ -16,7 +16,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - ".trivyignore"
+      - "**/.trivyignore"
       - "**/Dockerfile"
       - "**/VERSION"
       - ".github/workflows/image-build.yml"
@@ -55,6 +55,10 @@ jobs:
         image:
           - aws-cli
           - gcloud-cli
+          - opentofu
+          - tofu-aws
+          - tofu-gcloud
+          - tofu-aws-gcloud
           - terraform
           - terraform-aws
           - terraform-gcloud
@@ -301,6 +305,10 @@ jobs:
               val=$(printf '%s' "${!var:-}" | tr -d '\r')
               [ -z "$val" ] && continue
               case "$var" in
+                OPENTOFU_VERSION)       TOOL_NAME="OpenTofu" ;;
+                TOFU_AWS_VERSION)       TOOL_NAME="OpenTofu + AWS CLI" ;;
+                TOFU_GCLOUD_VERSION)    TOOL_NAME="OpenTofu + Google Cloud SDK" ;;
+                TOFU_AWS_GCLOUD_VERSION) TOOL_NAME="OpenTofu + AWS CLI + Google Cloud SDK" ;;
                 TERRAFORM_VERSION)      TOOL_NAME="Terraform" ;;
                 AWSCLI_VERSION)         TOOL_NAME="AWS CLI" ;;
                 GCLOUD_VERSION)         TOOL_NAME="Google Cloud SDK" ;;
@@ -342,8 +350,22 @@ jobs:
             ' "$README_FILE" | sed -e 's/\r$//')
           fi
 
+          # Read .trivyignore content for this image, when available.
+          TRIVYIGNORE_FILE="./${{ matrix.image }}/.trivyignore"
+          TRIVYIGNORE_CONTENT=""
+          TRIVYIGNORE_ACTIVE_ENTRIES=""
+          if [ -f "$TRIVYIGNORE_FILE" ] && [ -s "$TRIVYIGNORE_FILE" ]; then
+            TRIVYIGNORE_CONTENT=$(sed -e 's/\r$//' "$TRIVYIGNORE_FILE")
+            TRIVYIGNORE_ACTIVE_ENTRIES=$(printf "%s\n" "$TRIVYIGNORE_CONTENT" | awk 'NF && $1 !~ /^#/' || true)
+          fi
+
           if [ -n "$IMAGE_CONTENT_SECTION" ]; then
             printf "\n\n%s\n" "$IMAGE_CONTENT_SECTION" >> "$NOTES_FILE"
+          fi
+
+          if [ -n "$TRIVYIGNORE_ACTIVE_ENTRIES" ]; then
+            printf "\n\n### Trivy Ignore (.trivyignore)\n\n" >> "$NOTES_FILE"
+            printf "\`\`\`text\n%s\n\`\`\`\n" "$TRIVYIGNORE_CONTENT" >> "$NOTES_FILE"
           fi
 
           gh release create "$TAG_NAME" \

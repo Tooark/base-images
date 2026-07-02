@@ -1,0 +1,6 @@
+# Justificativa:
+# Excecoes temporarias de CVE aceitas para esta imagem em contexto de pipeline.
+# Usar somente para CVEs especificas com correcao pendente/upstream.
+#
+# Revisao:
+# 2026-07-05 (ou antes, ao atualizar base/pacotes da imagem).

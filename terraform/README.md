@@ -3,6 +3,8 @@
 Imagem base com `terraform` (Terraform CLI) pronto para uso em pipelines e
 execuções ad-hoc em container.
 
+> Esta família ficou legada. Para novos fluxos, use [opentofu/README.md](../opentofu/README.md).
+
 ---
 
 ## Sumário
@@ -160,7 +162,7 @@ terraform_apply:
 ## Build local
 
 ```bash
-version="1.14.0"   # Terraform
+version="1.15.5"   # Terraform
 short="$(echo "$version" | cut -d. -f1,2)"
 
 docker build \

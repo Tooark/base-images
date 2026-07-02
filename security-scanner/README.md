@@ -340,7 +340,7 @@ SBOM pode ir para endpoint separado via `REPORT_SBOM_*`.
 | `-v "$PWD/.trivyignore":/.trivyignore:ro`        | `.trivyignore` auto-detectado                             |
 | `-v "$HOME/.cache/trivy":/home/app/.cache/trivy` | Cache persistente do Trivy DB                             |
 | `-v "$PWD/scan-reports":/reports`                | Persistência local dos relatórios                         |
-| `-v /var/run/docker.sock:/var/run/docker.sock`   | Image scan de imagens locais (requer `--user 0`)          |
+| `-v /var/run/docker.sock:/var/run/docker.sock`   | Image scan de imagens locais (entrypoint ajusta permissão) |
 
 > ⚠️ Para Betterleaks vasculhar history do git, monte `.git` **sem** `:ro`
 > quando usar com baseline ou comandos que precisem escrever cache.
@@ -352,11 +352,14 @@ SBOM pode ir para endpoint separado via `REPORT_SBOM_*`.
 ### Scan de imagem local (via docker.sock)
 
 ```bash
-docker run --rm --user 0 \
+docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   ghcr.io/tooark/security-scanner:latest \
   image-scan mylocalimage:tag
 ```
+
+> O `docker-entrypoint.sh` sincroniza automaticamente o GID do socket e executa
+> o processo como usuário não-root (`app`).
 
 ### Secret scan sem git history (mais rápido)
 
@@ -586,13 +589,12 @@ A suite cobre:
 
 ```bash
 version="1.0.0"      # Security Scanner
-trivy="0.70.0"       # Trivy
+trivy="0.71.0"       # Trivy
 hadolint="2.14.0"    # Hadolint
 betterleaks="1.3.1"  # Betterleaks
 short="$(echo "$version" | cut -d. -f1,2)"
 
 docker build \
-  -t security-scanner:local \
   --build-arg TRIVY_VERSION=$trivy \
   --build-arg HADOLINT_VERSION=$hadolint \
   --build-arg BETTERLEAKS_VERSION=$betterleaks \

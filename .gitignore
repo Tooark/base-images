@@ -43,3 +43,6 @@ Thumbs.db
 # Json files
 *.json
 !**/schemas/**/*.json
+
+# Report files
+scan-reports/

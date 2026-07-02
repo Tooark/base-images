@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # Argumento para definir a imagem base
-ARG BASE_IMAGE=debian:12-slim
+ARG BASE_IMAGE=debian:13-slim
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
 
-# Argumento para definir a versão do Terraform (obrigatório)
-ARG TERRAFORM_VERSION
+# Argumento para definir a versão do Terraform (override via --build-arg)
+ARG TERRAFORM_VERSION=1.15.5
 
 ############################
 # Stage 1: build / install #
@@ -28,7 +28,7 @@ SHELL ["/bin/sh", "-eu", "-c"]
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
 
-# Argumento para definir a versão do Terraform (obrigatório)
+# Re-declara ARGs necessários no escopo do builder
 ARG TERRAFORM_VERSION
 
 # Baixa e verifica o binário do Terraform
@@ -53,43 +53,56 @@ RUN set -eux; \
 # Define a imagem runtime
 FROM ${BASE_IMAGE} AS runtime
 
-# Argumento para definir a versão do Terraform (obrigatório)
+# Re-declara ARGs necessários no escopo do stage final
 ARG TERRAFORM_VERSION
 
 # Metadados da imagem
 LABEL org.opencontainers.image.title="terraform" \
-  org.opencontainers.image.description="Base image with integrated Terraform for Linux/amd64 and Linux/arm64" \
+  org.opencontainers.image.description="Base image with Terraform for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${TERRAFORM_VERSION}" \
-  org.opencontainers.image.source="https://github.com/Tooark/base-images/terraform"
+  org.opencontainers.image.source="https://github.com/Tooark/base-images/terraform" \
+  io.tooark.terraform.version="${TERRAFORM_VERSION}"
+
+# Garante shell mais estrita
+SHELL ["/bin/sh", "-eu", "-c"]
 
 # Instala dependências mínimas
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get upgrade -y \
- && apt-get install -y --no-install-recommends ca-certificates \
- && update-ca-certificates
-
-# Garante shell mais estrita
-SHELL ["/bin/sh", "-eu", "-c"]
+ && apt-get install -y --no-install-recommends ca-certificates gosu \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copia apenas o necessário do builder para o runtime
 COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
 
-# Cria usuário não-root
-RUN adduser --disabled-password --gecos "" app
+# Copia o entrypoint para auto-configuração do acesso ao Docker
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-# Muda para o usuário não-root
-USER app
+# Remove CR e BOM do entrypoint (proteção contra arquivos vindos de Windows)
+RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/docker-entrypoint.sh \
+ && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 
-# Variáveis úteis para CI
+# Cria apenas o usuário não-root
+RUN useradd -m -s /bin/bash app
+
+# Desabilita healthcheck (imagem de CLI, não é serviço)
+HEALTHCHECK NONE
+
+# Variáveis de ambiente padrão
 ENV ARK_IMAGE_FAMILY=terraform \
+    ARK_RUNTIME_USER=app \
     TF_IN_AUTOMATION=1 \
     TF_INPUT=0 \
     TF_CLI_ARGS="-input=false -no-color"
+
+# Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
+# e faz o drop de privilégios para 'app' via gosu em runtime.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Configura comando padrão
 CMD ["/bin/sh"]

@@ -52,14 +52,15 @@ versions["GCLOUD_VERSION"] = gcloud_version
 stable_k8s = fetch_text("https://dl.k8s.io/release/stable.txt").strip()
 versions["KUBECTL_VERSION"] = stable_k8s.lstrip("v")
 
-# Terraform (API oficial da HashiCorp)
-terraform_check = json.loads(fetch_text("https://checkpoint-api.hashicorp.com/v1/check/terraform"))
-tf_version = terraform_check.get("current_version")
+# OpenTofu (GitHub Releases - latest stable)
+response = fetch_text("https://api.github.com/repos/opentofu/opentofu/releases/latest", "application/vnd.github+json")
+opentofu_release = json.loads(response)
+opentofu_tag = opentofu_release.get("tag_name", "").lstrip("v")
 
-if not tf_version:
-  raise RuntimeError("Could not parse TERRAFORM_VERSION from checkpoint API")
+if not opentofu_tag:
+  raise RuntimeError("Could not parse OPENTOFU_VERSION from OpenTofu releases")
 
-versions["TERRAFORM_VERSION"] = tf_version
+versions["OPENTOFU_VERSION"] = opentofu_tag
 
 # Sonar Scanner CLI (GitHub Releases - latest stable)
 response = fetch_text("https://api.github.com/repos/SonarSource/sonar-scanner-cli/releases/latest", "application/vnd.github+json")

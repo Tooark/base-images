@@ -60,20 +60,19 @@ docker run --rm ghcr.io/tooark/dockerx:latest docker buildx version
 Listar builders (com acesso ao socket Docker do host Linux):
 
 ```bash
-DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
 docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  --group-add "$DOCKER_GID" \
   ghcr.io/tooark/dockerx:latest docker buildx ls
 ```
+
+O `docker-entrypoint.sh` da imagem sincroniza automaticamente o GID do
+`/var/run/docker.sock` e executa como usuário não-root (`app`).
 
 Build e push multi-arquitetura com Buildx:
 
 ```bash
-DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
 docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  --group-add "$DOCKER_GID" \
   -v "$PWD":/workspace \
   -w /workspace \
   -e DOCKER_BUILDKIT=1 \
@@ -131,19 +130,19 @@ build_image:
 Ao construir localmente, publique tags equivalentes para a mesma imagem (versão completa, curta e `latest`).
 
 ```bash
-version="1.0.0"        # DockerX
-dockerVersion="28.1.1" # Docker CLI
-buildxVersion="0.26.1" # Docker Buildx
+version="29.1.1"       # DockerX
+dockerVersion="29.5.2" # Docker CLI
+buildxVersion="0.34.1" # Docker Buildx
 short="$(echo "$version" | cut -d. -f1,2)"
 
 docker build \
   --build-arg DOCKERX_VERSION=$version \
   --build-arg DOCKER_VERSION=$dockerVersion \
   --build-arg DOCKER_BUILDX_VERSION=$buildxVersion \
-  -t docker:$version \
-  -t docker:$short \
-  -t docker:latest \
-  ./docker
+  -t dockerx:$version \
+  -t dockerx:$short \
+  -t dockerx:latest \
+  ./dockerx
 ```
 
 ---

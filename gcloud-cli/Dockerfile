@@ -1,22 +1,18 @@
 # syntax=docker/dockerfile:1
 
 # Argumento para definir a imagem base
-ARG BASE_IMAGE=debian:12-slim
+ARG BASE_IMAGE=debian:13-slim
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
 
-# Argumento para definir a versão do Google Cloud CLI (obrigatório)
-ARG GCLOUD_VERSION
+# Argumento para definir a versão do Google Cloud CLI (override via --build-arg)
+ARG GCLOUD_VERSION=571.0.0
 
-# Argumento para definir a versão do kubectl (obrigatório)
-ARG KUBECTL_VERSION
-
-# Argumento para definir a versão do Docker CLI (obrigatório)
-ARG DOCKER_VERSION
-
-# Argumento para definir a versão do Docker Buildx plugin (obrigatório)
-ARG DOCKER_BUILDX_VERSION
+# Versões das ferramentas integradas (override via --build-arg)
+ARG KUBECTL_VERSION=1.36.1
+ARG DOCKER_VERSION=29.5.2
+ARG DOCKER_BUILDX_VERSION=0.34.1
 
 ############################
 # Stage 1: build / install #
@@ -37,16 +33,10 @@ SHELL ["/bin/sh", "-eu", "-c"]
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
 
-# Argumento para definir a versão do Google Cloud CLI (obrigatório)
+# Re-declara ARGs necessários no escopo do builder
 ARG GCLOUD_VERSION
-
-# Argumento para definir a versão do kubectl (obrigatório)
 ARG KUBECTL_VERSION
-
-# Argumento para definir a versão do Docker CLI (obrigatório)
 ARG DOCKER_VERSION
-
-# Argumento para definir a versão do Docker Buildx plugin (obrigatório)
 ARG DOCKER_BUILDX_VERSION
 
 # Baixa o Google Cloud SDK, kubectl, Docker CLI e Buildx corretos para a arquitetura alvo
@@ -108,7 +98,7 @@ RUN set -eux; \
 # Define a imagem runtime
 FROM ${BASE_IMAGE} AS runtime
 
-# Argumentos de versão para metadados
+# Re-declara ARGs necessários no escopo do stage final
 ARG GCLOUD_VERSION
 ARG KUBECTL_VERSION
 ARG DOCKER_VERSION
@@ -121,21 +111,22 @@ LABEL org.opencontainers.image.title="gcloud-cli" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${GCLOUD_VERSION}" \
   org.opencontainers.image.source="https://github.com/Tooark/base-images/gcloud-cli" \
+  io.tooark.gcloud.version="${GCLOUD_VERSION}" \
   io.tooark.kubectl.version="${KUBECTL_VERSION}" \
   io.tooark.docker.version="${DOCKER_VERSION}" \
   io.tooark.buildx.version="${DOCKER_BUILDX_VERSION}"
+
+# Garante shell mais estrita
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Instala dependências mínimas (bash e python3 são necessários para os scripts do gcloud)
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get upgrade -y \
- && apt-get install -y --no-install-recommends ca-certificates bash python3 \
- && update-ca-certificates
-
-# Garante shell mais estrita
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+ && apt-get install -y --no-install-recommends ca-certificates bash python3 gosu \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copia o Google Cloud SDK, kubectl, Docker CLI e Buildx do builder para o runtime
 COPY --from=builder /opt/google-cloud-sdk /opt/google-cloud-sdk
@@ -144,26 +135,33 @@ COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 
 # Copia o entrypoint para auto-configuração do acesso ao Docker
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-# Cria symlinks, grupo docker, usuário não-root e adiciona ao grupo docker
+# Remove CR e BOM do entrypoint (proteção contra arquivos vindos de Windows)
+RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/docker-entrypoint.sh \
+ && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
+
+# Cria um symlink em /usr/local/bin apontando para o binário dentro da árvore do google-cloud-sdk
+# Cria apenas o usuário não-root
 RUN ln -sf /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
   && ln -sf /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
   && ln -sf /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq \
-  && addgroup docker \
-  && adduser --disabled-password --gecos "" app \
-  && adduser app docker
+ && useradd -m -s /bin/bash app
 
-# Desabilita prompts interativos por padrão (útil para CI) e define Python explícito
+# Desabilita healthcheck (imagem de CLI, não é serviço)
+HEALTHCHECK NONE
+
+# Variáveis de ambiente padrão
 ENV ARK_IMAGE_FAMILY=gcloud-cli \
+    ARK_RUNTIME_USER=app \
     CLOUDSDK_CORE_DISABLE_PROMPTS=1 \
     CLOUDSDK_PYTHON=/usr/bin/python3 \
     DOCKER_CLI_HINTS=false \
     DOCKER_BUILDKIT=1
 
 # Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
-ENTRYPOINT ["docker-entrypoint.sh"]
+# e faz o drop de privilégios para 'app' via gosu em runtime.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Configura comando padrão
 CMD ["/bin/bash"]

@@ -849,10 +849,7 @@ _do_trivy_scan() {
   run_trivy_scan "$trivy_cmd" "$target" "$json_output" "$@" || return $?
 
   ## Verifica se é necessário converter o relatório para outro formato.
-  if [[ "$format" != "json" ]]; then
-    local default_out="$REPORT_DIR/${default_json_name%.json}.$format"
-    convert_report_if_needed "$json_output" "$default_out" || true
-  fi
+  convert_trivy_output_if_needed "$json_output" "${default_json_name%.json}.$format"
 
   ## Verifica o gate de falha por severidade a partir do relatório JSON.
   if [[ "$fail_exit_code" != "0" ]]; then
@@ -944,6 +941,21 @@ betterleaks_failure_gate() {
 }
 
 ## --- Conversão de relatório para outros formatos (se necessário) -------------
+## Função para converter o relatório JSON do Trivy para o formato solicitado, quando necessário.
+## Argumentos:
+## $1 json_output (path do arquivo JSON gerado pelo scan)
+## $2 default_output_name (nome padrão do arquivo convertido, ex: trivy-image.table)
+convert_trivy_output_if_needed() {
+  local json_output="$1"
+  local default_output_name="$2"
+  local format="${TRIVY_FORMAT:-json}"
+
+  [[ "$format" == "json" ]] && return 0
+
+  convert_report_if_needed "$json_output" "$REPORT_DIR/$default_output_name" || true
+}
+
+## Função genérica para converter um relatório JSON para outro formato, quando necessário.
 ## Argumentos:
 ## $1 json_output (path do arquivo de entrada JSON)
 ## $2 default_out_path (path do arquivo de saída para o formato convertido, se necessário)
@@ -961,6 +973,18 @@ convert_report_if_needed() {
   ## Verifica se o comando 'trivy convert' consegue ser executado com o formato desejado
   trivy convert --format "$format" --output "$out_path" "$json_output" 2>/dev/null \
     || { log_warn "Convert failed to '$format' format."; return 1; }
+
+  ## Quando o formato for table, imprime o conteúdo em stdout para facilitar a identificação das CVEs no console.
+  if [[ "$format" == "table" ]]; then
+    if [[ -s "$out_path" ]]; then
+      echo
+      echo "=== Trivy report (table) ==="
+      cat "$out_path"
+      echo
+    else
+      log_warn "Table report is empty: $out_path"
+    fi
+  fi
 }
 
 ## --- HTTP send helpers -------------------------------------------------------
@@ -1971,6 +1995,7 @@ do_full_scan() {
 
     ## Executa o scan de imagem e captura erros.
     run_trivy_scan "image" "$image" "$img_output" "${trivy_extras[@]}" || errors=$((errors + 1))
+    convert_trivy_output_if_needed "$img_output" "trivy-image.${TRIVY_FORMAT:-json}"
 
     ## Gera SBOM da imagem se a opção estiver ativa
     if [[ "$sbom_enabled" == "true" ]]; then
@@ -1990,11 +2015,13 @@ do_full_scan() {
 
     ## Executa o scan de filesystem e captura erros.
     run_trivy_scan "filesystem" "$scan_path" "$source_output" "${trivy_extras[@]}" || errors=$((errors + 1))
+    convert_trivy_output_if_needed "$source_output" "trivy-filesystem.${TRIVY_FORMAT:-json}"
   else
     source_output="$REPORT_DIR/trivy-repo.json"
 
     ## Executa o scan de repositório e captura erros.
     run_trivy_scan "repo" "$scan_path" "$source_output" "${trivy_extras[@]}" || errors=$((errors + 1))
+    convert_trivy_output_if_needed "$source_output" "trivy-repo.${TRIVY_FORMAT:-json}"
   fi
 
   ## Step: Secret scan (Betterleaks)

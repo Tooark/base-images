@@ -51,7 +51,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates bash jq git curl \
+ && apt-get install -y --no-install-recommends ca-certificates bash jq git curl gosu \
  && update-ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
@@ -59,18 +59,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 COPY --from=hadolint_src --chmod=0755 /bin/hadolint /usr/local/bin/hadolint
 COPY --from=trivy_src --chmod=0755 /usr/local/bin/trivy /usr/local/bin/trivy
 
-# Copia o wrapper CLI
+# Copia o entrypoint e o wrapper CLI
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY --chmod=0755 ark-tools.sh /usr/local/bin/ark-tools
 
 # Copia o JSON Schema do envelope ark-report-tools (referência local)
 COPY schemas/ark-report-tools.schema.v1.1.json /usr/local/share/ark-tools/ark-report-tools.schema.v1.1.json
 
-# Remove CR e BOM do wrapper (proteção contra arquivos vindos de Windows)
+# Remove CR e BOM do wrapper e do entrypoint (proteção contra arquivos vindos de Windows)
 RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/ark-tools \
- && sed -i 's/\r$//' /usr/local/bin/ark-tools
+ && sed -i 's/\r$//' /usr/local/bin/ark-tools \
+ && sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/docker-entrypoint.sh \
+ && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 
 # Cria usuário não-root, prepara diretórios de cache/relatórios e registra versões
-RUN (adduser --disabled-password --gecos "" app || useradd -m -s /bin/bash app) \
+RUN useradd -m -s /bin/bash app \
  && mkdir -p /home/app/.cache/trivy /workspace /reports \
  && chown -R app:app /home/app /workspace /reports \
  && trivy --version  > /etc/ark-tools-versions \
@@ -80,21 +83,21 @@ RUN (adduser --disabled-password --gecos "" app || useradd -m -s /bin/bash app) 
 # Desabilita healthcheck (imagem de CLI, não é serviço)
 HEALTHCHECK NONE
 
-# Usuário não-root para execução
-USER app
-
 # Diretório de trabalho default = /workspace
+# O entrypoint faz o drop de privilégios para 'app' via gosu em runtime.
 # Evita o erro comum de escanear "/" do container quando `fs` é chamado sem path
 WORKDIR /workspace
 
 # Variáveis de ambiente padrão
 ENV ARK_IMAGE_FAMILY=trivy-hadolint \
+  ARK_RUNTIME_USER=app \
+  ARK_ENTRYPOINT_CMD=/usr/local/bin/ark-tools \
     TRIVY_CACHE_DIR=/home/app/.cache/trivy \
     REPORT_DIR=/reports \
     ARK_REPORT_SCHEMA=/usr/local/share/ark-tools/ark-report-tools.schema.v1.1.json
 
-# EntryPoint para comandos amigáveis
-ENTRYPOINT ["/usr/local/bin/ark-tools"]
+# EntryPoint: ajusta GID do Docker socket em runtime e dropa para 'app' via gosu
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # CMD default (mostra help se não passar nada)
 CMD ["help"]

@@ -1,6 +1,33 @@
 import json
 import os
 import re
+import calendar
+from datetime import date
+
+
+def _add_one_month(d):
+  """Retorna a data com +1 mês, preservando dia quando possível."""
+  year = d.year + (1 if d.month == 12 else 0)
+  month = 1 if d.month == 12 else d.month + 1
+  last_day = calendar.monthrange(year, month)[1]
+  day = min(d.day, last_day)
+  return date(year, month, day)
+
+
+def build_trivyignore_standard_header(today=None):
+  """Monta cabeçalho padrão com data de revisão = execução + 1 mês."""
+  run_date = today or date.today()
+  review_date = _add_one_month(run_date)
+  review_str = review_date.strftime("%Y-%m-%d")
+
+  return (
+      "# Justificativa:\n"
+      "# Exceções temporárias de CVE aceitas para esta imagem em contexto de pipeline.\n"
+      "# Usar somente para CVEs especificas com correção pendente/upstream.\n"
+      "#\n"
+      "# Revisão:\n"
+      f"# {review_str} (ou antes, ao atualizar base/pacotes da imagem).\n"
+  )
 
 
 def parse_semver(version):
@@ -111,27 +138,41 @@ COMPOSITE_VERSION_RULES = {
     "TF_AWS_VERSION": ["TERRAFORM_VERSION", "AWSCLI_VERSION"],
     "TF_GCLOUD_VERSION": ["TERRAFORM_VERSION", "GCLOUD_VERSION"],
     "TF_AWS_GCLOUD_VERSION": ["TERRAFORM_VERSION", "AWSCLI_VERSION", "GCLOUD_VERSION"],
+    "TOFU_AWS_VERSION": ["OPENTOFU_VERSION", "AWSCLI_VERSION"],
+    "TOFU_GCLOUD_VERSION": ["OPENTOFU_VERSION", "GCLOUD_VERSION"],
+    "TOFU_AWS_GCLOUD_VERSION": ["OPENTOFU_VERSION", "AWSCLI_VERSION", "GCLOUD_VERSION"],
     "TRIVY_HADOLINT_VERSION": ["TRIVY_VERSION", "HADOLINT_VERSION"],
     "DOCKERX_VERSION": ["DOCKER_VERSION", "DOCKER_BUILDX_VERSION"],
     "SECURITY_SCANNER_VERSION": ["TRIVY_VERSION", "HADOLINT_VERSION", "BETTERLEAKS_VERSION"],
 }
 
-# Mapeamento de chaves de versão base para seus diretórios de imagem.
-VERSION_KEY_TO_DIR = {
-    "AWSCLI_VERSION": "aws-cli",
-    "GCLOUD_VERSION": "gcloud-cli",
-    "TERRAFORM_VERSION": "terraform",
-    "SONAR_CLI_VERSION": "sonar-scanner"
+# Mapeamento de cada chave de versão para TODAS as imagens impactadas.
+# Regra: quando qualquer pacote base muda, o .trivyignore das imagens impactadas é limpo.
+VERSION_KEY_TO_DIRS = {
+    "AWSCLI_VERSION": ["aws-cli", "terraform-aws", "terraform-aws-gcloud"],
+    "GCLOUD_VERSION": ["gcloud-cli", "terraform-gcloud", "terraform-aws-gcloud"],
+    "KUBECTL_VERSION": ["aws-cli", "gcloud-cli", "opentofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud", "terraform-aws", "terraform-gcloud", "terraform-aws-gcloud"],
+    "OPENTOFU_VERSION": ["opentofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud"],
+    "TERRAFORM_VERSION": ["terraform", "terraform-aws", "terraform-gcloud", "terraform-aws-gcloud"],
+    "TRIVY_VERSION": ["trivy-hadolint", "security-scanner"],
+    "HADOLINT_VERSION": ["trivy-hadolint", "security-scanner"],
+    "BETTERLEAKS_VERSION": ["security-scanner"],
+    "DOCKER_VERSION": ["dockerx", "aws-cli", "gcloud-cli"],
+    "DOCKER_BUILDX_VERSION": ["dockerx", "aws-cli", "gcloud-cli"],
+    "SONAR_CLI_VERSION": ["sonar-scanner"],
 }
 
-# Mapeamento de chaves de versão composta para seus diretórios de imagem.
-COMPOSITE_KEY_TO_DIR = {
-    "TF_AWS_VERSION": "terraform-aws",
-    "TF_GCLOUD_VERSION": "terraform-gcloud",
-    "TF_AWS_GCLOUD_VERSION": "terraform-aws-gcloud",
-    "TRIVY_HADOLINT_VERSION": "trivy-hadolint",
-    "DOCKERX_VERSION": "dockerx",
-    "SECURITY_SCANNER_VERSION": "security-scanner"
+# Versões compostas também mapeiam para suas imagens para cobrir atualização manual.
+COMPOSITE_KEY_TO_DIRS = {
+    "TF_AWS_VERSION": ["terraform-aws"],
+    "TF_GCLOUD_VERSION": ["terraform-gcloud"],
+    "TF_AWS_GCLOUD_VERSION": ["terraform-aws-gcloud"],
+    "TOFU_AWS_VERSION": ["tofu-aws"],
+    "TOFU_GCLOUD_VERSION": ["tofu-gcloud"],
+    "TOFU_AWS_GCLOUD_VERSION": ["tofu-aws-gcloud"],
+    "TRIVY_HADOLINT_VERSION": ["trivy-hadolint"],
+    "DOCKERX_VERSION": ["dockerx"],
+    "SECURITY_SCANNER_VERSION": ["security-scanner"],
 }
 
 with open("latest_versions.json", "r", encoding="utf-8") as f:
@@ -200,43 +241,23 @@ if changed:
   with open("versions.env", "w", encoding="utf-8") as f:
     f.writelines(lines)
 
+  trivyignore_standard_header = build_trivyignore_standard_header()
+
   changed_keys = {key for key, _, _ in changed}
 
-  # Limpa o conteúdo de .trivyignore para as imagens base cujas versões foram alteradas.
+  # Limpa .trivyignore de todas as imagens impactadas por qualquer chave alterada.
+  # Política: não herdar/mesclar automaticamente exceções entre imagens.
+  impacted_dirs = set()
+
   for key in changed_keys:
-    dir_name = VERSION_KEY_TO_DIR.get(key)
-    if dir_name:
-      trivyignore_path = os.path.join(dir_name, ".trivyignore")
-      if os.path.isfile(trivyignore_path):
-        with open(trivyignore_path, "w", encoding="utf-8") as f:
-          pass
-        print(f"Cleared {trivyignore_path}")
+    impacted_dirs.update(VERSION_KEY_TO_DIRS.get(key, []))
+    impacted_dirs.update(COMPOSITE_KEY_TO_DIRS.get(key, []))
 
-  # Rebuild .trivyignore para diretórios compostos concatenando os conteúdos de .trivyignore de seus diretórios de dependências base.
-  for composite_key in changed_keys:
-    if composite_key not in COMPOSITE_KEY_TO_DIR:
-      continue
-
-    composite_dir = COMPOSITE_KEY_TO_DIR[composite_key]
-    dep_keys = COMPOSITE_VERSION_RULES.get(composite_key, [])
-
-    contents = []
-    for dep_key in dep_keys:
-      dep_dir = VERSION_KEY_TO_DIR.get(dep_key)
-      if not dep_dir:
-        continue
-      dep_trivyignore = os.path.join(dep_dir, ".trivyignore")
-      if os.path.isfile(dep_trivyignore):
-        with open(dep_trivyignore, "r", encoding="utf-8") as f:
-          content = f.read().strip()
-        if content:
-          contents.append(content)
-
-    trivyignore_path = os.path.join(composite_dir, ".trivyignore")
+  for dir_name in sorted(impacted_dirs):
+    trivyignore_path = os.path.join(dir_name, ".trivyignore")
     with open(trivyignore_path, "w", encoding="utf-8") as f:
-      if contents:
-        f.write("\n\n".join(contents) + "\n")
-    print(f"Updated {trivyignore_path}")
+      f.write(trivyignore_standard_header + "\n")
+    print(f"Cleared and initialized {trivyignore_path}")
 
 print("Changes:")
 

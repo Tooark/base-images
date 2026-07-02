@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # Argumento para definir a imagem base
-ARG BASE_IMAGE=debian:12-slim
+ARG BASE_IMAGE=debian:13-slim
 
-# Versão do binário do Sonar Scanner CLI (zip)
+# Argumento para definir a versão do Sonar Scanner CLI (override via --build-arg)
 ARG SONAR_CLI_VERSION=4.8.0.2856
 
 ############################
@@ -42,7 +42,7 @@ RUN set -eux; \
 # Define a imagem runtime
 FROM ${BASE_IMAGE} AS runtime
 
-# Argumento de versão para metadados
+# Re-declara ARGs necessários no escopo do stage final
 ARG SONAR_CLI_VERSION
 
 # Metadados da imagem
@@ -51,41 +51,43 @@ LABEL org.opencontainers.image.title="sonar-scanner" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${SONAR_CLI_VERSION}" \
-  org.opencontainers.image.source="https://github.com/Tooark/base-images/sonar-scanner"
+  org.opencontainers.image.source="https://github.com/Tooark/base-images/sonar-scanner" \
+  io.tooark.sonar-scanner.version="${SONAR_CLI_VERSION}"
+
+# Garante shell mais estrita
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Instala dependências mínimas de runtime
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get upgrade -y \
- && apt-get install -y --no-install-recommends ca-certificates bash git openjdk-17-jre-headless \
- && update-ca-certificates
-
-# Garante shell mais estrita
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+ && apt-get install -y --no-install-recommends ca-certificates bash git openjdk-21-jre \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copia apenas o necessário do builder para o runtime
 COPY --from=builder /opt/sonar-scanner /opt/sonar-scanner
 
-# Variáveis de ambiente para o Sonar Scanner CLI e Java
-ENV SONAR_SCANNER_HOME=/opt/sonar-scanner \
-    PATH="/opt/sonar-scanner/bin:${PATH}"
+# Copia o entrypoint para auto-configuração do acesso ao Docker
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-# Cria usuário não-root e ajusta permissões
-RUN adduser --disabled-password --gecos "" app \
-  && mkdir -p /home/app/.sonar/cache \
-  && chown -R app:app /home/app
+# Cria apenas o usuário não-root
+RUN useradd -m -s /bin/bash app
 
-# Desabilita healthcheck para evitar falhas em ambientes que não suportam
+# Desabilita healthcheck (imagem de CLI, não é serviço)
 HEALTHCHECK NONE
 
-# Define o usuário não-root para execução
-USER app
-
-# Variável de ambiente para o cache do Sonar Scanner
+# Variáveis de ambiente padrão
 ENV ARK_IMAGE_FAMILY=sonar-scanner \
-    SONAR_USER_HOME=/home/app/.sonar
+    ARK_RUNTIME_USER=app \
+    SONAR_USER_HOME=/home/app/.sonar \
+    SONAR_SCANNER_HOME=/opt/sonar-scanner \
+    PATH="/opt/sonar-scanner/bin:${PATH}"
 
-# CMD default
+# Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
+# e faz o drop de privilégios para 'app' via gosu em runtime.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+# Configura comando padrão
 CMD ["/bin/bash"]

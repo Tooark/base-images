@@ -397,7 +397,7 @@ Modos de envio:
 | `-v "$PWD/.trivyignore":/.trivyignore:ro`        | `.trivyignore` auto-detectado                  |
 | `-v "$HOME/.cache/trivy":/home/app/.cache/trivy` | Cache persistente do Trivy DB                  |
 | `-v "$PWD/scan-reports":/reports`                | Persistência dos relatórios localmente         |
-| `-v /var/run/docker.sock:/var/run/docker.sock`   | Scan de **imagens locais** (requer `--user 0`) |
+| `-v /var/run/docker.sock:/var/run/docker.sock`   | Scan de **imagens locais** (entrypoint ajusta permissão) |
 
 ---
 
@@ -406,11 +406,14 @@ Modos de envio:
 ### Scan de imagem **local** (via docker.sock)
 
 ```bash
-docker run --rm --user 0 \
+docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   ghcr.io/tooark/trivy-hadolint:latest \
   image-scan mylocalimage:tag
 ```
+
+> O `docker-entrypoint.sh` sincroniza automaticamente o GID do socket e executa
+> o processo como usuário não-root (`app`).
 
 ### Filesystem com cache persistente
 
@@ -770,11 +773,18 @@ testar funções unitárias sem efeitos colaterais.
 ## Build local
 
 ```bash
+version="1.72.0"    # Imagem Trivy + Hadolint
+trivy="0.71.0"      # Trivy
+hadolint="2.14.0"   # Hadolint
+short="$(echo "$version" | cut -d. -f1,2)"
+
 docker build \
-  -t trivy-hadolint:local \
-  --build-arg TRIVY_VERSION=0.67.2 \
-  --build-arg HADOLINT_VERSION=2.14.0 \
-  --build-arg TRIVY_HADOLINT_VERSION=2.2.0 \
+  --build-arg TRIVY_VERSION=$trivy \
+  --build-arg HADOLINT_VERSION=$hadolint \
+  --build-arg TRIVY_HADOLINT_VERSION=$version \
+  -t trivy-hadolint:$version \
+  -t trivy-hadolint:$short \
+  -t trivy-hadolint:latest \
   ./trivy-hadolint
 ```
 
@@ -799,8 +809,8 @@ docker build \
 - **GitHub Actions/Docker não auto-detecta** → precisa repassar as variáveis com
   `-e GITHUB_*` no `docker run` (ou usar `--env-file`).
 
-- **Image scan de imagem local falha por permissão** → use `--user 0` e monte
-  `/var/run/docker.sock`.
+- **Image scan de imagem local falha por permissão** → monte
+  `/var/run/docker.sock`; o entrypoint ajusta GID/grupo automaticamente.
 
 ---
 

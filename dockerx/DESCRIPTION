@@ -1,1 +1,1 @@
-Base image with integrated Docker CLI and Buildx plugin for Linux/amd64 and Linux/arm64
+Base image with Docker CLI and Buildx for Linux/amd64 and Linux/arm64

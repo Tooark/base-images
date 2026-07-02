@@ -2,6 +2,7 @@
 **
 !Dockerfile
 !.dockerignore
+!docker-entrypoint.sh
 !README.md
 !DESCRIPTION
 !VERSION

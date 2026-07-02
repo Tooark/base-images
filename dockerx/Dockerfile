@@ -1,19 +1,17 @@
 # syntax=docker/dockerfile:1
 
 # Argumento para definir a imagem base
-ARG BASE_IMAGE=debian:12-slim
+ARG BASE_IMAGE=debian:13-slim
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
 
-# Argumento para definir a versão do Docker CLI com Buildx (obrigatório)
-ARG DOCKERX_VERSION
+# Versão da imagem composta (override via --build-arg)
+ARG DOCKERX_VERSION=29.1.1
 
-# Argumento para definir a versão do Docker CLI (obrigatório)
-ARG DOCKER_VERSION
-
-# Argumento para definir a versão do Docker Buildx plugin (obrigatório)
-ARG DOCKER_BUILDX_VERSION
+# Versões das ferramentas integradas (override via --build-arg)
+ARG DOCKER_VERSION=29.5.2
+ARG DOCKER_BUILDX_VERSION=0.34.1
 
 ############################
 # Stage 1: build / install #
@@ -34,10 +32,8 @@ SHELL ["/bin/sh", "-eu", "-c"]
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
 
-# Argumento para definir a versão do Docker CLI (obrigatório)
+# Re-declara ARGs necessários no escopo do builder
 ARG DOCKER_VERSION
-
-# Argumento para definir a versão do Docker Buildx plugin (obrigatório)
 ARG DOCKER_BUILDX_VERSION
 
 # Baixa o Docker CLI e o plugin Buildx corretos para a arquitetura alvo
@@ -68,14 +64,14 @@ RUN set -eux; \
 # Define a imagem runtime
 FROM ${BASE_IMAGE} AS runtime
 
-# Argumentos de versão para metadados
+# Re-declara ARGs necessários no escopo do stage final
 ARG DOCKERX_VERSION
 ARG DOCKER_VERSION
 ARG DOCKER_BUILDX_VERSION
 
 # Metadados da imagem
 LABEL org.opencontainers.image.title="dockerx" \
-  org.opencontainers.image.description="Base image with integrated Docker CLI and Buildx plugin for Linux/amd64 and Linux/arm64" \
+  org.opencontainers.image.description="Base image with Docker CLI and Buildx for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${DOCKERX_VERSION}" \
@@ -83,38 +79,44 @@ LABEL org.opencontainers.image.title="dockerx" \
   io.tooark.docker.version="${DOCKER_VERSION}" \
   io.tooark.buildx.version="${DOCKER_BUILDX_VERSION}"
 
+# Garante shell mais estrita
+SHELL ["/bin/sh", "-eu", "-c"]
+
 # Instala dependências mínimas
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get upgrade -y \
- && apt-get install -y --no-install-recommends ca-certificates git \
- && update-ca-certificates
-
-# Garante shell mais estrita
-SHELL ["/bin/sh", "-eu", "-c"]
+ && apt-get install -y --no-install-recommends ca-certificates git gosu \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 # Copia apenas o necessário do builder para o runtime
 COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 
 # Copia o entrypoint para auto-configuração do acesso ao Docker
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-# Cria grupo docker, usuário não-root e adiciona ao grupo docker
-RUN addgroup docker \
-  && adduser --disabled-password --gecos "" app \
-  && adduser app docker
+# Remove CR e BOM do entrypoint (proteção contra arquivos vindos de Windows)
+RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/docker-entrypoint.sh \
+ && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 
-# Variáveis úteis
+# Cria apenas o usuário não-root
+RUN useradd -m -s /bin/bash app
+
+# Desabilita healthcheck (imagem de CLI, não é serviço)
+HEALTHCHECK NONE
+
+# Variáveis de ambiente padrão
 ENV ARK_IMAGE_FAMILY=dockerx \
+    ARK_RUNTIME_USER=app \
     DOCKER_CLI_HINTS=false \
     DOCKER_BUILDKIT=1
 
 # Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
-ENTRYPOINT ["docker-entrypoint.sh"]
+# e faz o drop de privilégios para 'app' via gosu em runtime.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Configura comando padrão
 CMD ["/bin/sh"]

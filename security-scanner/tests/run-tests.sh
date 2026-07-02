@@ -246,6 +246,42 @@ assert_ok "findings + fail=false" betterleaks_failure_gate "$with_findings"
 unset BETTERLEAKS_FAIL_ON_FINDINGS
 rm -f "$empty_findings" "$with_findings"
 
+section "do_full_scan() - converts non-json trivy outputs"
+full_scan_dir="$(mktemp -d)"
+printf 'FROM scratch\n' > "$full_scan_dir/Dockerfile"
+convert_calls="$(mktemp)"
+
+run_trivy_scan() {
+  local _trivy_cmd="$1"
+  local _target="$2"
+  local _json_output="$3"
+  printf '{"Results":[]}' > "$_json_output"
+}
+
+convert_report_if_needed() {
+  local _json_output="$1"
+  local _default_out="$2"
+  printf '%s|%s\n' "$_json_output" "$_default_out" >> "$convert_calls"
+}
+
+send_report() { return 0; }
+trivy_failure_gate() { return 0; }
+
+TRIVY_FORMAT="table"
+TRIVY_EXIT_CODE="0"
+FULL_SCAN_SKIP_SECRETS="true"
+FULL_SCAN_SKIP_LINT="true"
+
+assert_ok "full-scan runs with conversion" do_full_scan "example:latest" --path "$full_scan_dir"
+
+assert_eq "$(wc -l < "$convert_calls" | tr -d '[:space:]')" "2" "converts image and source scans"
+assert_ok "image conversion recorded" grep -q "trivy-image.json|$TEST_REPORT_DIR/trivy-image.table" "$convert_calls"
+assert_ok "filesystem conversion recorded" grep -q "trivy-filesystem.json|$TEST_REPORT_DIR/trivy-filesystem.table" "$convert_calls"
+
+unset TRIVY_FORMAT TRIVY_EXIT_CODE FULL_SCAN_SKIP_SECRETS FULL_SCAN_SKIP_LINT
+rm -rf "$full_scan_dir"
+rm -f "$convert_calls"
+
 # ===========================================================
 # Final report
 # ===========================================================

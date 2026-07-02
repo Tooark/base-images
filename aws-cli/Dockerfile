@@ -1,22 +1,18 @@
 # syntax=docker/dockerfile:1
 
 # Argumento para definir a imagem base
-ARG BASE_IMAGE=debian:12-slim
+ARG BASE_IMAGE=debian:13-slim
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
 
-# Argumento para definir a versão do AWS CLI (obrigatório)
-ARG AWSCLI_VERSION
+# Argumento para definir a versão do AWS CLI (override via --build-arg)
+ARG AWSCLI_VERSION=2.34.59
 
-# Argumento para definir a versão do kubectl (obrigatório)
-ARG KUBECTL_VERSION
-
-# Argumento para definir a versão do Docker CLI (obrigatório)
-ARG DOCKER_VERSION
-
-# Argumento para definir a versão do Docker Buildx plugin (obrigatório)
-ARG DOCKER_BUILDX_VERSION
+# Versões das ferramentas integradas (override via --build-arg)
+ARG KUBECTL_VERSION=1.36.1
+ARG DOCKER_VERSION=29.5.2
+ARG DOCKER_BUILDX_VERSION=0.34.1
 
 ############################
 # Stage 1: build / install #
@@ -37,16 +33,10 @@ SHELL ["/bin/sh", "-eu", "-c"]
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
 
-# Argumento para definir a versão do AWS CLI (obrigatório)
+# Re-declara ARGs necessários no escopo do builder
 ARG AWSCLI_VERSION
-
-# Argumento para definir a versão do kubectl (obrigatório)
 ARG KUBECTL_VERSION
-
-# Argumento para definir a versão do Docker CLI (obrigatório)
 ARG DOCKER_VERSION
-
-# Argumento para definir a versão do Docker Buildx plugin (obrigatório)
 ARG DOCKER_BUILDX_VERSION
 
 # Baixa o AWS CLI, kubectl, Docker CLI e Buildx corretos para a arquitetura alvo
@@ -94,59 +84,66 @@ RUN set -eux; \
 # Define a imagem runtime
 FROM ${BASE_IMAGE} AS runtime
 
-# Argumentos de versão para metadados
+# Re-declara ARGs necessários no escopo do stage final
 ARG AWSCLI_VERSION
 ARG KUBECTL_VERSION
 ARG DOCKER_VERSION
 ARG DOCKER_BUILDX_VERSION
 
-# Metadados da imagem
+# Metadados da imagem (OCI)
 LABEL org.opencontainers.image.title="aws-cli" \
   org.opencontainers.image.description="Base image with AWS CLI V2, kubectl, Docker CLI and Buildx for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${AWSCLI_VERSION}" \
   org.opencontainers.image.source="https://github.com/Tooark/base-images/aws-cli" \
+  io.tooark.awscli.version="${AWSCLI_VERSION}" \
   io.tooark.kubectl.version="${KUBECTL_VERSION}" \
   io.tooark.docker.version="${DOCKER_VERSION}" \
   io.tooark.buildx.version="${DOCKER_BUILDX_VERSION}"
+
+# Garante shell mais estrita
+SHELL ["/bin/sh", "-eu", "-c"]
 
 # Instala dependências mínimas
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get upgrade -y \
- && apt-get install -y --no-install-recommends ca-certificates \
- && update-ca-certificates
+ && apt-get install -y --no-install-recommends ca-certificates gosu \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
-# Garante shell mais estrita
-SHELL ["/bin/sh", "-eu", "-c"]
-
-# Copia apenas o necessário do builder para o runtime
+# Copia binários oficiais para o runtime Debian
 COPY --from=builder /usr/local/aws-cli /usr/local/aws-cli
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=builder /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 
 # Copia o entrypoint para auto-configuração do acesso ao Docker
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Remove CR e BOM do entrypoint (proteção contra arquivos vindos de Windows)
+RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/docker-entrypoint.sh \
+ && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 
 # Cria um symlink em /usr/local/bin apontando para o binário dentro da árvore do aws-cli
-# Cria grupo docker, usuário não-root e adiciona ao grupo docker
+# Cria apenas o usuário não-root
 RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
-  && addgroup docker \
-  && adduser --disabled-password --gecos "" app \
-  && adduser app docker
+ && useradd -m -s /bin/bash app
 
-# Variáveis úteis para Docker
+# Desabilita healthcheck (imagem de CLI, não é serviço)
+HEALTHCHECK NONE
+
+# Variáveis de ambiente padrão
 ENV ARK_IMAGE_FAMILY=aws-cli \
+    ARK_RUNTIME_USER=app \
     DOCKER_CLI_HINTS=false \
     DOCKER_BUILDKIT=1
 
 # Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
-ENTRYPOINT ["docker-entrypoint.sh"]
+# e faz o drop de privilégios para 'app' via gosu em runtime.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Configura comando padrão
 CMD ["/bin/sh"]

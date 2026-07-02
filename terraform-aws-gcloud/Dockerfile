@@ -144,12 +144,16 @@ COPY --from=builder /usr/local/aws-cli /usr/local/aws-cli
 COPY --from=builder /opt/google-cloud-sdk /opt/google-cloud-sdk
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 
+# Copia o entrypoint padronizado
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Cria symlinks e usuário não-root
 RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
   && ln -sf /opt/google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud \
   && ln -sf /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
   && ln -sf /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq \
-  && adduser --disabled-password --gecos "" app
+  && useradd -m -s /bin/bash app
 
 # Muda para o usuário não-root
 USER app
@@ -160,9 +164,13 @@ ENV CLOUDSDK_CORE_DISABLE_PROMPTS=1 \
 
 # Variáveis úteis
 ENV ARK_IMAGE_FAMILY=terraform-aws-gcloud \
+  ARK_RUNTIME_USER=app \
     TF_IN_AUTOMATION=1 \
     TF_INPUT=0 \
     TF_CLI_ARGS="-input=false -no-color"
 
-# Evita ENTRYPOINT para facilitar uso em pipelines; fornece um CMD neutro
+# Entrypoint padronizado (drop de privilégio e compatibilidade com docker.sock quando necessário)
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+# CMD neutro para uso em pipelines
 CMD ["/bin/bash"]

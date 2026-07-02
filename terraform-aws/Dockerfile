@@ -114,18 +114,26 @@ COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
 COPY --from=builder /usr/local/aws-cli /usr/local/aws-cli
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 
+# Copia o entrypoint padronizado
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Cria symlink e usuário não-root
 RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
-  && adduser --disabled-password --gecos "" app
+  && useradd -m -s /bin/bash app
 
 # Muda para o usuário não-root
 USER app
 
 # Variáveis úteis
 ENV ARK_IMAGE_FAMILY=terraform-aws \
+  ARK_RUNTIME_USER=app \
     TF_IN_AUTOMATION=1 \
     TF_INPUT=0 \
     TF_CLI_ARGS="-input=false -no-color"
+
+# Entrypoint padronizado (drop de privilégio e compatibilidade com docker.sock quando necessário)
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Configura comando padrão
 CMD ["/bin/sh"]

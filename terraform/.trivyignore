@@ -1,0 +1,9 @@
+# Justificativa:
+# Exceções temporárias de CVE aceitas para esta imagem em contexto de pipeline.
+# Usar somente para CVEs especificas com correção pendente/upstream.
+#
+# Revisão:
+# 2026-07-05 (ou antes, ao atualizar base/pacotes da imagem).
+
+# Ferramenta terraform com CVEs em suas dependências: stdlib
+CVE-2026-42504

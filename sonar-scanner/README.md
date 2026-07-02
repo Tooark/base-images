@@ -150,7 +150,7 @@ Configure no GitLab (Settings > CI/CD > Variables):
 Ao construir localmente, publique tags equivalentes para a mesma imagem (versão completa, curta e `latest`).
 
 ```bash
-version="4.8.0.2856"  # Sonar Scanner CLI
+version="8.1.0.6389"  # Sonar Scanner CLI
 short="$(echo "$version" | cut -d. -f1,2)"
 
 docker build \
