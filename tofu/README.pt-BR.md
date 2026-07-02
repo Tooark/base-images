@@ -88,7 +88,7 @@ docker run --rm \
 #### Exemplo básico (GH)
 
 ```yaml
-name: OpenTofu
+name: Tofu
 
 on:
   push:
@@ -103,13 +103,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: OpenTofu Init
+      - name: Tofu Init
         run: tofu init
 
-      - name: OpenTofu Plan
+      - name: Tofu Plan
         run: tofu plan -out=tfplan
 
-      - name: OpenTofu Apply
+      - name: Tofu Apply
         if: github.ref == 'refs/heads/main'
         run: tofu apply tfplan
 ```
@@ -123,7 +123,7 @@ stages:
   - validate
   - deploy
 
-opentofu_plan:
+tofu_plan:
   stage: validate
   image: ghcr.io/tooark/tofu:latest
   script:
@@ -137,14 +137,14 @@ opentofu_plan:
     - merge_requests
     - main
 
-opentofu_apply:
+tofu_apply:
   stage: deploy
   image: ghcr.io/tooark/tofu:latest
   script:
     - tofu init
     - tofu apply tfplan
   dependencies:
-    - opentofu_plan
+    - tofu_plan
   only:
     - main
   when: manual

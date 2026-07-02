@@ -121,7 +121,7 @@ docker run --rm \
 #### Exemplo básico (GH)
 
 ```yaml
-name: OpenTofu GCP
+name: Tofu GCP
 
 on:
   push:
@@ -129,7 +129,7 @@ on:
   pull_request:
 
 jobs:
-  opentofu:
+  tofu:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/tooark/tofu-gcloud:latest
@@ -144,13 +144,13 @@ jobs:
           gcloud auth activate-service-account --key-file=/tmp/sa.json
           gcloud config set project ${{ vars.GCP_PROJECT }}
 
-      - name: OpenTofu Init
+      - name: Tofu Init
         run: tofu init
 
-      - name: OpenTofu Plan
+      - name: Tofu Plan
         run: tofu plan -out=tfplan
 
-      - name: OpenTofu Apply
+      - name: Tofu Apply
         if: github.ref == 'refs/heads/main'
         run: tofu apply tfplan
 ```

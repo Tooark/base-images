@@ -55,7 +55,7 @@ jobs:
         image:
           - aws-cli
           - gcloud-cli
-          - opentofu
+          - tofu
           - tofu-aws
           - tofu-gcloud
           - tofu-aws-gcloud

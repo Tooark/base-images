@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Security Scanner local sample (comprehensive)
 # Usage:
-#   chmod +x samples/security-scanner-local.sh
-#   ./samples/security-scanner-local.sh
+# chmod +x samples/security-scanner-local.sh
+# ./samples/security-scanner-local.sh
 
 IMAGE="ghcr.io/tooark/security-scanner:latest"
 export WORKSPACE_DIR="${WORKSPACE_DIR:-$PWD}"

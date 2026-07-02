@@ -151,8 +151,8 @@ COMPOSITE_VERSION_RULES = {
 VERSION_KEY_TO_DIRS = {
     "AWSCLI_VERSION": ["aws-cli", "terraform-aws", "terraform-aws-gcloud"],
     "GCLOUD_VERSION": ["gcloud-cli", "terraform-gcloud", "terraform-aws-gcloud"],
-    "KUBECTL_VERSION": ["aws-cli", "gcloud-cli", "opentofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud", "terraform-aws", "terraform-gcloud", "terraform-aws-gcloud"],
-    "OPENTOFU_VERSION": ["opentofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud"],
+    "KUBECTL_VERSION": ["aws-cli", "gcloud-cli", "tofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud", "terraform-aws", "terraform-gcloud", "terraform-aws-gcloud"],
+    "OPENTOFU_VERSION": ["tofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud"],
     "TERRAFORM_VERSION": ["terraform", "terraform-aws", "terraform-gcloud", "terraform-aws-gcloud"],
     "TRIVY_VERSION": ["trivy-hadolint", "security-scanner"],
     "HADOLINT_VERSION": ["trivy-hadolint", "security-scanner"],

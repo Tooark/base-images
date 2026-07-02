@@ -128,7 +128,7 @@ To use `kubectl`, you can also mount a kubeconfig at `/home/app/.kube/config`.
 #### Basic example (GH)
 
 ```yaml
-name: OpenTofu Deploy
+name: Tofu Deploy
 
 on:
   push:
@@ -136,7 +136,7 @@ on:
   pull_request:
 
 jobs:
-  opentofu:
+  tofu:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/tooark/tofu-aws:latest
@@ -147,13 +147,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: OpenTofu Init
+      - name: Tofu Init
         run: tofu init
 
-      - name: OpenTofu Plan
+      - name: Tofu Plan
         run: tofu plan -out=tfplan
 
-      - name: OpenTofu Apply
+      - name: Tofu Apply
         if: github.ref == 'refs/heads/main'
         run: tofu apply tfplan
 ```
@@ -179,13 +179,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: OpenTofu Init
+      - name: Tofu Init
         run: tofu init
 
-      - name: OpenTofu Plan
+      - name: Tofu Plan
         run: tofu plan -out=tfplan
 
-      - name: OpenTofu Apply
+      - name: Tofu Apply
         if: github.ref == 'refs/heads/main'
         run: tofu apply tfplan
 
@@ -212,7 +212,7 @@ variables:
   AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
   AWS_REGION: us-east-1
 
-opentofu_plan:
+tofu_plan:
   stage: validate
   image: ghcr.io/tooark/tofu-aws:latest
   script:
@@ -226,14 +226,14 @@ opentofu_plan:
     - merge_requests
     - main
 
-opentofu_apply:
+tofu_apply:
   stage: deploy
   image: ghcr.io/tooark/tofu-aws:latest
   script:
     - tofu init
     - tofu apply tfplan
   dependencies:
-    - opentofu_plan
+    - tofu_plan
   only:
     - main
   when: manual

@@ -1,6 +1,6 @@
 # samples
 
-🌐 **[English](README.md)** | **Português**
+🌍 **Idiomas:** [![USA Flag](https://flagcdn.com/w20/us.png) English](https://github.com/Tooark/base-images/blob/main/samples/README.md) · ![Brazil Flag](https://flagcdn.com/w20/br.png) **Português (este arquivo)**
 
 Exemplos de uso das imagens em três cenários:
 
