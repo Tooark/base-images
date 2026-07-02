@@ -4,6 +4,10 @@ permissions:
   contents: write
   packages: write
 
+env:
+  REGISTRY: ghcr.io/tooark
+  SECURITY_SCANNER_IMAGE: ghcr.io/tooark/security-scanner:1.4
+
 on:
   push:
     branches: [main]
@@ -28,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       versions: ${{ steps.load.outputs.versions }}
+      trivy-db-key: ${{ steps.trivy-key.outputs.key }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,6 +50,41 @@ jobs:
             fi
           done < versions.env
           echo "versions=$(echo "$VERSIONS_JSON" | jq -c .)" >> $GITHUB_OUTPUT
+
+      - name: Compute Trivy DB cache key
+        id: trivy-key
+        run: echo "key=trivy-db-$(date -u +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: Cache Trivy DB
+        id: trivy-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: ${{ steps.trivy-key.outputs.key }}
+          restore-keys: |
+            trivy-db-
+
+      - name: Download Trivy DB
+        if: ${{ steps.trivy-cache.outputs.cache-hit != 'true' }}
+        run: |
+          set -eu
+          mkdir -p "$HOME/.cache/trivy"
+
+          # Baixa o DB de vulnerabilidades e o DB Java usando o Trivy da própria imagem
+          docker run --rm \
+            --entrypoint trivy \
+            -v "$HOME/.cache/trivy:/home/app/.cache/trivy" \
+            "$SECURITY_SCANNER_IMAGE" \
+            image --download-db-only
+
+          docker run --rm \
+            --entrypoint trivy \
+            -v "$HOME/.cache/trivy:/home/app/.cache/trivy" \
+            "$SECURITY_SCANNER_IMAGE" \
+            image --download-java-db-only
+
+          # Normaliza a propriedade para o usuário do runner (o download roda como root)
+          sudo chown -R "$(id -u):$(id -g)" "$HOME/.cache/trivy"
 
   build-image:
     needs: setup
@@ -67,9 +107,6 @@ jobs:
           - trivy-hadolint
           - dockerx
           - security-scanner
-    env:
-      REGISTRY: ghcr.io/tooark
-      TRIVY_SCANNER_IMAGE: ghcr.io/tooark/trivy-hadolint:1.71
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -190,10 +227,24 @@ jobs:
           echo "SCAN_IMAGE=$SCAN_IMAGE" >> "$GITHUB_ENV"
           echo "BUILD_ARGS=$BUILD_ARGS"  >> "$GITHUB_ENV"
 
-      - name: Scan image with Trivy
+      - name: Restore Trivy DB cache
+        if: ${{ steps.detect.outputs.build == 'true' }}
+        id: trivy-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/trivy
+          key: ${{ needs.setup.outputs.trivy-db-key }}
+          restore-keys: |
+            trivy-db-
+
+      - name: Security full scan (image + repository)
         if: ${{ steps.detect.outputs.build == 'true' }}
         run: |
           set -eu
+
+          # Garante que o usuário 'app' do container consegue escrever no cache do Trivy
+          mkdir -p "$HOME/.cache/trivy"
+          chmod -R 0777 "$HOME/.cache/trivy"
 
           IGNORE_FILE="./${{ matrix.image }}/.trivyignore"
           DOCKER_IGNORE_ARGS=()
@@ -208,13 +259,22 @@ jobs:
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -v "$HOME/.cache/trivy:/home/app/.cache/trivy" \
             -w /workspace \
             --group-add "$DOCKER_GID" \
             -e TRIVY_FORMAT="table" \
-            -e TRIVY_EXIT_CODE="0" \
+            -e TRIVY_SKIP_DB_UPDATE="${{ steps.trivy-cache.outputs.cache-hit == 'true' && 'true' || 'false' }}" \
+            -e TRIVY_SKIP_JAVA_DB_UPDATE="${{ steps.trivy-cache.outputs.cache-hit == 'true' && 'true' || 'false' }}" \
+            -e HADOLINT_FORMAT="tty" \
+            -e BETTERLEAKS_FAIL_ON_FINDINGS="true" \
+            -e FULL_SCAN_MODE="repo" \
+            -e FULL_SCAN_DOCKERFILES="${{ matrix.image }}/Dockerfile" \
+            -e GITHUB_ACTIONS -e GITHUB_REF_NAME -e GITHUB_SHA \
+            -e GITHUB_REPOSITORY -e GITHUB_ACTOR \
+            -e GITHUB_RUN_ID -e GITHUB_JOB -e GITHUB_SERVER_URL \
             "${DOCKER_IGNORE_ARGS[@]}" \
-            "$TRIVY_SCANNER_IMAGE" \
-            image-scan "$SCAN_IMAGE"
+            "$SECURITY_SCANNER_IMAGE" \
+            full-scan "$SCAN_IMAGE" --path /workspace
 
       - name: Build and push image (multi-arch)
         if: ${{ steps.detect.outputs.build == 'true' }}
