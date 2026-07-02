@@ -1,63 +1,63 @@
 # tofu-gcloud
 
-Imagem base com `tofu` (OpenTofu CLI), `gcloud`, `gsutil`, `bq` e `kubectl`, pronta para uso em pipelines e execuções ad-hoc em container.
+Base image with `tofu` (OpenTofu CLI), `gcloud`, `gsutil`, `bq`, and `kubectl`, ready to use in pipelines and ad-hoc container runs.
 
-> Esta é a substituta direta de `terraform-gcloud`. A família `terraform-gcloud` ficou legada e deve ser evitada em novos fluxos.
+> This is the direct replacement for `terraform-gcloud`. The `terraform-gcloud` family is now legacy and should be avoided in new workflows.
 
-<!-- markdownlint-disable MD060 -->
+🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/tofu-gcloud/README.pt-BR.md)
 
 ---
 
-## Sumário
+## Table of contents
 
-- [Recursos](#recursos)
-- [Tags da imagem](#tags-da-imagem)
-- [Conteúdo da imagem](#conteúdo-da-imagem)
-- [Início rápido](#início-rápido)
+- [Features](#features)
+- [Image tags](#image-tags)
+- [Image contents](#image-contents)
+- [Quick start](#quick-start)
 - [Pipelines](#pipelines)
-- [Build local](#build-local)
-- [Documentação oficial](#documentação-oficial)
-- [Licença](#licença)
+- [Local build](#local-build)
+- [Official documentation](#official-documentation)
+- [License](#license)
 
 ---
 
-## Recursos
+## Features
 
-- **OpenTofu**, **Google Cloud SDK** e **kubectl** na mesma imagem
-- Base Debian minimalista com usuário não-root
-- Compatível com linux/amd64 e linux/arm64
-
----
-
-## Tags da imagem
-
-| Tag                                               | Descrição       |
-| ------------------------------------------------- | --------------- |
-| `ghcr.io/tooark/tofu-gcloud:<MAJOR.MINOR.PATCH>`  | Versão completa |
-| `ghcr.io/tooark/tofu-gcloud:<MAJOR.MINOR>`        | Versão curta    |
-| `ghcr.io/tooark/tofu-gcloud:<MAJOR>`              | Major track     |
-| `ghcr.io/tooark/tofu-gcloud:latest`               | Última estável  |
+- **OpenTofu**, **Google Cloud SDK**, and **kubectl** in the same image
+- Minimal Debian base with a non-root user
+- Compatible with linux/amd64 and linux/arm64
 
 ---
 
-## Conteúdo da imagem
+## Image tags
 
-| Item                  | Descrição                                                  |
-| --------------------- | ---------------------------------------------------------- |
-| Base                  | `debian:13-slim`                                           |
-| OpenTofu CLI          | `/usr/local/bin/tofu`                                      |
-| Google Cloud SDK      | `/opt/google-cloud-sdk`                                    |
-| kubectl               | `/usr/local/bin/kubectl`                                   |
-| Symlink               | `gcloud`, `gsutil`, `bq` -> `/opt/google-cloud-sdk/bin/gcloud` |
-| Runtime deps          | `ca-certificates`, `bash`, `python3`, `gosu`               |
-| Usuário padrão        | `app` (não-root)                                           |
-| Identificador família | `ARK_IMAGE_FAMILY=tofu-gcloud`                            |
+| Tag                                              | Description   |
+| ------------------------------------------------ | ------------- |
+| `ghcr.io/tooark/tofu-gcloud:<MAJOR.MINOR.PATCH>` | Full version  |
+| `ghcr.io/tooark/tofu-gcloud:<MAJOR.MINOR>`       | Short version |
+| `ghcr.io/tooark/tofu-gcloud:<MAJOR>`             | Major track   |
+| `ghcr.io/tooark/tofu-gcloud:latest`              | Latest stable |
 
 ---
 
-## Início rápido
+## Image contents
 
-Verificar versões instaladas:
+| Item              | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
+| Base              | `debian:13-slim`                                               |
+| OpenTofu CLI      | `/usr/local/bin/tofu`                                          |
+| Google Cloud SDK  | `/opt/google-cloud-sdk`                                        |
+| kubectl           | `/usr/local/bin/kubectl`                                       |
+| Symlink           | `gcloud`, `gsutil`, `bq` -> `/opt/google-cloud-sdk/bin/gcloud` |
+| Runtime deps      | `ca-certificates`, `bash`, `python3`, `gosu`                   |
+| Default user      | `app` (non-root)                                               |
+| Family identifier | `ARK_IMAGE_FAMILY=tofu-gcloud`                                 |
+
+---
+
+## Quick start
+
+Check the installed versions:
 
 ```bash
 docker run --rm ghcr.io/tooark/tofu-gcloud:latest tofu version
@@ -65,7 +65,7 @@ docker run --rm ghcr.io/tooark/tofu-gcloud:latest gcloud --version
 docker run --rm ghcr.io/tooark/tofu-gcloud:latest kubectl version --client
 ```
 
-Inicializar diretório OpenTofu (monte seu código):
+Initialize an OpenTofu directory (mount your code):
 
 ```bash
 docker run --rm \
@@ -74,7 +74,7 @@ docker run --rm \
   ghcr.io/tooark/tofu-gcloud:latest tofu init
 ```
 
-Executar plan OpenTofu:
+Run an OpenTofu plan:
 
 ```bash
 docker run --rm \
@@ -83,7 +83,7 @@ docker run --rm \
   ghcr.io/tooark/tofu-gcloud:latest tofu plan
 ```
 
-Listar projetos GCP (requer autenticação prévia):
+List GCP projects (requires prior authentication):
 
 ```bash
 docker run --rm \
@@ -91,7 +91,7 @@ docker run --rm \
   ghcr.io/tooark/tofu-gcloud:latest gcloud projects list --format="table(projectId,name)"
 ```
 
-Usar kubectl com kubeconfig montado:
+Use kubectl with a mounted kubeconfig:
 
 ```bash
 docker run --rm \
@@ -101,16 +101,16 @@ docker run --rm \
 
 ---
 
-## Variáveis de ambiente
+## Environment variables
 
 ### GCLOUD CLI
 
-| Variável                         | Default | Descrição                                       |
-| -------------------------------- | ------- | ----------------------------------------------- |
-| `GOOGLE_APPLICATION_CREDENTIALS` | -       | Caminho para o arquivo JSON da conta de serviço |
-| `CLOUDSDK_CORE_PROJECT`          | -       | Projeto padrão do GCP                           |
-| `CLOUDSDK_COMPUTE_REGION`        | -       | Região padrão do GCP                            |
-| `CLOUDSDK_COMPUTE_ZONE`          | -       | Zona padrão do GCP                              |
+| Variable                         | Default | Description                           |
+| -------------------------------- | ------- | ------------------------------------- |
+| `GOOGLE_APPLICATION_CREDENTIALS` | -       | Path to the service account JSON file |
+| `CLOUDSDK_CORE_PROJECT`          | -       | Default GCP project                   |
+| `CLOUDSDK_COMPUTE_REGION`        | -       | Default GCP region                    |
+| `CLOUDSDK_COMPUTE_ZONE`          | -       | Default GCP zone                      |
 
 ---
 
@@ -118,7 +118,7 @@ docker run --rm \
 
 ### GitHub Actions
 
-#### Exemplo básico (GH)
+#### Basic example (GH)
 
 ```yaml
 name: OpenTofu GCP
@@ -138,7 +138,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Autenticar no GCP
+      - name: Authenticate to GCP
         run: |
           echo "$GOOGLE_CREDENTIALS" > /tmp/sa.json
           gcloud auth activate-service-account --key-file=/tmp/sa.json
@@ -155,7 +155,7 @@ jobs:
         run: tofu apply tfplan
 ```
 
-#### Exemplo com deployment em GKE (GH)
+#### Example with GKE deployment (GH)
 
 ```yaml
 name: Deploy to GKE
@@ -190,7 +190,7 @@ jobs:
 
 ---
 
-## Build local
+## Local build
 
 ```bash
 version="1.0.0"   # tofu-gcloud
@@ -209,7 +209,7 @@ docker build \
 
 ---
 
-## Documentação oficial
+## Official documentation
 
 - [OpenTofu](https://opentofu.org/docs/)
 - [Google Cloud SDK](https://cloud.google.com/sdk/docs)
@@ -217,8 +217,8 @@ docker build \
 
 ---
 
-## Licença
+## License
 
-MIT - ver arquivo [LICENSE](../LICENSE) na raiz do repositório.
+MIT - see the [LICENSE](../LICENSE) file at the repository root.
 
 <!-- markdownlint-enable MD060 -->

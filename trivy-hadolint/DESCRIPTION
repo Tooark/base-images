@@ -1,1 +1,1 @@
-Base image with integrated Trivy and Hadolint for security scanning and Dockerfile linting in CI/CD pipelines
+Base image with Trivy and Hadolint for Linux/amd64 and Linux/arm64

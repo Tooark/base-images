@@ -1,102 +1,104 @@
 # trivy-hadolint
 
-Imagem base com **Trivy** e **Hadolint** integrados, focada em padronizar scans
-de segurança em pipelines de CI/CD.
+Base image with **Trivy** and **Hadolint** integrated, focused on standardizing
+security scans in CI/CD pipelines.
 
-A imagem expõe um wrapper CLI chamado **`ark-tools`** que cobre os principais
-cenários de análise (imagem, filesystem, IaC, repositório e Dockerfile) e
-consolida os resultados em um envelope JSON padronizado: o
+The image exposes a CLI wrapper called **`ark-tools`** that covers the main
+analysis scenarios (image, filesystem, IaC, repository, and Dockerfile) and
+consolidates the results into a standardized JSON envelope: the
 [**ark-report-tools**](#json-schema-ark-report-tools).
 
+🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/trivy-hadolint/README.pt-BR.md)
+
 ---
 
-## Sumário
+## Table of contents
 
-- [Recursos](#recursos)
-- [Tags da imagem](#tags-da-imagem)
-- [Conteúdo da imagem](#conteúdo-da-imagem)
-- [Início rápido](#início-rápido)
-- [Comandos disponíveis](#comandos-disponíveis)
+- [Features](#features)
+- [Image tags](#image-tags)
+- [Image contents](#image-contents)
+- [Quick start](#quick-start)
+- [Available commands](#available-commands)
 - [Aliases](#aliases)
-- [Variáveis de ambiente](#variáveis-de-ambiente)
-- [Metadados de SCM / CI (auto-detect)](#metadados-de-scm--ci-auto-detect)
-- [Flags de metadata](#flags-de-metadata-cli)
+- [Environment variables](#environment-variables)
+- [SCM / CI metadata (auto-detect)](#scm--ci-metadata-auto-detect)
+- [Metadata flags](#metadata-flags-cli)
 - [`.trivyignore`](#trivyignore)
-- [Geração de SBOM](#geração-de-sbom)
+- [SBOM generation](#sbom-generation)
 - [Failure gate](#failure-gate)
-- [Webhook de envio de relatórios](#webhook-de-envio-de-relatórios)
-- [Mounts recomendados](#mounts-recomendados)
-- [Exemplos práticos](#exemplos-práticos)
+- [Report delivery webhook](#report-delivery-webhook)
+- [Recommended mounts](#recommended-mounts)
+- [Practical examples](#practical-examples)
 - [Pipelines](#pipelines)
 - [JSON Schema (ark-report-tools)](#json-schema-ark-report-tools)
-- [Validação de relatórios](#validação-de-relatórios)
-- [Testes do wrapper](#testes-do-wrapper)
-- [Build local](#build-local)
+- [Report validation](#report-validation)
+- [Wrapper tests](#wrapper-tests)
+- [Local build](#local-build)
 - [Common pitfalls](#common-pitfalls)
-- [Licença](#licença)
+- [License](#license)
 
 ---
 
-## Recursos
+## Features
 
-- Scan de **imagem**, **filesystem**, **IaC (config)**, **repositório** e
-  lint de **Dockerfile** em uma única CLI (`ark-tools`)
-- Relatórios em **JSON, SARIF, TABLE, CycloneDX, SPDX-JSON**
-- Geração de **SBOM** (CycloneDX/SPDX) sob demanda
-- Inclusão de **inventário completo de pacotes** (`--list-all-pkgs`, opcional)
-- Integração opcional com **Trivy Server** + fallback local
-- Auto-resolução de **`.trivyignore`** (env, `/.trivyignore`, `$PWD/.trivyignore`)
-- **Auto-detect** de variáveis de CI (GitLab, GitHub, Azure, Bitbucket, Jenkins)
-- **Envelope padronizado** (`ark-report-tools v1.1`) com metadata de SCM/CI
-- Envio de relatórios via **webhook** (1+ URLs)
-- **Failure gate** por severidade configurável
-- `WORKDIR /workspace` por padrão para evitar scan acidental do container
-- **Suite de testes** automatizada para o wrapper (`tests/run-tests.sh`)
-
----
-
-## Tags da imagem
-
-| Tag                                                 | Descrição       |
-| --------------------------------------------------- | --------------- |
-| `ghcr.io/tooark/trivy-hadolint:<MAJOR.MINOR.PATCH>` | Versão completa |
-| `ghcr.io/tooark/trivy-hadolint:<MAJOR.MINOR>`       | Versão curta    |
-| `ghcr.io/tooark/trivy-hadolint:<MAJOR>`             | Major track     |
-| `ghcr.io/tooark/trivy-hadolint:latest`              | Última estável  |
+- Scanning of **image**, **filesystem**, **IaC (config)**, **repository**, and
+  **Dockerfile** linting in a single CLI (`ark-tools`)
+- Reports in **JSON, SARIF, TABLE, CycloneDX, SPDX-JSON**
+- **SBOM** generation (CycloneDX/SPDX) on demand
+- Inclusion of a **full package inventory** (`--list-all-pkgs`, optional)
+- Optional integration with **Trivy Server** + local fallback
+- Auto-resolution of **`.trivyignore`** (env, `/.trivyignore`, `$PWD/.trivyignore`)
+- **Auto-detection** of CI variables (GitLab, GitHub, Azure, Bitbucket, Jenkins)
+- **Standardized envelope** (`ark-report-tools v1.1`) with SCM/CI metadata
+- Report delivery via **webhook** (1+ URLs)
+- **Failure gate** by configurable severity
+- `WORKDIR /workspace` by default to avoid accidentally scanning the container
+- Automated **test suite** for the wrapper (`tests/run-tests.sh`)
 
 ---
 
-## Conteúdo da imagem
+## Image tags
 
-| Item                 | Descrição                                                      |
-| -------------------- | -------------------------------------------------------------- |
-| Base                 | `debian:12-slim` (configurável via `BASE_IMAGE`)               |
-| Trivy                | `/usr/local/bin/trivy`                                         |
-| Hadolint             | `/usr/local/bin/hadolint`                                      |
-| Wrapper CLI          | `/usr/local/bin/ark-tools` (entrypoint)                        |
-| JSON Schema          | `/usr/local/share/ark-tools/ark-report-tools.schema.v1.1.json` |
-| Versões registradas  | `/etc/ark-tools-versions`                                      |
-| Runtime deps         | `bash`, `curl`, `jq`, `git`, `ca-certificates`                 |
-| Usuário padrão       | `app` (não-root)                                               |
-| `WORKDIR`            | `/workspace`                                                   |
-| Cache Trivy          | `TRIVY_CACHE_DIR=/home/app/.cache/trivy`                       |
-| Diretório de reports | `REPORT_DIR=/reports`                                          |
+| Tag                                                 | Description   |
+| --------------------------------------------------- | ------------- |
+| `ghcr.io/tooark/trivy-hadolint:<MAJOR.MINOR.PATCH>` | Full version  |
+| `ghcr.io/tooark/trivy-hadolint:<MAJOR.MINOR>`       | Short version |
+| `ghcr.io/tooark/trivy-hadolint:<MAJOR>`             | Major track   |
+| `ghcr.io/tooark/trivy-hadolint:latest`              | Latest stable |
 
 ---
 
-## Início rápido
+## Image contents
+
+| Item                | Description                                                    |
+| ------------------- | -------------------------------------------------------------- |
+| Base                | `debian:13-slim` (configurable via `BASE_IMAGE`)               |
+| Trivy               | `/usr/local/bin/trivy`                                         |
+| Hadolint            | `/usr/local/bin/hadolint`                                      |
+| CLI wrapper         | `/usr/local/bin/ark-tools` (entrypoint)                        |
+| JSON Schema         | `/usr/local/share/ark-tools/ark-report-tools.schema.v1.1.json` |
+| Registered versions | `/etc/ark-tools-versions`                                      |
+| Runtime deps        | `bash`, `curl`, `jq`, `git`, `ca-certificates`, `gosu`         |
+| Default user        | `app` (non-root)                                               |
+| `WORKDIR`           | `/workspace`                                                   |
+| Trivy cache         | `TRIVY_CACHE_DIR=/home/app/.cache/trivy`                       |
+| Reports directory   | `REPORT_DIR=/reports`                                          |
+
+---
+
+## Quick start
 
 ```bash
-# Ajuda
+# Help
 docker run --rm ghcr.io/tooark/trivy-hadolint:latest help
 
-# Versões
+# Versions
 docker run --rm ghcr.io/tooark/trivy-hadolint:latest version
 
-# Scan de imagem do registry
+# Scan a registry image
 docker run --rm ghcr.io/tooark/trivy-hadolint:latest image-scan nginx:latest
 
-# Scan de filesystem (repo montado em /workspace)
+# Filesystem scan (repo mounted at /workspace)
 docker run --rm \
   -v "$PWD":/workspace:ro \
   -v "$PWD/scan-reports":/reports \
@@ -106,28 +108,28 @@ docker run --rm \
 
 ---
 
-## Comandos disponíveis
+## Available commands
 
 ```text
-help                                                                       # Ajuda geral
-version                                                                    # Versões
-image-scan [--sbom[=fmt]|--sbom-format <fmt>] <image> [-- <extras>]        # Scan de imagem
-filesystem-scan [--sbom[=fmt]|--sbom-format <fmt>] [path] [-- <extras>]    # Scan de filesystem
-config-scan [path] [-- <extras>]                                           # Scan de IaC
-repo-scan [path|url] [-- <extras>]                                         # Scan de repositório
-dockerfile-lint [Dockerfile] [-- <extras>]                                 # Lint de Dockerfile
-container [options] <image> [-- <extras>]                                  # Combinado (image + source + lint)
-send-report <file>                                                         # Envio manual via webhook
+help                                                                       # General help
+version                                                                    # Versions
+image-scan [--sbom[=fmt]|--sbom-format <fmt>] <image> [-- <extras>]        # Image scan
+filesystem-scan [--sbom[=fmt]|--sbom-format <fmt>] [path] [-- <extras>]    # Filesystem scan
+config-scan [path] [-- <extras>]                                           # IaC scan
+repo-scan [path|url] [-- <extras>]                                         # Repository scan
+dockerfile-lint [Dockerfile] [-- <extras>]                                 # Dockerfile lint
+container [options] <image> [-- <extras>]                                  # Combined (image + source + lint)
+send-report <file>                                                         # Manual webhook delivery
 ```
 
-Todos os comandos de scan aceitam também as
-[flags de metadata](#flags-de-metadata-cli) (`--branch`, `--commit`, etc.).
+All scan commands also accept the
+[metadata flags](#metadata-flags-cli) (`--branch`, `--commit`, etc.).
 
 ---
 
 ## Aliases
 
-| Comando           | Aliases           |
+| Command           | Aliases           |
 | ----------------- | ----------------- |
 | `help`            | `-h`, `--help`    |
 | `version`         | `-v`, `--version` |
@@ -141,73 +143,73 @@ Todos os comandos de scan aceitam também as
 
 ---
 
-## Variáveis de ambiente
+## Environment variables
 
-### Trivy (gerais)
+### Trivy (general)
 
-| Variável               | Default                            | Descrição                                                                                                   |
-| ---------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `TRIVY_SEVERITY`       | `UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL` | Severidades **incluídas no relatório**                                                                      |
-| `TRIVY_SEVERITY_FAIL`  | `HIGH,CRITICAL`                    | Severidades que **disparam o failure gate**                                                                 |
-| `TRIVY_EXIT_CODE`      | `1`                                | `0` desativa o gate; `1` falha o pipeline ao detectar issues                                                |
-| `TRIVY_IGNORE_UNFIXED` | `true`                             | Ignora vulnerabilidades sem fix                                                                             |
-| `TRIVY_FORMAT`         | `json`                             | `json`, `sarif`, `table`, `cyclonedx`, `spdx-json`                                                          |
-| `TRIVY_OUTPUT`         | por comando                        | Caminho de saída (para comandos unitários)                                                                  |
-| `TRIVY_TIMEOUT`        | `10m`                              | Timeout do scan                                                                                             |
-| `TRIVY_SCANNERS`       | padrão do Trivy                    | Ex.: `vuln,secret,misconfig,license`                                                                        |
-| `TRIVY_ALL_PACKAGES`   | `true`                             | Inclui inventário completo (`--list-all-pkgs`). Auto-desativa se `TRIVY_FORMAT != json` ou em `config-scan` |
-| `TRIVY_IGNOREFILE`     | auto-detect                        | Path explícito de `.trivyignore`                                                                            |
+| Variable               | Default                            | Description                                                                                              |
+| ---------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `TRIVY_SEVERITY`       | `UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL` | Severities **included in the report**                                                                    |
+| `TRIVY_SEVERITY_FAIL`  | `HIGH,CRITICAL`                    | Severities that **trigger the failure gate**                                                             |
+| `TRIVY_EXIT_CODE`      | `1`                                | `0` disables the gate; `1` fails the pipeline when issues are found                                      |
+| `TRIVY_IGNORE_UNFIXED` | `true`                             | Ignore vulnerabilities without a fix                                                                     |
+| `TRIVY_FORMAT`         | `json`                             | `json`, `sarif`, `table`, `cyclonedx`, `spdx-json`                                                       |
+| `TRIVY_OUTPUT`         | per command                        | Output path (for single commands)                                                                        |
+| `TRIVY_TIMEOUT`        | `10m`                              | Scan timeout                                                                                             |
+| `TRIVY_SCANNERS`       | Trivy default                      | E.g., `vuln,secret,misconfig,license`                                                                    |
+| `TRIVY_ALL_PACKAGES`   | `true`                             | Includes full inventory (`--list-all-pkgs`). Auto-disabled if `TRIVY_FORMAT != json` or on `config-scan` |
+| `TRIVY_IGNOREFILE`     | auto-detect                        | Explicit `.trivyignore` path                                                                             |
 
-### Trivy Server (opcional)
+### Trivy Server (optional)
 
-| Variável                | Default | Descrição                                                  |
-| ----------------------- | ------- | ---------------------------------------------------------- |
-| `TRIVY_SERVER`          | vazio   | Endpoint do Trivy Server (ex.: `http://trivy-server:4954`) |
-| `TRIVY_TOKEN`           | vazio   | Token de autenticação (lido nativamente pelo Trivy)        |
-| `TRIVY_SERVER_REQUIRED` | `false` | Se `true`, não tenta fallback local quando server falha    |
-| `TRIVY_TOKEN_AS_FLAG`   | `false` | Se `true`, envia token via flag `--token`                  |
+| Variable                | Default | Description                                                  |
+| ----------------------- | ------- | ------------------------------------------------------------ |
+| `TRIVY_SERVER`          | empty   | Trivy Server endpoint (e.g., `http://trivy-server:4954`)     |
+| `TRIVY_TOKEN`           | empty   | Authentication token (read natively by Trivy)                |
+| `TRIVY_SERVER_REQUIRED` | `false` | If `true`, does not try local fallback when the server fails |
+| `TRIVY_TOKEN_AS_FLAG`   | `false` | If `true`, sends the token via the `--token` flag            |
 
 ### SBOM
 
-| Variável      | Default     | Descrição                               |
-| ------------- | ----------- | --------------------------------------- |
-| `SBOM_FORMAT` | `cyclonedx` | Formato SBOM (`cyclonedx`, `spdx-json`) |
-| `SBOM_OUTPUT` | por comando | Arquivo de saída no modo SBOM           |
+| Variable      | Default     | Description                            |
+| ------------- | ----------- | -------------------------------------- |
+| `SBOM_FORMAT` | `cyclonedx` | SBOM format (`cyclonedx`, `spdx-json`) |
+| `SBOM_OUTPUT` | per command | Output file in SBOM mode               |
 
 ### Hadolint
 
-| Variável                 | Default     | Descrição                                    |
-| ------------------------ | ----------- | -------------------------------------------- |
-| `HADOLINT_CONFIG`        | vazio       | Caminho para `.hadolint.yaml`                |
-| `HADOLINT_FORMAT`        | `json`      | Formato de saída: `json`, `tty`, `sarif`     |
-| `HADOLINT_FAILURE_LEVEL` | vazio       | Nível mínimo para falha (`warning`, `error`) |
-| `HADOLINT_OUTPUT`        | por comando | Arquivo de saída do lint                     |
+| Variable                 | Default     | Description                                |
+| ------------------------ | ----------- | ------------------------------------------ |
+| `HADOLINT_CONFIG`        | empty       | Path to `.hadolint.yaml`                   |
+| `HADOLINT_FORMAT`        | `json`      | Output format: `json`, `tty`, `sarif`      |
+| `HADOLINT_FAILURE_LEVEL` | empty       | Minimum level to fail (`warning`, `error`) |
+| `HADOLINT_OUTPUT`        | per command | Lint output file                           |
 
-### Container (comando `container`)
+### Container (`container` command)
 
-| Variável                | Default               | Descrição                  |
-| ----------------------- | --------------------- | -------------------------- |
-| `CONTAINER_PATH`        | auto-detect ou `$PWD` | Diretório do projeto       |
-| `CONTAINER_DOCKERFILES` | `Dockerfile`          | Lista separada por vírgula |
-| `CONTAINER_SCAN_MODE`   | `fs`                  | Opções: `fs` ou `repo`     |
-| `CONTAINER_SKIP_IMAGE`  | `false`               | Pula scan de imagem        |
-| `CONTAINER_SKIP_LINT`   | `false`               | Pula lint de Dockerfile    |
+| Variable                | Default               | Description             |
+| ----------------------- | --------------------- | ----------------------- |
+| `CONTAINER_PATH`        | auto-detect or `$PWD` | Project directory       |
+| `CONTAINER_DOCKERFILES` | `Dockerfile`          | Comma-separated list    |
+| `CONTAINER_SCAN_MODE`   | `fs`                  | Options: `fs` or `repo` |
+| `CONTAINER_SKIP_IMAGE`  | `false`               | Skip image scan         |
+| `CONTAINER_SKIP_LINT`   | `false`               | Skip Dockerfile lint    |
 
-### Webhook (envio de relatórios)
+### Webhook (report delivery)
 
-| Variável                | Default    | Descrição                                   |
-| ----------------------- | ---------- | ------------------------------------------- |
-| `REPORT_URL`            | vazio      | URLs separadas por vírgula                  |
-| `REPORT_TOKEN`          | vazio      | Bearer token                                |
-| `REPORT_HEADERS`        | vazio      | Headers extras, um por linha (`Key: Value`) |
-| `REPORT_METHOD`         | `POST`     | Método HTTP                                 |
-| `REPORT_FAIL_ON_ERROR`  | `false`    | Falha pipeline se algum upload falhar       |
-| `REPORT_SEND_EACH_SCAN` | `false`    | Envia após cada scan individual             |
-| `REPORT_DIR`            | `/reports` | Diretório dos relatórios                    |
+| Variable                | Default    | Description                                |
+| ----------------------- | ---------- | ------------------------------------------ |
+| `REPORT_URL`            | empty      | Comma-separated URLs                       |
+| `REPORT_TOKEN`          | empty      | Bearer token                               |
+| `REPORT_HEADERS`        | empty      | Extra headers, one per line (`Key: Value`) |
+| `REPORT_METHOD`         | `POST`     | HTTP method                                |
+| `REPORT_FAIL_ON_ERROR`  | `false`    | Fails the pipeline if any upload fails     |
+| `REPORT_SEND_EACH_SCAN` | `false`    | Sends after each individual scan           |
+| `REPORT_DIR`            | `/reports` | Reports directory                          |
 
-### Webhook SBOM (override por endpoint separado)
+### Webhook SBOM (override for a separate endpoint)
 
-| Variável                    | Fallback               |
+| Variable                    | Fallback               |
 | --------------------------- | ---------------------- |
 | `REPORT_SBOM_URL`           | `REPORT_URL`           |
 | `REPORT_SBOM_TOKEN`         | `REPORT_TOKEN`         |
@@ -217,14 +219,14 @@ Todos os comandos de scan aceitam também as
 
 ---
 
-## Metadados de SCM / CI (auto-detect)
+## SCM / CI metadata (auto-detect)
 
-A partir do envelope `ark-report-tools v1.1`, todos os relatórios incluem um
-objeto `metadata` com informações de **SCM** (controle de versão) e **CI**
-(pipeline), úteis para rastreabilidade entre builds, dashboards de segurança
-e análises de regressão.
+Starting with the `ark-report-tools v1.1` envelope, every report includes a
+`metadata` object with **SCM** (version control) and **CI** (pipeline)
+information, useful for traceability across builds, security dashboards,
+and regression analysis.
 
-### Estrutura
+### Structure
 
 ```json
 {
@@ -247,14 +249,14 @@ e análises de regressão.
 }
 ```
 
-Campos não detectados ficam como `null`.
+Fields that are not detected remain `null`.
 
-### Plataformas detectadas
+### Detected platforms
 
-O `ark-tools` identifica automaticamente o ambiente a partir de variáveis
-sentinela:
+`ark-tools` automatically identifies the environment from sentinel
+variables:
 
-| Plataforma          | Variável detectora       |
+| Platform            | Detecting variable       |
 | ------------------- | ------------------------ |
 | GitLab CI           | `GITLAB_CI`              |
 | GitHub Actions      | `GITHUB_ACTIONS`         |
@@ -262,9 +264,9 @@ sentinela:
 | Bitbucket Pipelines | `BITBUCKET_BUILD_NUMBER` |
 | Jenkins             | `JENKINS_URL`            |
 
-### Mapeamento por plataforma
+### Mapping per platform
 
-| Campo        | GitLab CI                      | GitHub Actions                      | Azure DevOps             | Bitbucket                       | Jenkins                    |
+| Field        | GitLab CI                      | GitHub Actions                      | Azure DevOps             | Bitbucket                       | Jenkins                    |
 | ------------ | ------------------------------ | ----------------------------------- | ------------------------ | ------------------------------- | -------------------------- |
 | **branch**   | `CI_COMMIT_REF_NAME`           | `GITHUB_REF_NAME`/`GITHUB_HEAD_REF` | `BUILD_SOURCEBRANCHNAME` | `BITBUCKET_BRANCH`              | `BRANCH_NAME`/`GIT_BRANCH` |
 | **commit**   | `CI_COMMIT_SHA`                | `GITHUB_SHA`                        | `BUILD_SOURCEVERSION`    | `BITBUCKET_COMMIT`              | `GIT_COMMIT`               |
@@ -273,25 +275,25 @@ sentinela:
 | **user**     | `GITLAB_USER_LOGIN`            | `GITHUB_ACTOR`                      | `BUILD_REQUESTEDFOR`     | `BITBUCKET_STEP_TRIGGERER_UUID` | `BUILD_USER_ID`            |
 | **pipeline** | `CI_PIPELINE_ID`               | `GITHUB_RUN_ID`                     | `BUILD_BUILDID`          | `BITBUCKET_BUILD_NUMBER`        | `BUILD_NUMBER`             |
 | **job**      | `CI_JOB_ID`                    | `GITHUB_JOB`                        | `SYSTEM_JOBID`           | `BITBUCKET_STEP_UUID`           | `JOB_NAME`                 |
-| **url**      | `CI_PIPELINE_URL`/`CI_JOB_URL` | calculado de `GITHUB_*`             | `BUILD_BUILDURI`         | —                               | `BUILD_URL`                |
+| **url**      | `CI_PIPELINE_URL`/`CI_JOB_URL` | computed from `GITHUB_*`            | `BUILD_BUILDURI`         | —                               | `BUILD_URL`                |
 
-> 💡 Quando o `ark-tools` roda dentro de outro container via `docker run`,
-> as variáveis nativas precisam ser repassadas com `-e GITHUB_*`, `-e CI_*` etc.,
-> ou via `--env-file`.
+> 💡 When `ark-tools` runs inside another container via `docker run`,
+> the native variables need to be passed with `-e GITHUB_*`, `-e CI_*`, etc.,
+> or via `--env-file`.
 
-### Precedência (mais alta para mais baixa)
+### Precedence (highest to lowest)
 
-1. **Flag CLI** (`--branch`, `--commit`, `--user`, `--repository`, `--tag`)
-2. **Env genérica** (`CI_BRANCH`, `CI_COMMIT`, `CI_USER`, `CI_REPOSITORY`, `CI_TAG`)
-3. **Env nativa do CI** (auto-detectada conforme tabela acima)
-4. **Git** (best-effort, se `.git` estiver acessível)
-5. Campo nulo (`null`)
+1. **CLI flag** (`--branch`, `--commit`, `--user`, `--repository`, `--tag`)
+2. **Generic env** (`CI_BRANCH`, `CI_COMMIT`, `CI_USER`, `CI_REPOSITORY`, `CI_TAG`)
+3. **Native CI env** (auto-detected as per the table above)
+4. **Git** (best-effort, if `.git` is accessible)
+5. Null field (`null`)
 
 ---
 
-## Flags de metadata (CLI)
+## Metadata flags (CLI)
 
-Aceitas em **todos** os comandos de scan:
+Accepted on **all** scan commands:
 
 ```text
 --branch <name>      SCM branch
@@ -301,7 +303,7 @@ Aceitas em **todos** os comandos de scan:
 --tag <name>         SCM tag
 ```
 
-Exemplo:
+Example:
 
 ```bash
 docker run --rm -v "$PWD":/workspace:ro \
@@ -318,13 +320,13 @@ docker run --rm -v "$PWD":/workspace:ro \
 
 ## `.trivyignore`
 
-O wrapper resolve automaticamente o `.trivyignore` na seguinte ordem:
+The wrapper automatically resolves `.trivyignore` in the following order:
 
-1. `TRIVY_IGNOREFILE` (env explícita)
-2. `/.trivyignore` (mount em container)
+1. `TRIVY_IGNOREFILE` (explicit env)
+2. `/.trivyignore` (container mount)
 3. `$PWD/.trivyignore`
 
-Se nenhum existir, o flag `--ignorefile` **não é passado** ao Trivy.
+If none exists, the `--ignorefile` flag is **not passed** to Trivy.
 
 ```bash
 docker run --rm \
@@ -336,9 +338,9 @@ docker run --rm \
 
 ---
 
-## Geração de SBOM
+## SBOM generation
 
-Disponível para `image-scan`, `filesystem-scan` e `container`:
+Available for `image-scan`, `filesystem-scan`, and `container`:
 
 ```bash
 # CycloneDX (default)
@@ -351,59 +353,59 @@ ark-tools image-scan --sbom-format spdx-json nginx:latest
 ark-tools container --sbom myapp:latest --path /workspace
 ```
 
-> ℹ️ A geração de SBOM é um **scan adicional** (não substitui o scan de
-> vulnerabilidades). Se você só precisa do inventário completo de pacotes
-> junto com as CVEs, prefira `TRIVY_ALL_PACKAGES=true` (default) — é mais barato.
+> ℹ️ SBOM generation is an **additional scan** (it does not replace the
+> vulnerability scan). If you only need the full package inventory along with
+> the CVEs, prefer `TRIVY_ALL_PACKAGES=true` (default) — it is cheaper.
 
 ---
 
 ## Failure gate
 
-- O **relatório** sempre é gerado com **todas as severidades** definidas em
-  `TRIVY_SEVERITY`, independente do gate.
-- Quando `TRIVY_EXIT_CODE=1` (default), o wrapper analisa o JSON e verifica se
-  há findings com severidade em `TRIVY_SEVERITY_FAIL`. Se sim, o pipeline falha.
-- Quando `TRIVY_FORMAT != json`, o gate é **ignorado** (com aviso).
-- O gate analisa `Vulnerabilities`, `Misconfigurations`, `Secrets` e `Licenses`.
+- The **report** is always generated with **all severities** defined in
+  `TRIVY_SEVERITY`, regardless of the gate.
+- When `TRIVY_EXIT_CODE=1` (default), the wrapper parses the JSON and checks
+  whether there are findings with a severity in `TRIVY_SEVERITY_FAIL`. If so, the pipeline fails.
+- When `TRIVY_FORMAT != json`, the gate is **ignored** (with a warning).
+- The gate analyzes `Vulnerabilities`, `Misconfigurations`, `Secrets`, and `Licenses`.
 
 ---
 
-## Webhook de envio de relatórios
+## Report delivery webhook
 
-Quando `REPORT_URL` está definido, o `ark-tools` envia automaticamente o
-envelope `ark-report-tools` via HTTP. Aceita uma ou múltiplas URLs:
+When `REPORT_URL` is set, `ark-tools` automatically sends the
+`ark-report-tools` envelope via HTTP. It accepts one or multiple URLs:
 
 ```bash
 -e REPORT_URL="https://hook1/api,https://hook2/api"
 ```
 
-O **SBOM** pode ser enviado para um endpoint diferente via `REPORT_SBOM_*`.
+The **SBOM** can be sent to a different endpoint via `REPORT_SBOM_*`.
 
-Modos de envio:
+Delivery modes:
 
-- **Por scan** (`REPORT_SEND_EACH_SCAN=true`): cada comando individual envia
-  seu próprio envelope.
-- **Consolidado** (default no `container`): envia o `container-report.json`
-  com todos os sub-resultados.
-
----
-
-## Mounts recomendados
-
-| Mount                                            | Propósito                                      |
-| ------------------------------------------------ | ---------------------------------------------- |
-| `-v "$PWD":/workspace:ro`                        | Repositório dentro do container                |
-| `-v "$PWD/.git":/workspace/.git:ro`              | (opcional) Fallback git para metadata SCM      |
-| `-v "$PWD/.trivyignore":/.trivyignore:ro`        | `.trivyignore` auto-detectado                  |
-| `-v "$HOME/.cache/trivy":/home/app/.cache/trivy` | Cache persistente do Trivy DB                  |
-| `-v "$PWD/scan-reports":/reports`                | Persistência dos relatórios localmente         |
-| `-v /var/run/docker.sock:/var/run/docker.sock`   | Scan de **imagens locais** (entrypoint ajusta permissão) |
+- **Per scan** (`REPORT_SEND_EACH_SCAN=true`): each individual command sends
+  its own envelope.
+- **Consolidated** (default in `container`): sends the `container-report.json`
+  with all sub-results.
 
 ---
 
-## Exemplos práticos
+## Recommended mounts
 
-### Scan de imagem **local** (via docker.sock)
+| Mount                                            | Purpose                                                  |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| `-v "$PWD":/workspace:ro`                        | Repository inside the container                          |
+| `-v "$PWD/.git":/workspace/.git:ro`              | (optional) git fallback for SCM metadata                 |
+| `-v "$PWD/.trivyignore":/.trivyignore:ro`        | Auto-detected `.trivyignore`                             |
+| `-v "$HOME/.cache/trivy":/home/app/.cache/trivy` | Persistent Trivy DB cache                                |
+| `-v "$PWD/scan-reports":/reports`                | Local report persistence                                 |
+| `-v /var/run/docker.sock:/var/run/docker.sock`   | Scan of **local images** (entrypoint adjusts permission) |
+
+---
+
+## Practical examples
+
+### **Local** image scan (via docker.sock)
 
 ```bash
 docker run --rm \
@@ -412,10 +414,10 @@ docker run --rm \
   image-scan mylocalimage:tag
 ```
 
-> O `docker-entrypoint.sh` sincroniza automaticamente o GID do socket e executa
-> o processo como usuário não-root (`app`).
+> The `docker-entrypoint.sh` automatically syncs the socket GID and runs
+> the process as the non-root user (`app`).
 
-### Filesystem com cache persistente
+### Filesystem with persistent cache
 
 ```bash
 docker run --rm \
@@ -426,7 +428,7 @@ docker run --rm \
   filesystem-scan
 ```
 
-### Container scan completo com Trivy Server e webhook
+### Full container scan with Trivy Server and webhook
 
 ```bash
 docker run --rm \
@@ -446,7 +448,7 @@ docker run --rm \
   container myapp:latest --path /workspace
 ```
 
-### Container com múltiplos Dockerfiles
+### Container with multiple Dockerfiles
 
 ```bash
 docker run --rm \
@@ -457,9 +459,9 @@ docker run --rm \
   --dockerfiles "Dockerfile,docker/Dockerfile.worker,docker/Dockerfile.nginx"
 ```
 
-### Passando flags extras para Trivy / Hadolint
+### Passing extra flags to Trivy / Hadolint
 
-Use `--` para encaminhar argumentos:
+Use `--` to forward arguments:
 
 ```bash
 # Trivy
@@ -469,7 +471,7 @@ ark-tools image-scan myapp:tag -- --ignore-policy /policies/trivy.rego
 ark-tools dockerfile-lint /workspace/Dockerfile -- --ignore DL3008
 ```
 
-> No comando `container`, flags após `--` são encaminhadas **somente** ao Trivy.
+> In the `container` command, flags after `--` are forwarded **only** to Trivy.
 
 ---
 
@@ -545,7 +547,7 @@ security_container_scan:
     TRIVY_CACHE_DIR: "$CI_PROJECT_DIR/.cache/trivy"
     REPORT_DIR: "$CI_PROJECT_DIR/scan-reports"
   script:
-    # As variáveis CI_*, GITLAB_USER_LOGIN, etc. são auto-detectadas
+    # The CI_*, GITLAB_USER_LOGIN, etc. variables are auto-detected
     - ark-tools container "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" \
       --path "$CI_PROJECT_DIR"
   artifacts:
@@ -560,19 +562,19 @@ security_container_scan:
 
 ## JSON Schema (`ark-report-tools`)
 
-Todos os relatórios gerados pelo `ark-tools` seguem o envelope
-**`ark-report-tools` v1.1**, formalizado em
+Every report generated by `ark-tools` follows the
+**`ark-report-tools` v1.1** envelope, formalized in
 [`schemas/ark-report-tools.schema.v1.1.json`](schemas/ark-report-tools.schema.v1.1.json).
 
-Dentro da imagem, o schema também está disponível em:
+Inside the image, the schema is also available at:
 
 ```bash
 /usr/local/share/ark-tools/ark-report-tools.schema.v1.1.json
 ```
 
-Path acessível via `ARK_REPORT_SCHEMA`.
+Path accessible via `ARK_REPORT_SCHEMA`.
 
-### Estrutura do envelope
+### Envelope structure
 
 ```json
 {
@@ -606,7 +608,7 @@ Path acessível via `ARK_REPORT_SCHEMA`.
     }
   },
   "report": {
-    /* payload bruto do Trivy/Hadolint */
+    /* raw Trivy/Hadolint payload */
   },
   "results": {
     "image_scan": {
@@ -627,27 +629,27 @@ Path acessível via `ARK_REPORT_SCHEMA`.
 }
 ```
 
-### Campos do envelope
+### Envelope fields
 
-| Campo           | Tipo              | Obrigatório    | Descrição                                                                                             |
-| --------------- | ----------------- | -------------- | ----------------------------------------------------------------------------------------------------- |
-| `schema`        | string (const)    | sim            | Sempre `"ark-report-tools"`                                                                           |
-| `version`       | string            | sim            | Versão do envelope (`"1.1"`)                                                                          |
-| `timestamp`     | string (ISO)      | sim            | Momento de geração (UTC)                                                                              |
-| `command`       | string (enum)     | sim            | `image-scan` \| `filesystem-scan` \| `config-scan` \| `repo-scan` \| `dockerfile-lint` \| `container` |
-| `target`        | string            | sim            | Imagem, path ou URL alvo                                                                              |
-| `tool`          | string            | sim            | `trivy`, `hadolint` ou `trivy+hadolint`                                                               |
-| `sbom_enabled`  | boolean           | não            | Indica se SBOM foi gerado                                                                             |
-| `list_all_pkgs` | boolean           | não            | Indica se inventário completo foi incluído (`--list-all-pkgs`)                                        |
-| `metadata`      | object            | não            | `scm{}` + `ci{}` + opcionalmente `scan_context{}`                                                     |
-| `report`        | object/array/null | sim            | Payload bruto da ferramenta                                                                           |
-| `results`       | object/null       | só `container` | Sub-relatórios consolidados                                                                           |
+| Field           | Type              | Required         | Description                                                                                           |
+| --------------- | ----------------- | ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `schema`        | string (const)    | yes              | Always `"ark-report-tools"`                                                                           |
+| `version`       | string            | yes              | Envelope version (`"1.1"`)                                                                            |
+| `timestamp`     | string (ISO)      | yes              | Generation moment (UTC)                                                                               |
+| `command`       | string (enum)     | yes              | `image-scan` \| `filesystem-scan` \| `config-scan` \| `repo-scan` \| `dockerfile-lint` \| `container` |
+| `target`        | string            | yes              | Target image, path, or URL                                                                            |
+| `tool`          | string            | yes              | `trivy`, `hadolint`, or `trivy+hadolint`                                                              |
+| `sbom_enabled`  | boolean           | no               | Indicates whether an SBOM was generated                                                               |
+| `list_all_pkgs` | boolean           | no               | Indicates whether the full inventory was included (`--list-all-pkgs`)                                 |
+| `metadata`      | object            | no               | `scm{}` + `ci{}` + optionally `scan_context{}`                                                        |
+| `report`        | object/array/null | yes              | Raw tool payload                                                                                      |
+| `results`       | object/null       | `container` only | Consolidated sub-reports                                                                              |
 
-> O **payload bruto** (`report`) é deixado flexível porque a estrutura do JSON
-> do Trivy/Hadolint varia entre versões. O schema garante a estabilidade do
-> **envelope**, não do conteúdo interno.
+> The **raw payload** (`report`) is kept flexible because the structure of the
+> Trivy/Hadolint JSON varies between versions. The schema guarantees the
+> stability of the **envelope**, not of the internal content.
 
-### Sobre `$schema` e `$id`
+### About `$schema` and `$id`
 
 ```json
 {
@@ -656,20 +658,20 @@ Path acessível via `ARK_REPORT_SCHEMA`.
 }
 ```
 
-- **`$schema`** indica o **dialeto do JSON Schema** usado (Draft 2020-12), não
-  o caminho do seu schema.
-- **`$id`** é o **identificador único** do schema. Como o `tooark.com` é
-  estático, o identificador é uma **URN** (não precisa ser uma URL acessível).
+- **`$schema`** indicates the **JSON Schema dialect** used (Draft 2020-12), not
+  the path of your schema.
+- **`$id`** is the **unique identifier** of the schema. Since `tooark.com` is
+  static, the identifier is a **URN** (it does not need to be an accessible URL).
 
-### Sobre `allOf`
+### About `allOf`
 
-O `allOf` faz **composição** (AND lógico). No nosso schema, ele é usado para
-aplicar uma **regra condicional**: quando `command == "container"`, o campo
-`results` torna-se obrigatório.
+`allOf` performs **composition** (logical AND). In our schema, it is used to
+apply a **conditional rule**: when `command == "container"`, the `results`
+field becomes required.
 
 ---
 
-## Validação de relatórios
+## Report validation
 
 ### Node.js (AJV)
 
@@ -695,7 +697,7 @@ if (!validate(report)) {
   console.error(validate.errors);
   process.exit(1);
 }
-console.log("✅ Report válido");
+console.log("✅ Valid report");
 ```
 
 ### Python (jsonschema)
@@ -712,12 +714,12 @@ schema = json.load(open("ark-report-tools.schema.v1.1.json"))
 report = json.load(open("ark-report.json"))
 
 Draft202012Validator(schema).validate(report)
-print("✅ Report válido")
+print("✅ Valid report")
 ```
 
-### Dentro da imagem (sem dependências)
+### Inside the image (no dependencies)
 
-A imagem traz o schema embutido. Você pode consultá-lo:
+The image ships the schema embedded. You can read it:
 
 ```bash
 docker run --rm \
@@ -728,52 +730,52 @@ docker run --rm \
 
 ---
 
-## Testes do wrapper
+## Wrapper tests
 
-O projeto inclui uma suite de testes automatizada em `tests/run-tests.sh`,
-cobrindo as principais funções do `ark-tools.sh` (parsing de flags,
-auto-detect de CI, envelope, failure gate, etc.).
+The project includes an automated test suite in `tests/run-tests.sh`,
+covering the main functions of `ark-tools.sh` (flag parsing,
+CI auto-detection, envelope, failure gate, etc.).
 
-### Pré-requisitos
+### Prerequisites
 
 - `bash >= 4`
 - `jq`
 - `coreutils`
 
-### Executando
+### Running
 
 ```bash
 ./tests/run-tests.sh
 
-# Modo verboso (mostra diffs em falhas)
+# Verbose mode (shows diffs on failures)
 VERBOSE=1 ./tests/run-tests.sh
 ```
 
-Os testes carregam o `ark-tools.sh` em **modo biblioteca** (sem disparar o
-dispatcher), através da variável `ARK_TOOLS_LIBRARY_MODE=1`. Isso permite
-testar funções unitárias sem efeitos colaterais.
+The tests load `ark-tools.sh` in **library mode** (without triggering the
+dispatcher), via the `ARK_TOOLS_LIBRARY_MODE=1` variable. This allows
+testing unit functions without side effects.
 
-### Cobertura atual
+### Current coverage
 
-- ✅ `is_true()` — parser de booleanos
-- ✅ `should_use_list_all_pkgs()` — regras de ativação
-- ✅ `trivy_list_all_pkgs_flag()` — controle por comando (config não recebe)
-- ✅ `detect_ci_platform()` — todas as 5 plataformas
-- ✅ `_first_nonempty()` — precedência de valores
-- ✅ `collect_metadata()` — auto-detect, precedência CLI > env, normalização null
-- ✅ `parse_metadata_flags()` — todas as flags + variantes `--flag=value`
+- ✅ `is_true()` — boolean parser
+- ✅ `should_use_list_all_pkgs()` — activation rules
+- ✅ `trivy_list_all_pkgs_flag()` — per-command control (config does not receive it)
+- ✅ `detect_ci_platform()` — all 5 platforms
+- ✅ `_first_nonempty()` — value precedence
+- ✅ `collect_metadata()` — auto-detect, CLI > env precedence, null normalization
+- ✅ `parse_metadata_flags()` — all flags + `--flag=value` variants
 - ✅ `resolve_trivy_ignorefile()` — fallback chain
 - ✅ `default_fs_target()` — `/workspace` vs `$PWD`
-- ✅ `wrap_ark_report()` — envelope completo + default `{}`
-- ✅ `trivy_failure_gate()` — relatório limpo/sujo/não-json
-- ✅ `_report_file_or_null()` — fallback para arquivo `null.json`
+- ✅ `wrap_ark_report()` — full envelope + default `{}`
+- ✅ `trivy_failure_gate()` — clean/dirty/non-json report
+- ✅ `_report_file_or_null()` — fallback to a `null.json` file
 
 ---
 
-## Build local
+## Local build
 
 ```bash
-version="1.72.0"    # Imagem Trivy + Hadolint
+version="1.72.0"    # Trivy + Hadolint image
 trivy="0.71.0"      # Trivy
 hadolint="2.14.0"   # Hadolint
 short="$(echo "$version" | cut -d. -f1,2)"
@@ -792,28 +794,28 @@ docker build \
 
 ## Common pitfalls
 
-- **CVEs estranhas do SO base no relatório** → você esqueceu de montar o repo.
-  Use `-v "$PWD":/workspace:ro` ou rode `filesystem-scan /caminho/explicito`.
+- **Strange base-OS CVEs in the report** → you forgot to mount the repo.
+  Use `-v "$PWD":/workspace:ro` or run `filesystem-scan /explicit/path`.
 
-- **`.trivyignore` não aplicado** → verifique a precedência (`TRIVY_IGNOREFILE` >
-  `/.trivyignore` > `$PWD/.trivyignore`). Em container, o mais simples é
+- **`.trivyignore` not applied** → check the precedence (`TRIVY_IGNOREFILE` >
+  `/.trivyignore` > `$PWD/.trivyignore`). In a container, the simplest is
   `-v "$PWD/.trivyignore":/.trivyignore:ro`.
 
-- **Relatório JSON enorme** → defina `TRIVY_ALL_PACKAGES=false` se você só
-  precisa das CVEs.
+- **Huge JSON report** → set `TRIVY_ALL_PACKAGES=false` if you only
+  need the CVEs.
 
-- **`metadata.scm.branch` está `null`** → você está fora de um CI conhecido e
-  o `.git` não está montado. Use as flags `--branch/--commit/...` ou monte
-  `.git` em `/workspace/.git`.
+- **`metadata.scm.branch` is `null`** → you are outside a known CI and
+  `.git` is not mounted. Use the `--branch/--commit/...` flags or mount
+  `.git` at `/workspace/.git`.
 
-- **GitHub Actions/Docker não auto-detecta** → precisa repassar as variáveis com
-  `-e GITHUB_*` no `docker run` (ou usar `--env-file`).
+- **GitHub Actions/Docker does not auto-detect** → you need to pass the variables with
+  `-e GITHUB_*` in `docker run` (or use `--env-file`).
 
-- **Image scan de imagem local falha por permissão** → monte
-  `/var/run/docker.sock`; o entrypoint ajusta GID/grupo automaticamente.
+- **Local image scan fails due to permission** → mount
+  `/var/run/docker.sock`; the entrypoint adjusts the GID/group automatically.
 
 ---
 
-## Licença
+## License
 
-MIT – ver arquivo `LICENSE` na raiz do repositório.
+MIT – see the `LICENSE` file at the repository root.

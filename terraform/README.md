@@ -1,63 +1,65 @@
 # terraform
 
-Imagem base com `terraform` (Terraform CLI) pronto para uso em pipelines e
-execuções ad-hoc em container.
+Base image with `terraform` (Terraform CLI), ready to use in pipelines and
+ad-hoc container runs.
 
-> Esta família ficou legada. Para novos fluxos, use [opentofu/README.md](../opentofu/README.md).
+> This family is now legacy. For new workflows, use [tofu/README.md](../tofu/README.md).
+
+🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/terraform/README.pt-BR.md)
 
 ---
 
-## Sumário
+## Table of contents
 
-- [Recursos](#recursos)
-- [Tags da imagem](#tags-da-imagem)
-- [Conteúdo da imagem](#conteúdo-da-imagem)
-- [Início rápido](#início-rápido)
+- [Features](#features)
+- [Image tags](#image-tags)
+- [Image contents](#image-contents)
+- [Quick start](#quick-start)
 - [Pipelines](#pipelines)
-- [Build local](#build-local)
-- [Documentação oficial](#documentação-oficial)
-- [Licença](#licença)
+- [Local build](#local-build)
+- [Official documentation](#official-documentation)
+- [License](#license)
 
 ---
 
-## Recursos
+## Features
 
-- **Terraform CLI** pronto para execução em CI/CD
-- Base Debian minimalista com usuário não-root
-- Compatível com linux/amd64 e linux/arm64
-
----
-
-## Tags da imagem
-
-| Tag                                            | Descrição       |
-| ---------------------------------------------- | --------------- |
-| `ghcr.io/tooark/terraform:<MAJOR.MINOR.PATCH>` | Versão completa |
-| `ghcr.io/tooark/terraform:<MAJOR.MINOR>`       | Versão curta    |
-| `ghcr.io/tooark/terraform:<MAJOR>`             | Major track     |
-| `ghcr.io/tooark/terraform:latest`              | Última estável  |
-
-## Conteúdo da imagem
-
-| Item                  | Descrição                    |
-| --------------------- | ---------------------------- |
-| Base                  | `debian:12-slim`             |
-| Terraform CLI         | `/usr/local/bin/terraform`   |
-| Runtime deps          | `ca-certificates`            |
-| Usuário padrão        | `app` (não-root)             |
-| Identificador família | `ARK_IMAGE_FAMILY=terraform` |
+- **Terraform CLI** ready to run in CI/CD
+- Minimal Debian base with a non-root user
+- Compatible with linux/amd64 and linux/arm64
 
 ---
 
-## Início rápido
+## Image tags
 
-Verificar a versão do Terraform:
+| Tag                                            | Description   |
+| ---------------------------------------------- | ------------- |
+| `ghcr.io/tooark/terraform:<MAJOR.MINOR.PATCH>` | Full version  |
+| `ghcr.io/tooark/terraform:<MAJOR.MINOR>`       | Short version |
+| `ghcr.io/tooark/terraform:<MAJOR>`             | Major track   |
+| `ghcr.io/tooark/terraform:latest`              | Latest stable |
+
+## Image contents
+
+| Item              | Description                  |
+| ----------------- | ---------------------------- |
+| Base              | `debian:13-slim`             |
+| Terraform CLI     | `/usr/local/bin/terraform`   |
+| Runtime deps      | `ca-certificates`, `gosu`    |
+| Default user      | `app` (non-root)             |
+| Family identifier | `ARK_IMAGE_FAMILY=terraform` |
+
+---
+
+## Quick start
+
+Check the Terraform version:
 
 ```bash
 docker run --rm ghcr.io/tooark/terraform:latest terraform version
 ```
 
-Inicializar um diretório de trabalho (monte seu código):
+Initialize a working directory (mount your code):
 
 ```bash
 docker run --rm \
@@ -66,7 +68,7 @@ docker run --rm \
   ghcr.io/tooark/terraform:latest terraform init
 ```
 
-Executar plan e apply:
+Run plan and apply:
 
 ```bash
 docker run --rm \
@@ -75,7 +77,7 @@ docker run --rm \
   ghcr.io/tooark/terraform:latest terraform plan
 ```
 
-> Dica: Para cache de plugins/providers entre execuções, monte um diretório persistente em `/home/app/.terraform.d`.
+> Tip: To cache plugins/providers between runs, mount a persistent directory at `/home/app/.terraform.d`.
 
 ---
 
@@ -83,7 +85,7 @@ docker run --rm \
 
 ### GitHub Actions
 
-#### Exemplo básico (GH)
+#### Basic example (GH)
 
 ```yaml
 name: Terraform
@@ -118,7 +120,7 @@ jobs:
 
 ### GitLab CI
 
-#### Exemplo básico (GL)
+#### Basic example (GL)
 
 ```yaml
 stages:
@@ -159,7 +161,7 @@ terraform_apply:
 
 ---
 
-## Build local
+## Local build
 
 ```bash
 version="1.15.5"   # Terraform
@@ -175,13 +177,13 @@ docker build \
 
 ---
 
-## Documentação oficial
+## Official documentation
 
 - [Terraform](https://developer.hashicorp.com/terraform/install#linux)
-  - [Notas de lançamento](https://github.com/hashicorp/terraform/releases)
+  - [Release notes](https://github.com/hashicorp/terraform/releases)
 
 ---
 
-## Licença
+## License
 
-MIT - ver arquivo `LICENSE` na raiz do repositório.
+MIT - see the `LICENSE` file at the repository root.

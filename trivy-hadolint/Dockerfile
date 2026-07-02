@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Argumento para definir a imagem base
-ARG BASE_IMAGE=debian:12-slim
+ARG BASE_IMAGE=debian:13-slim
 
 # Argumento para definir a versão do Trivy e Hadolint (default; override via --build-arg)
 ARG TRIVY_HADOLINT_VERSION=2.2.0
@@ -35,7 +35,7 @@ ARG HADOLINT_VERSION
 
 # Metadados da imagem (OCI)
 LABEL org.opencontainers.image.title="trivy-hadolint" \
-  org.opencontainers.image.description="Base image with integrated Trivy and Hadolint for Linux/amd64 and Linux/arm64" \
+  org.opencontainers.image.description="Base image with Trivy and Hadolint for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${TRIVY_HADOLINT_VERSION}" \

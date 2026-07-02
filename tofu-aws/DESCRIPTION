@@ -1,1 +1,1 @@
-Base image with integrated OpenTofu, AWS CLI V2 and kubectl for Linux/amd64 and Linux/arm64
+Base image with OpenTofu, AWS CLI V2 and kubectl for Linux/amd64 and Linux/arm64

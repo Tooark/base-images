@@ -115,7 +115,7 @@ ARG KUBECTL_VERSION
 
 # Metadados da imagem
 LABEL org.opencontainers.image.title="tofu-aws-gcloud" \
-  org.opencontainers.image.description="Base image with integrated OpenTofu, AWS CLI, GCLOUD CLI and kubectl for Linux/amd64 and Linux/arm64" \
+  org.opencontainers.image.description="Base image with OpenTofu, AWS CLI V2, Google Cloud SDK and kubectl for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${TOFU_AWS_GCLOUD_VERSION}" \
@@ -130,9 +130,9 @@ LABEL org.opencontainers.image.title="tofu-aws-gcloud" \
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends ca-certificates bash python3 gosu \
- && update-ca-certificates
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 # Garante shell mais estrita
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
@@ -144,8 +144,11 @@ COPY --from=builder /opt/google-cloud-sdk /opt/google-cloud-sdk
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 
 # Copia o entrypoint padronizado
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Remove CR e BOM do entrypoint (proteção contra arquivos vindos de Windows)
+RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/docker-entrypoint.sh \
+ && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 
 # Cria symlinks e usuário não-root
 RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
@@ -153,6 +156,9 @@ RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
   && ln -sf /opt/google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil \
   && ln -sf /opt/google-cloud-sdk/bin/bq /usr/local/bin/bq \
   && useradd -m -s /bin/bash app
+
+# Desabilita healthcheck (imagem de CLI, não é serviço)
+HEALTHCHECK NONE
 
 # Desabilita prompts interativos por padrão (útil para CI) e define Python explícito
 ENV CLOUDSDK_CORE_DISABLE_PROMPTS=1 \

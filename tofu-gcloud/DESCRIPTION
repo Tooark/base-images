@@ -1,1 +1,1 @@
-Base image with integrated OpenTofu, GCLOUD CLI and kubectl for Linux/amd64 and Linux/arm64
+Base image with OpenTofu, Google Cloud SDK and kubectl for Linux/amd64 and Linux/arm64

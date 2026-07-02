@@ -1,79 +1,81 @@
 # aws-cli
 
-Imagem base com `aws` (AWS CLI v2), `kubectl`, `docker` e `docker buildx`,
-prontos para uso em pipelines e execuções ad-hoc em container.
+Base image with `aws` (AWS CLI v2), `kubectl`, `docker`, and `docker buildx`,
+ready to use in pipelines and ad-hoc container runs.
+
+🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/aws-cli/README.pt-BR.md)
 
 ---
 
-## Sumário
+## Table of contents
 
-- [Recursos](#recursos)
-- [Tags da imagem](#tags-da-imagem)
-- [Conteúdo da imagem](#conteúdo-da-imagem)
-- [Início rápido](#início-rápido)
+- [Features](#features)
+- [Image tags](#image-tags)
+- [Image contents](#image-contents)
+- [Quick start](#quick-start)
 - [Pipelines](#pipelines)
-- [Build local](#build-local)
-- [Documentação oficial](#documentação-oficial)
-- [Licença](#licença)
+- [Local build](#local-build)
+- [Official documentation](#official-documentation)
+- [License](#license)
 
 ---
 
-## Recursos
+## Features
 
-- **AWS CLI v2**, **kubectl**, **Docker CLI** e **Docker Buildx** na mesma imagem
-- Base Debian minimalista com usuário não-root
-- Compatível com linux/amd64 e linux/arm64
-
----
-
-## Tags da imagem
-
-| Tag                                          | Descrição       |
-| -------------------------------------------- | --------------- |
-| `ghcr.io/tooark/aws-cli:<MAJOR.MINOR.PATCH>` | Versão completa |
-| `ghcr.io/tooark/aws-cli:<MAJOR.MINOR>`       | Versão curta    |
-| `ghcr.io/tooark/aws-cli:<MAJOR>`             | Major track     |
-| `ghcr.io/tooark/aws-cli:latest`              | Última estável  |
+- **AWS CLI v2**, **kubectl**, **Docker CLI**, and **Docker Buildx** in the same image
+- Minimal Debian base with a non-root user
+- Compatible with linux/amd64 and linux/arm64
 
 ---
 
-## Conteúdo da imagem
+## Image tags
 
-| Item                  | Descrição                                                       |
-| --------------------- | --------------------------------------------------------------- |
-| Base                  | `debian:12-slim`                                                |
-| AWS CLI v2            | `/usr/local/aws-cli/v2/current/bin/aws`                         |
-| kubectl               | `/usr/local/bin/kubectl`                                        |
-| Docker CLI            | `/usr/local/bin/docker`                                         |
-| Docker Buildx         | `/usr/local/libexec/docker/cli-plugins/docker-buildx`           |
-| Symlink               | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
-| Runtime deps          | `ca-certificates`                                               |
-| Usuário padrão        | `app` (não-root)                                                |
-| Identificador família | `ARK_IMAGE_FAMILY=aws-cli`                                      |
+| Tag                                          | Description   |
+| -------------------------------------------- | ------------- |
+| `ghcr.io/tooark/aws-cli:<MAJOR.MINOR.PATCH>` | Full version  |
+| `ghcr.io/tooark/aws-cli:<MAJOR.MINOR>`       | Short version |
+| `ghcr.io/tooark/aws-cli:<MAJOR>`             | Major track   |
+| `ghcr.io/tooark/aws-cli:latest`              | Latest stable |
 
 ---
 
-## Início rápido
+## Image contents
 
-Executar `aws --version`:
+| Item              | Description                                                     |
+| ----------------- | --------------------------------------------------------------- |
+| Base              | `debian:13-slim`                                                |
+| AWS CLI v2        | `/usr/local/aws-cli/v2/current/bin/aws`                         |
+| kubectl           | `/usr/local/bin/kubectl`                                        |
+| Docker CLI        | `/usr/local/bin/docker`                                         |
+| Docker Buildx     | `/usr/local/libexec/docker/cli-plugins/docker-buildx`           |
+| Symlink           | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
+| Runtime deps      | `ca-certificates`, `gosu`                                       |
+| Default user      | `app` (non-root)                                                |
+| Family identifier | `ARK_IMAGE_FAMILY=aws-cli`                                      |
+
+---
+
+## Quick start
+
+Run `aws --version`:
 
 ```bash
 docker run --rm ghcr.io/tooark/aws-cli:latest aws --version
 ```
 
-Executar um subcomando do AWS CLI (ex.: `sts get-caller-identity`).
+Run an AWS CLI subcommand (e.g., `sts get-caller-identity`):
 
 ```bash
 docker run --rm ghcr.io/tooark/aws-cli:latest aws sts get-caller-identity --no-cli-pager
 ```
 
-Ver versão do kubectl (cliente):
+Check the kubectl client version:
 
 ```bash
 docker run --rm ghcr.io/tooark/aws-cli:latest kubectl version --client
 ```
 
-Usar `kubectl get` com kubeconfig montado (exemplo):
+Use `kubectl get` with a mounted kubeconfig (example):
 
 ```bash
 docker run --rm \
@@ -81,54 +83,54 @@ docker run --rm \
   ghcr.io/tooark/aws-cli:latest kubectl get nodes --request-timeout=10s
 ```
 
-Ver versão do Docker CLI:
+Check the Docker CLI version:
 
 ```bash
 docker run --rm ghcr.io/tooark/aws-cli:latest docker --version
 ```
 
-Ver versão do Docker Buildx:
+Check the Docker Buildx version:
 
 ```bash
 docker run --rm ghcr.io/tooark/aws-cli:latest docker buildx version
 ```
 
-### Passando credenciais ao container
+### Passing credentials to the container
 
-Por variáveis de ambiente:
+Via environment variables:
 
 ```bash
 docker run --rm \
-  -e AWS_ACCESS_KEY_ID=$env:AWS_ACCESS_KEY_ID \
-  -e AWS_SECRET_ACCESS_KEY=$env:AWS_SECRET_ACCESS_KEY \
-  -e AWS_SESSION_TOKEN=$env:AWS_SESSION_TOKEN \
+  -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+  -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+  -e AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
   -e AWS_REGION=us-east-1 \
   ghcr.io/tooark/aws-cli:latest aws sts get-caller-identity --no-cli-pager
 ```
 
-Montando o diretório de credenciais do host (`~/.aws`):
+Mounting the host credentials directory (`~/.aws`):
 
 ```bash
-# A imagem usa usuário não-root 'app'; monte em /home/app/.aws
+# The image runs as the non-root user 'app'; mount into /home/app/.aws
 docker run --rm \
-  -v "$HOME/.aws:/home/app/.aws:ro \
+  -v "$HOME/.aws:/home/app/.aws:ro" \
   ghcr.io/tooark/aws-cli:latest aws sts get-caller-identity --no-cli-pager
 ```
 
-Para usar `kubectl`, você também pode montar um kubeconfig em `/home/app/.kube/config`.
+To use `kubectl`, you can also mount a kubeconfig at `/home/app/.kube/config`.
 
 ---
 
-## Variáveis de ambiente
+## Environment variables
 
 ### AWS CLI
 
-| Variável                | Default     | Descrição              |
-| ----------------------- | ----------- | ---------------------- |
-| `AWS_ACCESS_KEY_ID`     | -           | Chave de acesso da AWS |
-| `AWS_SECRET_ACCESS_KEY` | -           | Chave secreta da AWS   |
-| `AWS_SESSION_TOKEN`     | -           | Token de sessão da AWS |
-| `AWS_REGION`            | `us-east-1` | Região padrão da AWS   |
+| Variable                | Default     | Description        |
+| ----------------------- | ----------- | ------------------ |
+| `AWS_ACCESS_KEY_ID`     | -           | AWS access key     |
+| `AWS_SECRET_ACCESS_KEY` | -           | AWS secret key     |
+| `AWS_SESSION_TOKEN`     | -           | AWS session token  |
+| `AWS_REGION`            | `us-east-1` | Default AWS region |
 
 ---
 
@@ -136,7 +138,7 @@ Para usar `kubectl`, você também pode montar um kubeconfig em `/home/app/.kube
 
 ### GitHub Actions
 
-#### Exemplo básico (GH)
+#### Basic example (GH)
 
 ```yaml
 name: Deploy AWS
@@ -157,14 +159,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verificar identidade
+      - name: Verify identity
         run: aws sts get-caller-identity --no-cli-pager
 
-      - name: Deploy para S3
+      - name: Deploy to S3
         run: aws s3 sync ./dist s3://${{ vars.BUCKET_NAME }} --delete
 ```
 
-#### Exemplo com kubectl (EKS) (GH)
+#### Example with kubectl (EKS) (GH)
 
 ```yaml
 name: Deploy EKS
@@ -185,19 +187,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configurar kubeconfig via EKS
+      - name: Configure kubeconfig via EKS
         run: aws eks update-kubeconfig --name ${{ vars.EKS_CLUSTER }} --no-cli-pager
 
-      - name: Aplicar manifests
+      - name: Apply manifests
         run: kubectl apply -f k8s/
 
-      - name: Verificar rollout
+      - name: Check rollout
         run: kubectl rollout status deployment/${{ vars.APP_NAME }} --timeout=120s
 ```
 
 ### GitLab CI
 
-#### Exemplo básico (GL)
+#### Basic example (GL)
 
 ```yaml
 stages:
@@ -217,7 +219,7 @@ deploy_s3:
     - main
 ```
 
-#### Exemplo com kubectl (EKS) (GL)
+#### Example with kubectl (EKS) (GL)
 
 ```yaml
 stages:
@@ -240,7 +242,7 @@ deploy_eks:
 
 ---
 
-## Build local
+## Local build
 
 ```bash
 version="2.34.59"  # AWS CLI
@@ -262,19 +264,19 @@ docker build \
 
 ---
 
-## Documentação oficial
+## Official documentation
 
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
-  - [Notas de lançamento](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
+  - [Release notes](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
-  - [Notas de lançamento](https://kubernetes.io/releases/)
+  - [Release notes](https://kubernetes.io/releases/)
 - [Docker CLI](https://docs.docker.com/reference/cli/docker/)
-  - [Notas de lançamento](https://docs.docker.com/engine/release-notes/)
+  - [Release notes](https://docs.docker.com/engine/release-notes/)
 - [Docker Buildx](https://docs.docker.com/reference/cli/docker/buildx/)
-  - [Notas de lançamento](https://github.com/docker/buildx/releases/)
+  - [Release notes](https://github.com/docker/buildx/releases/)
 
 ---
 
-## Licença
+## License
 
-MIT - ver arquivo `LICENSE` na raiz do repositório.
+MIT - see the `LICENSE` file at the repository root.

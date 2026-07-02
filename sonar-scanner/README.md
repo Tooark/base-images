@@ -1,83 +1,85 @@
 # sonar-scanner
 
-Imagem base com `sonar-scanner` (SonarQube Scanner CLI) pronto para uso em pipelines CI/CD com SonarQube, voltada para linguagens como Go, PHP e outras que utilizam o scanner CLI diretamente.
+Base image with `sonar-scanner` (SonarQube Scanner CLI), ready to use in CI/CD pipelines with SonarQube, aimed at languages such as Go, PHP, and others that use the scanner CLI directly.
+
+🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/sonar-scanner/README.pt-BR.md)
 
 ---
 
-## Sumário
+## Table of contents
 
-- [Recursos](#recursos)
-- [Tags da imagem](#tags-da-imagem)
-- [Conteúdo da imagem](#conteúdo-da-imagem)
-- [Início rápido](#início-rápido)
+- [Features](#features)
+- [Image tags](#image-tags)
+- [Image contents](#image-contents)
+- [Quick start](#quick-start)
 - [Pipelines](#pipelines)
-- [Build local](#build-local)
-- [Documentação oficial](#documentação-oficial)
-- [Licença](#licença)
+- [Local build](#local-build)
+- [Official documentation](#official-documentation)
+- [License](#license)
 
 ---
 
-## Recursos
+## Features
 
-- **Sonar Scanner CLI** pronto para uso em CI/CD
-- Base Debian minimalista com usuário não-root
-- Compatível com linux/amd64 e linux/arm64
-
----
-
-## Tags da imagem
-
-| Tag                                                | Descrição       |
-| -------------------------------------------------- | --------------- |
-| `ghcr.io/tooark/sonar-scanner:<MAJOR.MINOR.PATCH>` | Versão completa |
-| `ghcr.io/tooark/sonar-scanner:<MAJOR.MINOR>`       | Versão curta    |
-| `ghcr.io/tooark/sonar-scanner:<MAJOR>`             | Major track     |
-| `ghcr.io/tooark/sonar-scanner:latest`              | Última estável  |
+- **Sonar Scanner CLI** ready to use in CI/CD
+- Minimal Debian base with a non-root user
+- Compatible with linux/amd64 and linux/arm64
 
 ---
 
-## Conteúdo da imagem
+## Image tags
 
-| Item                  | Descrição                                                   |
-| --------------------- | ----------------------------------------------------------- |
-| Base                  | `debian:12-slim`                                            |
-| Sonar Scanner CLI     | `/opt/sonar-scanner`                                        |
-| Runtime deps          | `ca-certificates`, `bash`, `git`, `openjdk-17-jre-headless` |
-| Usuário padrão        | `app` (não-root)                                            |
-| Identificador família | `ARK_IMAGE_FAMILY=sonar-scanner`                            |
+| Tag                                                | Description   |
+| -------------------------------------------------- | ------------- |
+| `ghcr.io/tooark/sonar-scanner:<MAJOR.MINOR.PATCH>` | Full version  |
+| `ghcr.io/tooark/sonar-scanner:<MAJOR.MINOR>`       | Short version |
+| `ghcr.io/tooark/sonar-scanner:<MAJOR>`             | Major track   |
+| `ghcr.io/tooark/sonar-scanner:latest`              | Latest stable |
 
 ---
 
-## Início rápido
+## Image contents
 
-Verificar versão do scanner:
+| Item              | Description                                                |
+| ----------------- | ---------------------------------------------------------- |
+| Base              | `debian:13-slim`                                           |
+| Sonar Scanner CLI | `/opt/sonar-scanner`                                       |
+| Runtime deps      | `ca-certificates`, `bash`, `git`, `openjdk-21-jre`, `gosu` |
+| Default user      | `app` (non-root)                                           |
+| Family identifier | `ARK_IMAGE_FAMILY=sonar-scanner`                           |
+
+---
+
+## Quick start
+
+Check the scanner version:
 
 ```bash
 docker run --rm ghcr.io/tooark/sonar-scanner:latest sonar-scanner --version
 ```
 
-Executar scan em um projeto (montando o diretório de trabalho):
+Run a scan on a project (mounting the working directory):
 
 ```bash
 docker run --rm \
-  -e SONAR_HOST_URL="https://sonarqube.exemplo.com" \
-  -e SONAR_TOKEN="seu-token" \
+  -e SONAR_HOST_URL="https://sonarqube.example.com" \
+  -e SONAR_TOKEN="your-token" \
   -v $(pwd):/usr/src \
   -w /usr/src \
   ghcr.io/tooark/sonar-scanner:latest \
-  sonar-scanner -Dsonar.projectKey="meu-projeto"
+  sonar-scanner -Dsonar.projectKey="my-project"
 ```
 
 ---
 
-## Variáveis de ambiente
+## Environment variables
 
 ### SONAR SCANNER CLI
 
-| Variável         | Default | Descrição                          |
-| ---------------- | ------- | ---------------------------------- |
-| `SONAR_HOST_URL` | -       | URL do servidor SonarQube          |
-| `SONAR_TOKEN`    | -       | Token de autenticação do SonarQube |
+| Variable         | Default | Description                    |
+| ---------------- | ------- | ------------------------------ |
+| `SONAR_HOST_URL` | -       | SonarQube server URL           |
+| `SONAR_TOKEN`    | -       | SonarQube authentication token |
 
 ---
 
@@ -85,7 +87,7 @@ docker run --rm \
 
 ### GitHub Actions
 
-#### Exemplo básico (GH)
+#### Basic example (GH)
 
 ```yaml
 name: SonarQube Scan
@@ -105,7 +107,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Executar análise SonarQube
+      - name: Run SonarQube analysis
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -119,7 +121,7 @@ jobs:
 
 ### GitLab CI
 
-#### Exemplo básico (GL)
+#### Basic example (GL)
 
 ```yaml
 stages:
@@ -136,7 +138,7 @@ sonarqube_scan:
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "merge_request_event"'
 ```
 
-Configure no GitLab (Settings > CI/CD > Variables):
+Configure in GitLab (Settings > CI/CD > Variables):
 
 - `SONAR_HOST_URL`
 - `SONAR_TOKEN`
@@ -145,9 +147,9 @@ Configure no GitLab (Settings > CI/CD > Variables):
 
 ---
 
-## Build local
+## Local build
 
-Ao construir localmente, publique tags equivalentes para a mesma imagem (versão completa, curta e `latest`).
+When building locally, publish equivalent tags for the same image (full version, short version, and `latest`).
 
 ```bash
 version="8.1.0.6389"  # Sonar Scanner CLI
@@ -163,13 +165,13 @@ docker build \
 
 ---
 
-## Documentação oficial
+## Official documentation
 
 - [SonarScanner CLI](https://docs.sonarsource.com/sonarqube-server/analyzing-source-code/scanners/sonarscanner)
-  - [Notas de lançamento](https://github.com/SonarSource/sonar-scanner-cli/releases)
+  - [Release notes](https://github.com/SonarSource/sonar-scanner-cli/releases)
 
 ---
 
-## Licença
+## License
 
-MIT - ver arquivo `LICENSE` na raiz do repositório.
+MIT - see the `LICENSE` file at the repository root.

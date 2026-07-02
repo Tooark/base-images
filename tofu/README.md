@@ -1,63 +1,65 @@
 # tofu
 
-Imagem base com `tofu` (OpenTofu CLI) pronta para uso em pipelines e execuções ad-hoc em container.
+Base image with `tofu` (OpenTofu CLI), ready to use in pipelines and ad-hoc container runs.
 
-> Esta é a imagem recomendada para novos fluxos. A família `terraform` ficou legada e será mantida apenas para compatibilidade.
+> This is the recommended image for new workflows. The `terraform` family is now legacy and will be kept for compatibility only.
+
+🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/terraform/README.pt-BR.md)
 
 ---
 
-## Sumário
+## Table of contents
 
-- [Recursos](#recursos)
-- [Tags da imagem](#tags-da-imagem)
-- [Conteúdo da imagem](#conteúdo-da-imagem)
-- [Início rápido](#início-rápido)
+- [Features](#features)
+- [Image tags](#image-tags)
+- [Image contents](#image-contents)
+- [Quick start](#quick-start)
 - [Pipelines](#pipelines)
-- [Build local](#build-local)
-- [Documentação oficial](#documentação-oficial)
-- [Licença](#licença)
+- [Local build](#local-build)
+- [Official documentation](#official-documentation)
+- [License](#license)
 
 ---
 
-## Recursos
+## Features
 
-- **OpenTofu CLI** pronto para execução em CI/CD
-- Base Debian minimalista com usuário não-root
-- Compatível com linux/amd64 e linux/arm64
-- Mantém as variáveis de automação compatíveis com o fluxo de Terraform
-
----
-
-## Tags da imagem
-
-| Tag                                            | Descrição       |
-| ---------------------------------------------- | --------------- |
-| `ghcr.io/tooark/tofu:<MAJOR.MINOR.PATCH>`  | Versão completa |
-| `ghcr.io/tooark/tofu:<MAJOR.MINOR>`        | Versão curta    |
-| `ghcr.io/tooark/tofu:<MAJOR>`              | Major track     |
-| `ghcr.io/tooark/tofu:latest`               | Última estável  |
-
-## Conteúdo da imagem
-
-| Item                  | Descrição                   |
-| --------------------- | --------------------------- |
-| Base                  | `debian:13-slim`            |
-| OpenTofu CLI          | `/usr/local/bin/tofu`       |
-| Runtime deps          | `ca-certificates`, `gosu`   |
-| Usuário padrão        | `app` (não-root)            |
-| Identificador família | `ARK_IMAGE_FAMILY=tofu` |
+- **OpenTofu CLI** ready to run in CI/CD
+- Minimal Debian base with a non-root user
+- Compatible with linux/amd64 and linux/arm64
+- Keeps the automation variables compatible with the Terraform workflow
 
 ---
 
-## Início rápido
+## Image tags
 
-Verificar a versão do OpenTofu:
+| Tag                                       | Description   |
+| ----------------------------------------- | ------------- |
+| `ghcr.io/tooark/tofu:<MAJOR.MINOR.PATCH>` | Full version  |
+| `ghcr.io/tooark/tofu:<MAJOR.MINOR>`       | Short version |
+| `ghcr.io/tooark/tofu:<MAJOR>`             | Major track   |
+| `ghcr.io/tooark/tofu:latest`              | Latest stable |
+
+## Image contents
+
+| Item              | Description               |
+| ----------------- | ------------------------- |
+| Base              | `debian:13-slim`          |
+| OpenTofu CLI      | `/usr/local/bin/tofu`     |
+| Runtime deps      | `ca-certificates`, `gosu` |
+| Default user      | `app` (non-root)          |
+| Family identifier | `ARK_IMAGE_FAMILY=tofu`   |
+
+---
+
+## Quick start
+
+Check the OpenTofu version:
 
 ```bash
 docker run --rm ghcr.io/tooark/tofu:latest tofu version
 ```
 
-Inicializar um diretório de trabalho (monte seu código):
+Initialize a working directory (mount your code):
 
 ```bash
 docker run --rm \
@@ -66,7 +68,7 @@ docker run --rm \
   ghcr.io/tooark/tofu:latest tofu init
 ```
 
-Executar plan:
+Run a plan:
 
 ```bash
 docker run --rm \
@@ -75,7 +77,7 @@ docker run --rm \
   ghcr.io/tooark/tofu:latest tofu plan
 ```
 
-> Dica: Para cache de providers entre execuções, monte um diretório persistente em `/home/app/.terraform.d`.
+> Tip: To cache providers between runs, mount a persistent directory at `/home/app/.terraform.d`.
 
 ---
 
@@ -83,7 +85,7 @@ docker run --rm \
 
 ### GitHub Actions
 
-#### Exemplo básico (GH)
+#### Basic example (GH)
 
 ```yaml
 name: OpenTofu
@@ -114,7 +116,7 @@ jobs:
 
 ### GitLab CI
 
-#### Exemplo básico (GL)
+#### Basic example (GL)
 
 ```yaml
 stages:
@@ -150,7 +152,7 @@ opentofu_apply:
 
 ---
 
-## Build local
+## Local build
 
 ```bash
 version="1.12.1"   # OpenTofu
@@ -166,13 +168,13 @@ docker build \
 
 ---
 
-## Documentação oficial
+## Official documentation
 
 - [OpenTofu](https://opentofu.org/docs/)
   - [Releases](https://github.com/opentofu/opentofu/releases)
 
 ---
 
-## Licença
+## License
 
-MIT - ver arquivo `LICENSE` na raiz do repositório.
+MIT - see the `LICENSE` file at the repository root.

@@ -1,64 +1,64 @@
 # terraform-aws
 
-Base image with `terraform` (Terraform CLI), `aws` (AWS CLI v2), and `kubectl`,
-ready to use in pipelines and ad-hoc container runs.
+Imagem base com o `terraform` (Terraform CLI), `aws` (AWS CLI v2) e `kubectl`,
+prontos para uso em pipelines e execuções ad-hoc em container.
 
-> This family is now legacy. For new workflows, use [tofu-aws/README.md](../tofu-aws/README.md).
+> Esta família ficou legada. Para novos fluxos, use [tofu-aws/README.pt-BR.md](../tofu-aws/README.pt-BR.md).
 
-🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/terraform-aws/README.pt-BR.md)
+🌍 **Idiomas:** [![USA Flag](https://flagcdn.com/w20/us.png) English](https://github.com/Tooark/base-images/blob/main/terraform-aws/README.md) · ![Brazil Flag](https://flagcdn.com/w20/br.png) **Português (este arquivo)**
 
 ---
 
-## Table of contents
+## Sumário
 
-- [Features](#features)
-- [Image tags](#image-tags)
-- [Image contents](#image-contents)
-- [Quick start](#quick-start)
+- [Recursos](#recursos)
+- [Tags da imagem](#tags-da-imagem)
+- [Conteúdo da imagem](#conteúdo-da-imagem)
+- [Início rápido](#início-rápido)
 - [Pipelines](#pipelines)
-- [Local build](#local-build)
-- [Official documentation](#official-documentation)
-- [License](#license)
+- [Build local](#build-local)
+- [Documentação oficial](#documentação-oficial)
+- [Licença](#licença)
 
 ---
 
-## Features
+## Recursos
 
-- **Terraform**, **AWS CLI v2**, and **kubectl** in the same image
-- Minimal Debian base with a non-root user
-- Compatible with linux/amd64 and linux/arm64
-
----
-
-## Image tags
-
-| Tag                                                | Description   |
-| -------------------------------------------------- | ------------- |
-| `ghcr.io/tooark/terraform-aws:<MAJOR.MINOR.PATCH>` | Full version  |
-| `ghcr.io/tooark/terraform-aws:<MAJOR.MINOR>`       | Short version |
-| `ghcr.io/tooark/terraform-aws:<MAJOR>`             | Major track   |
-| `ghcr.io/tooark/terraform-aws:latest`              | Latest stable |
+- **Terraform**, **AWS CLI v2** e **kubectl** na mesma imagem
+- Base Debian minimalista com usuário não-root
+- Compatível com linux/amd64 e linux/arm64
 
 ---
 
-## Image contents
+## Tags da imagem
 
-| Item              | Description                                                     |
-| ----------------- | --------------------------------------------------------------- |
-| Base              | `debian:13-slim`                                                |
-| Terraform CLI     | `/usr/local/bin/terraform`                                      |
-| AWS CLI v2        | `/usr/local/aws-cli/v2/current/bin/aws`                         |
-| kubectl           | `/usr/local/bin/kubectl`                                        |
-| Symlink           | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
-| Runtime deps      | `ca-certificates`, `gosu`                                       |
-| Default user      | `app` (non-root)                                                |
-| Family identifier | `ARK_IMAGE_FAMILY=terraform-aws`                                |
+| Tag                                                | Descrição       |
+| -------------------------------------------------- | --------------- |
+| `ghcr.io/tooark/terraform-aws:<MAJOR.MINOR.PATCH>` | Versão completa |
+| `ghcr.io/tooark/terraform-aws:<MAJOR.MINOR>`       | Versão curta    |
+| `ghcr.io/tooark/terraform-aws:<MAJOR>`             | Major track     |
+| `ghcr.io/tooark/terraform-aws:latest`              | Última estável  |
 
 ---
 
-## Quick start
+## Conteúdo da imagem
 
-Check the installed versions:
+| Item                  | Descrição                                                       |
+| --------------------- | --------------------------------------------------------------- |
+| Base                  | `debian:13-slim`                                                |
+| Terraform CLI         | `/usr/local/bin/terraform`                                      |
+| AWS CLI v2            | `/usr/local/aws-cli/v2/current/bin/aws`                         |
+| kubectl               | `/usr/local/bin/kubectl`                                        |
+| Symlink               | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
+| Runtime deps          | `ca-certificates`, `gosu`                                       |
+| Usuário padrão        | `app` (não-root)                                                |
+| Identificador família | `ARK_IMAGE_FAMILY=terraform-aws`                                |
+
+---
+
+## Início rápido
+
+Verificar versões instaladas:
 
 ```bash
 docker run --rm ghcr.io/tooark/terraform-aws:latest terraform version
@@ -66,7 +66,7 @@ docker run --rm ghcr.io/tooark/terraform-aws:latest aws --version
 docker run --rm ghcr.io/tooark/terraform-aws:latest kubectl version --client
 ```
 
-Initialize a Terraform directory (mount your code):
+Inicializar um diretório Terraform (monte seu código):
 
 ```bash
 docker run --rm \
@@ -75,7 +75,7 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws:latest terraform init
 ```
 
-Run plan and apply:
+Executar plan e apply:
 
 ```bash
 docker run --rm \
@@ -84,9 +84,9 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws:latest terraform plan
 ```
 
-### Passing credentials to the container
+### Passando credenciais ao container
 
-Via environment variables:
+Por variáveis de ambiente:
 
 ```bash
 docker run --rm \
@@ -97,7 +97,7 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws:latest aws sts get-caller-identity --no-cli-pager
 ```
 
-Use `kubectl get` with a mounted kubeconfig:
+Usar `kubectl get` com kubeconfig montado:
 
 ```bash
 docker run --rm \
@@ -105,20 +105,20 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws:latest kubectl get nodes --request-timeout=10s
 ```
 
-To use `kubectl`, you can also mount a kubeconfig at `/home/app/.kube/config`.
+Para usar `kubectl`, você também pode montar um kubeconfig em `/home/app/.kube/config`.
 
 ---
 
-## Environment variables
+## Variáveis de ambiente
 
 ### AWS CLI
 
-| Variable                | Default     | Description        |
-| ----------------------- | ----------- | ------------------ |
-| `AWS_ACCESS_KEY_ID`     | -           | AWS access key     |
-| `AWS_SECRET_ACCESS_KEY` | -           | AWS secret key     |
-| `AWS_SESSION_TOKEN`     | -           | AWS session token  |
-| `AWS_REGION`            | `us-east-1` | Default AWS region |
+| Variável                | Default     | Descrição              |
+| ----------------------- | ----------- | ---------------------- |
+| `AWS_ACCESS_KEY_ID`     | -           | Chave de acesso da AWS |
+| `AWS_SECRET_ACCESS_KEY` | -           | Chave secreta da AWS   |
+| `AWS_SESSION_TOKEN`     | -           | Token de sessão da AWS |
+| `AWS_REGION`            | `us-east-1` | Região padrão da AWS   |
 
 ---
 
@@ -126,7 +126,7 @@ To use `kubectl`, you can also mount a kubeconfig at `/home/app/.kube/config`.
 
 ### GitHub Actions
 
-#### Basic example (GH)
+#### Exemplo básico (GH)
 
 ```yaml
 name: Terraform Deploy
@@ -159,7 +159,7 @@ jobs:
         run: terraform apply tfplan
 ```
 
-#### Example with EKS deployment (GH)
+#### Exemplo com deployment em EKS (GH)
 
 ```yaml
 name: Deploy to EKS
@@ -201,7 +201,7 @@ jobs:
 
 ### GitLab CI
 
-#### Basic example (GL)
+#### Exemplo básico (GL)
 
 ```yaml
 stages:
@@ -240,7 +240,7 @@ terraform_apply:
   when: manual
 ```
 
-#### Example with EKS deployment (GL)
+#### Exemplo com deployment em EKS (GL)
 
 ```yaml
 stages:
@@ -267,10 +267,10 @@ deploy_eks:
 
 ---
 
-## Local build
+## Build local
 
 ```bash
-version="1.14.0"  # Image with Terraform, AWS CLI, and kubectl
+version="1.14.0"  # Imagem com Terraform, AWS CLI e kubectl
 tf="1.14.0"       # Terraform
 aws="2.32.3"      # AWS CLI v2
 kube="1.34.2"     # kubectl
@@ -289,19 +289,19 @@ docker build \
 
 ---
 
-## Official documentation
+## Documentação oficial
 
 - [Terraform](https://developer.hashicorp.com/terraform/install#linux)
-  - [Release notes](https://github.com/hashicorp/terraform/releases)
+  - [Notas de lançamento](https://github.com/hashicorp/terraform/releases)
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
-  - [Release notes](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
+  - [Notas de lançamento](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
-  - [Release notes](https://kubernetes.io/releases/)
+  - [Notas de lançamento](https://kubernetes.io/releases/)
 
 ---
 
-## License
+## Licença
 
-MIT - see the `LICENSE` file at the repository root.
+MIT - ver arquivo `LICENSE` na raiz do repositório.
 
 <!-- markdownlint-enable MD060 -->

@@ -1,66 +1,66 @@
 # terraform-aws-gcloud
 
-Base image with `terraform` (Terraform CLI), `aws` (AWS CLI v2), `gcloud` (Google Cloud SDK),
-`gsutil`, `bq`, and `kubectl`, ready to use in pipelines and ad-hoc container runs.
+Imagem base com o `terraform` (Terraform CLI), `aws` (AWS CLI v2), `gcloud` (Google Cloud SDK),
+`gsutil`, `bq` e `kubectl`, prontos para uso em pipelines e execuções ad-hoc em container.
 
-> This family is now legacy. For new workflows, use [tofu-aws-gcloud/README.md](../tofu-aws-gcloud/README.md).
+> Esta família ficou legada. Para novos fluxos, use [tofu-aws-gcloud/README.pt-BR.md](../tofu-aws-gcloud/README.pt-BR.md).
 
-🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/terraform-aws-gcloud/README.pt-BR.md)
+🌍 **Idiomas:** [![USA Flag](https://flagcdn.com/w20/us.png) English](https://github.com/Tooark/base-images/blob/main/terraform-aws-gcloud/README.md) · ![Brazil Flag](https://flagcdn.com/w20/br.png) **Português (este arquivo)**
 
 ---
 
-## Table of contents
+## Sumário
 
-- [Features](#features)
-- [Image tags](#image-tags)
-- [Image contents](#image-contents)
-- [Quick start](#quick-start)
+- [Recursos](#recursos)
+- [Tags da imagem](#tags-da-imagem)
+- [Conteúdo da imagem](#conteúdo-da-imagem)
+- [Início rápido](#início-rápido)
 - [Pipelines](#pipelines)
-- [Local build](#local-build)
-- [Official documentation](#official-documentation)
-- [License](#license)
+- [Build local](#build-local)
+- [Documentação oficial](#documentação-oficial)
+- [Licença](#licença)
 
 ---
 
-## Features
+## Recursos
 
-- **Terraform** with **AWS CLI**, **Google Cloud SDK**, and **kubectl** in the same image
-- Minimal Debian base with a non-root user
-- Compatible with linux/amd64 and linux/arm64
-
----
-
-## Image tags
-
-| Tag                                                       | Description   |
-| --------------------------------------------------------- | ------------- |
-| `ghcr.io/tooark/terraform-aws-gcloud:<MAJOR.MINOR.PATCH>` | Full version  |
-| `ghcr.io/tooark/terraform-aws-gcloud:<MAJOR.MINOR>`       | Short version |
-| `ghcr.io/tooark/terraform-aws-gcloud:<MAJOR>`             | Major track   |
-| `ghcr.io/tooark/terraform-aws-gcloud:latest`              | Latest stable |
+- **Terraform** com **AWS CLI**, **Google Cloud SDK** e **kubectl** na mesma imagem
+- Base Debian minimalista com usuário não-root
+- Compatível com linux/amd64 e linux/arm64
 
 ---
 
-## Image contents
+## Tags da imagem
 
-| Item              | Description                                                     |
-| ----------------- | --------------------------------------------------------------- |
-| Base              | `debian:13-slim`                                                |
-| Terraform CLI     | `/usr/local/bin/terraform`                                      |
-| AWS CLI v2        | `/usr/local/aws-cli/v2/current/bin/aws`                         |
-| Google Cloud SDK  | `/opt/google-cloud-sdk`                                         |
-| kubectl           | `/usr/local/bin/kubectl`                                        |
-| Symlink           | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
-| Symlink           | `gcloud`, `gsutil`, `bq` -> `/opt/google-cloud-sdk/bin/gcloud`  |
-| Runtime deps      | `ca-certificates`, `bash`, `python3`, `gosu`                    |
-| Default user      | `app` (non-root)                                                |
-| Family identifier | `ARK_IMAGE_FAMILY=terraform-aws-gcloud`                         |
+| Tag                                                       | Descrição       |
+| --------------------------------------------------------- | --------------- |
+| `ghcr.io/tooark/terraform-aws-gcloud:<MAJOR.MINOR.PATCH>` | Versão completa |
+| `ghcr.io/tooark/terraform-aws-gcloud:<MAJOR.MINOR>`       | Versão curta    |
+| `ghcr.io/tooark/terraform-aws-gcloud:<MAJOR>`             | Major track     |
+| `ghcr.io/tooark/terraform-aws-gcloud:latest`              | Última estável  |
 
 ---
 
-## Quick start
+## Conteúdo da imagem
 
-Check the installed versions:
+| Item                  | Descrição                                                       |
+| --------------------- | --------------------------------------------------------------- |
+| Base                  | `debian:13-slim`                                                |
+| Terraform CLI         | `/usr/local/bin/terraform`                                      |
+| AWS CLI v2            | `/usr/local/aws-cli/v2/current/bin/aws`                         |
+| Google Cloud SDK      | `/opt/google-cloud-sdk`                                         |
+| kubectl               | `/usr/local/bin/kubectl`                                        |
+| Symlink               | `/usr/local/bin/aws` -> `/usr/local/aws-cli/v2/current/bin/aws` |
+| Symlink               | `gcloud`, `gsutil`, `bq` -> `/opt/google-cloud-sdk/bin/gcloud`  |
+| Runtime deps          | `ca-certificates`, `bash`, `python3`, `gosu`                    |
+| Usuário padrão        | `app` (não-root)                                                |
+| Identificador família | `ARK_IMAGE_FAMILY=terraform-aws-gcloud`                         |
+
+---
+
+## Início rápido
+
+Verificar versões instaladas:
 
 ```bash
 docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest terraform version
@@ -69,7 +69,7 @@ docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest gcloud --version
 docker run --rm ghcr.io/tooark/terraform-aws-gcloud:latest kubectl version --client
 ```
 
-Initialize a Terraform directory (mount your code):
+Inicializar um diretório Terraform (monte seu código):
 
 ```bash
 docker run --rm \
@@ -78,7 +78,7 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws-gcloud:latest terraform init
 ```
 
-Run plan and apply:
+Executar plan e apply:
 
 ```bash
 docker run --rm \
@@ -87,7 +87,7 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws-gcloud:latest terraform plan
 ```
 
-List GCP projects (requires prior authentication):
+Listar projetos GCP (requer autenticação prévia):
 
 ```bash
 docker run --rm \
@@ -95,7 +95,7 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws-gcloud:latest gcloud projects list --format="table(projectId,name)"
 ```
 
-Use kubectl with a mounted kubeconfig:
+Usar kubectl com kubeconfig montado:
 
 ```bash
 docker run --rm \
@@ -103,9 +103,9 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws-gcloud:latest kubectl get nodes --request-timeout=10s
 ```
 
-### Passing credentials to the container
+### Passando credenciais ao container
 
-Via environment variables:
+Por variáveis de ambiente:
 
 ```bash
 docker run --rm \
@@ -116,9 +116,9 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws-gcloud:latest aws sts get-caller-identity --no-cli-pager
 ```
 
-In CI/CD environments, prefer service accounts. Two common approaches:
+Em ambientes CI/CD, prefira contas de serviço. Duas formas comuns:
 
-The `GOOGLE_APPLICATION_CREDENTIALS` variable pointing to a mounted JSON file:
+Variável `GOOGLE_APPLICATION_CREDENTIALS` apontando para um arquivo JSON montado:
 
 ```bash
 docker run --rm \
@@ -127,17 +127,17 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws-gcloud:latest gcloud auth activate-service-account --key-file=/home/app/key.json
 ```
 
-Setting project/region/zone via environment variables:
+Definir projeto/região/zone via variáveis de ambiente:
 
 ```bash
 docker run --rm \
-  -e CLOUDSDK_CORE_PROJECT=my-project \
+  -e CLOUDSDK_CORE_PROJECT=meu-projeto \
   -e CLOUDSDK_COMPUTE_REGION=us-central1 \
   -e CLOUDSDK_COMPUTE_ZONE=us-central1-a \
   ghcr.io/tooark/terraform-aws-gcloud:latest gcloud config list
 ```
 
-Use `kubectl get` with a mounted kubeconfig:
+Usar `kubectl get` com kubeconfig montado:
 
 ```bash
 docker run --rm \
@@ -145,29 +145,29 @@ docker run --rm \
   ghcr.io/tooark/terraform-aws-gcloud:latest kubectl get nodes --request-timeout=10s
 ```
 
-To use `kubectl`, you can also mount a kubeconfig at `/home/app/.kube/config`.
+Para usar `kubectl`, você também pode montar um kubeconfig em `/home/app/.kube/config`.
 
 ---
 
-## Environment variables
+## Variáveis de ambiente
 
 ### AWS CLI
 
-| Variable                | Default     | Description        |
-| ----------------------- | ----------- | ------------------ |
-| `AWS_ACCESS_KEY_ID`     | -           | AWS access key     |
-| `AWS_SECRET_ACCESS_KEY` | -           | AWS secret key     |
-| `AWS_SESSION_TOKEN`     | -           | AWS session token  |
-| `AWS_REGION`            | `us-east-1` | Default AWS region |
+| Variável                | Default     | Descrição              |
+| ----------------------- | ----------- | ---------------------- |
+| `AWS_ACCESS_KEY_ID`     | -           | Chave de acesso da AWS |
+| `AWS_SECRET_ACCESS_KEY` | -           | Chave secreta da AWS   |
+| `AWS_SESSION_TOKEN`     | -           | Token de sessão da AWS |
+| `AWS_REGION`            | `us-east-1` | Região padrão da AWS   |
 
 ### GCLOUD CLI
 
-| Variable                         | Default | Description                           |
-| -------------------------------- | ------- | ------------------------------------- |
-| `GOOGLE_APPLICATION_CREDENTIALS` | -       | Path to the service account JSON file |
-| `CLOUDSDK_CORE_PROJECT`          | -       | Default GCP project                   |
-| `CLOUDSDK_COMPUTE_REGION`        | -       | Default GCP region                    |
-| `CLOUDSDK_COMPUTE_ZONE`          | -       | Default GCP zone                      |
+| Variável                         | Default | Descrição                                       |
+| -------------------------------- | ------- | ----------------------------------------------- |
+| `GOOGLE_APPLICATION_CREDENTIALS` | -       | Caminho para o arquivo JSON da conta de serviço |
+| `CLOUDSDK_CORE_PROJECT`          | -       | Projeto padrão do GCP                           |
+| `CLOUDSDK_COMPUTE_REGION`        | -       | Região padrão do GCP                            |
+| `CLOUDSDK_COMPUTE_ZONE`          | -       | Zona padrão do GCP                              |
 
 ---
 
@@ -175,7 +175,7 @@ To use `kubectl`, you can also mount a kubeconfig at `/home/app/.kube/config`.
 
 ### GitHub Actions
 
-#### Basic example (GH)
+#### Exemplo básico (GH)
 
 ```yaml
 name: Terraform MultiCloud
@@ -214,7 +214,7 @@ jobs:
         run: terraform apply tfplan
 ```
 
-### Example with EKS and GKE deployment (GH)
+### Exemplo com deploy em EKS e GKE (GH)
 
 ```yaml
 name: Deploy MultiCluster
@@ -257,7 +257,7 @@ jobs:
 
 ### GitLab CI
 
-### Basic example (GL)
+### Exemplo básico (GL)
 
 ```yaml
 stages:
@@ -297,7 +297,7 @@ terraform_apply:
   when: manual
 ```
 
-### Example with EKS and GKE deployment (GL)
+### Exemplo com deploy em EKS e GKE (GL)
 
 ```yaml
 stages:
@@ -323,10 +323,10 @@ deploy_multicluster:
 
 ---
 
-## Local build
+## Build local
 
 ```bash
-version="1.14.0" # Image with Terraform, AWS CLI, Google Cloud SDK, and kubectl
+version="1.14.0" # Imagem com Terraform, AWS CLI, Google Cloud SDK e kubectl
 tf="1.14.0"            # Terraform
 aws="2.32.3"           # AWS CLI
 gcloud="548.0.0"       # Google Cloud SDK
@@ -347,21 +347,21 @@ docker build \
 
 ---
 
-## Official documentation
+## Documentação oficial
 
 - [Terraform](https://developer.hashicorp.com/terraform/install#linux)
-  - [Release notes](https://github.com/hashicorp/terraform/releases)
+  - [Notas de lançamento](https://github.com/hashicorp/terraform/releases)
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
-  - [Release notes](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
+  - [Notas de lançamento](https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst)
 - [Google Cloud CLI](https://cloud.google.com/sdk/docs/install)
-  - [Release notes](https://cloud.google.com/sdk/docs/release-notes)
+  - [Notas de lançamento](https://cloud.google.com/sdk/docs/release-notes)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
-  - [Release notes](https://kubernetes.io/releases/)
+  - [Notas de lançamento](https://kubernetes.io/releases/)
 
 ---
 
-## License
+## Licença
 
-MIT - see the `LICENSE` file at the repository root.
+MIT - ver arquivo `LICENSE` na raiz do repositório.
 
 <!-- markdownlint-enable MD060 -->

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Argumento para definir a imagem base
-ARG BASE_IMAGE=debian:12-slim
+ARG BASE_IMAGE=debian:13-slim
 
 # Argumentos para multi-arquitetura
 ARG TARGETARCH
@@ -88,7 +88,7 @@ ARG KUBECTL_VERSION
 
 # Metadados da imagem
 LABEL org.opencontainers.image.title="terraform-aws" \
-  org.opencontainers.image.description="Base image with integrated Terraform, AWS CLI V2 and kubectl for Linux/amd64 and Linux/arm64" \
+  org.opencontainers.image.description="Base image with Terraform, AWS CLI V2 and kubectl for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${TF_AWS_VERSION}" \
@@ -102,9 +102,9 @@ LABEL org.opencontainers.image.title="terraform-aws" \
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get upgrade -y \
- && apt-get install -y --no-install-recommends ca-certificates \
- && update-ca-certificates
+ && apt-get install -y --no-install-recommends ca-certificates gosu \
+ && update-ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
 # Garante shell mais estrita
 SHELL ["/bin/sh", "-eu", "-c"]
@@ -115,15 +115,18 @@ COPY --from=builder /usr/local/aws-cli /usr/local/aws-cli
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
 
 # Copia o entrypoint padronizado
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Remove CR e BOM do entrypoint (proteção contra arquivos vindos de Windows)
+RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/docker-entrypoint.sh \
+ && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 
 # Cria symlink e usuário não-root
 RUN ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
   && useradd -m -s /bin/bash app
 
-# Muda para o usuário não-root
-USER app
+# Desabilita healthcheck (imagem de CLI, não é serviço)
+HEALTHCHECK NONE
 
 # Variáveis úteis
 ENV ARK_IMAGE_FAMILY=terraform-aws \

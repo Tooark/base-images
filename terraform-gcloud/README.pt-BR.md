@@ -1,64 +1,64 @@
 # terraform-gcloud
 
-Base image with `terraform` (Terraform CLI), `gcloud` (Google Cloud SDK), `gsutil`, `bq`,
-and `kubectl`, ready to use in pipelines and ad-hoc container runs.
+Imagem base com o `terraform` (Terraform CLI), `gcloud` (Google Cloud SDK), `gsutil`, `bq`
+e `kubectl`, prontos para uso em pipelines e execuções ad-hoc em container.
 
-> This family is now legacy. For new workflows, use [tofu-gcloud/README.md](../tofu-gcloud/README.md).
+> Esta família ficou legada. Para novos fluxos, use [tofu-gcloud/README.pt-BR.md](../tofu-gcloud/README.pt-BR.md).
 
-🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/terraform/README.pt-BR.md)
+🌍 **Idiomas:** [![USA Flag](https://flagcdn.com/w20/us.png) English](https://github.com/Tooark/base-images/blob/main/terraform-gcloud/README.md) · ![Brazil Flag](https://flagcdn.com/w20/br.png) **Português (este arquivo)**
 
 ---
 
-## Table of contents
+## Sumário
 
-- [Features](#features)
-- [Image tags](#image-tags)
-- [Image contents](#image-contents)
-- [Quick start](#quick-start)
+- [Recursos](#recursos)
+- [Tags da imagem](#tags-da-imagem)
+- [Conteúdo da imagem](#conteúdo-da-imagem)
+- [Início rápido](#início-rápido)
 - [Pipelines](#pipelines)
-- [Local build](#local-build)
-- [Official documentation](#official-documentation)
-- [License](#license)
+- [Build local](#build-local)
+- [Documentação oficial](#documentação-oficial)
+- [Licença](#licença)
 
 ---
 
-## Features
+## Recursos
 
-- **Terraform**, **Google Cloud SDK**, and **kubectl** in the same image
-- Minimal Debian base with a non-root user
-- Compatible with linux/amd64 and linux/arm64
-
----
-
-## Image tags
-
-| Tag                                                   | Description   |
-| ----------------------------------------------------- | ------------- |
-| `ghcr.io/tooark/terraform-gcloud:<MAJOR.MINOR.PATCH>` | Full version  |
-| `ghcr.io/tooark/terraform-gcloud:<MAJOR.MINOR>`       | Short version |
-| `ghcr.io/tooark/terraform-gcloud:<MAJOR>`             | Major track   |
-| `ghcr.io/tooark/terraform-gcloud:latest`              | Latest stable |
+- **Terraform**, **Google Cloud SDK** e **kubectl** na mesma imagem
+- Base Debian minimalista com usuário não-root
+- Compatível com linux/amd64 e linux/arm64
 
 ---
 
-## Image contents
+## Tags da imagem
 
-| Item              | Description                                                    |
-| ----------------- | -------------------------------------------------------------- |
-| Base              | `debian:13-slim`                                               |
-| Terraform CLI     | `/usr/local/bin/terraform`                                     |
-| Google Cloud SDK  | `/opt/google-cloud-sdk`                                        |
-| kubectl           | `/usr/local/bin/kubectl`                                       |
-| Symlink           | `gcloud`, `gsutil`, `bq` -> `/opt/google-cloud-sdk/bin/gcloud` |
-| Runtime deps      | `ca-certificates`, `bash`, `python3`, `gosu`                   |
-| Default user      | `app` (non-root)                                               |
-| Family identifier | `ARK_IMAGE_FAMILY=terraform-gcloud`                            |
+| Tag                                                   | Descrição       |
+| ----------------------------------------------------- | --------------- |
+| `ghcr.io/tooark/terraform-gcloud:<MAJOR.MINOR.PATCH>` | Versão completa |
+| `ghcr.io/tooark/terraform-gcloud:<MAJOR.MINOR>`       | Versão curta    |
+| `ghcr.io/tooark/terraform-gcloud:<MAJOR>`             | Major track     |
+| `ghcr.io/tooark/terraform-gcloud:latest`              | Última estável  |
 
 ---
 
-## Quick start
+## Conteúdo da imagem
 
-Check the installed versions:
+| Item                  | Descrição                                                      |
+| --------------------- | -------------------------------------------------------------- |
+| Base                  | `debian:13-slim`                                               |
+| Terraform CLI         | `/usr/local/bin/terraform`                                     |
+| Google Cloud SDK      | `/opt/google-cloud-sdk`                                        |
+| kubectl               | `/usr/local/bin/kubectl`                                       |
+| Symlink               | `gcloud`, `gsutil`, `bq` -> `/opt/google-cloud-sdk/bin/gcloud` |
+| Runtime deps          | `ca-certificates`, `bash`, `python3`, `gosu`                   |
+| Usuário padrão        | `app` (não-root)                                               |
+| Identificador família | `ARK_IMAGE_FAMILY=terraform-gcloud`                            |
+
+---
+
+## Início rápido
+
+Verificar versões instaladas:
 
 ```bash
 docker run --rm ghcr.io/tooark/terraform-gcloud:latest terraform version
@@ -66,7 +66,7 @@ docker run --rm ghcr.io/tooark/terraform-gcloud:latest gcloud --version
 docker run --rm ghcr.io/tooark/terraform-gcloud:latest kubectl version --client
 ```
 
-Initialize a Terraform directory (mount your code):
+Inicializar diretório Terraform (monte seu código):
 
 ```bash
 docker run --rm \
@@ -75,7 +75,7 @@ docker run --rm \
   ghcr.io/tooark/terraform-gcloud:latest terraform init
 ```
 
-Run a Terraform plan:
+Executar plan Terraform:
 
 ```bash
 docker run --rm \
@@ -84,7 +84,7 @@ docker run --rm \
   ghcr.io/tooark/terraform-gcloud:latest terraform plan
 ```
 
-List GCP projects (requires prior authentication):
+Listar projetos GCP (requer autenticação prévia):
 
 ```bash
 docker run --rm \
@@ -92,7 +92,7 @@ docker run --rm \
   ghcr.io/tooark/terraform-gcloud:latest gcloud projects list --format="table(projectId,name)"
 ```
 
-Use kubectl with a mounted kubeconfig:
+Usar kubectl com kubeconfig montado:
 
 ```bash
 docker run --rm \
@@ -100,11 +100,11 @@ docker run --rm \
   ghcr.io/tooark/terraform-gcloud:latest kubectl get nodes --request-timeout=10s
 ```
 
-### Authentication and credentials
+### Autenticação e credenciais
 
-In CI/CD environments, prefer service accounts. Two common approaches:
+Em ambientes CI/CD, prefira contas de serviço. Duas formas comuns:
 
-The `GOOGLE_APPLICATION_CREDENTIALS` variable pointing to a mounted JSON file:
+Variável `GOOGLE_APPLICATION_CREDENTIALS` apontando para um arquivo JSON montado:
 
 ```bash
 docker run --rm \
@@ -113,17 +113,17 @@ docker run --rm \
   ghcr.io/tooark/terraform-gcloud:latest gcloud auth activate-service-account --key-file=/home/app/key.json
 ```
 
-Setting project/region/zone via environment variables:
+Definir projeto/região/zone via variáveis de ambiente:
 
 ```bash
 docker run --rm \
-  -e CLOUDSDK_CORE_PROJECT=my-project \
+  -e CLOUDSDK_CORE_PROJECT=meu-projeto \
   -e CLOUDSDK_COMPUTE_REGION=us-central1 \
   -e CLOUDSDK_COMPUTE_ZONE=us-central1-a \
   ghcr.io/tooark/terraform-gcloud:latest gcloud config list
 ```
 
-Use `kubectl get` with a mounted kubeconfig:
+Usar `kubectl get` com kubeconfig montado:
 
 ```bash
 docker run --rm \
@@ -131,20 +131,20 @@ docker run --rm \
   ghcr.io/tooark/terraform-gcloud:latest kubectl get nodes --request-timeout=10s
 ```
 
-To use `kubectl`, you can also mount a kubeconfig at `/home/app/.kube/config`.
+Para usar `kubectl`, você também pode montar um kubeconfig em `/home/app/.kube/config`.
 
 ---
 
-## Environment variables
+## Variáveis de ambiente
 
 ### GCLOUD CLI
 
-| Variable                         | Default | Description                           |
-| -------------------------------- | ------- | ------------------------------------- |
-| `GOOGLE_APPLICATION_CREDENTIALS` | -       | Path to the service account JSON file |
-| `CLOUDSDK_CORE_PROJECT`          | -       | Default GCP project                   |
-| `CLOUDSDK_COMPUTE_REGION`        | -       | Default GCP region                    |
-| `CLOUDSDK_COMPUTE_ZONE`          | -       | Default GCP zone                      |
+| Variável                         | Default | Descrição                                       |
+| -------------------------------- | ------- | ----------------------------------------------- |
+| `GOOGLE_APPLICATION_CREDENTIALS` | -       | Caminho para o arquivo JSON da conta de serviço |
+| `CLOUDSDK_CORE_PROJECT`          | -       | Projeto padrão do GCP                           |
+| `CLOUDSDK_COMPUTE_REGION`        | -       | Região padrão do GCP                            |
+| `CLOUDSDK_COMPUTE_ZONE`          | -       | Zona padrão do GCP                              |
 
 ---
 
@@ -152,7 +152,7 @@ To use `kubectl`, you can also mount a kubeconfig at `/home/app/.kube/config`.
 
 ### GitHub Actions
 
-#### Basic example (GH)
+#### Exemplo básico (GH)
 
 ```yaml
 name: Terraform GCP
@@ -172,7 +172,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Authenticate to GCP
+      - name: Autenticar no GCP
         run: |
           echo "$GOOGLE_CREDENTIALS" > /tmp/sa.json
           gcloud auth activate-service-account --key-file=/tmp/sa.json
@@ -189,7 +189,7 @@ jobs:
         run: terraform apply tfplan
 ```
 
-#### Example with GKE deployment (GH)
+#### Exemplo com deployment em GKE (GH)
 
 ```yaml
 name: Deploy to GKE
@@ -225,7 +225,7 @@ jobs:
 
 ### GitLab CI
 
-#### Basic example (GL)
+#### Exemplo básico (GL)
 
 ```yaml
 stages:
@@ -265,7 +265,7 @@ terraform_apply:
   when: manual
 ```
 
-#### Example with GKE deployment (GL)
+#### Exemplo com deployment em GKE (GL)
 
 ```yaml
 stages:
@@ -290,12 +290,12 @@ deploy_gke:
 
 ---
 
-## Local build
+## Build local
 
-When building locally, publish equivalent tags for the same image.
+Ao construir localmente, publique tags equivalentes para a mesma imagem.
 
 ```bash
-version="1.14.0"   # Image with Terraform, Google Cloud SDK, and kubectl
+version="1.14.0"   # Imagem com Terraform, Google Cloud SDK e kubectl
 tf="1.14.0"        # Terraform
 gcloud="2.32.3"    # Google Cloud SDK
 kube="1.34.2"      # kubectl
@@ -314,19 +314,19 @@ docker build \
 
 ---
 
-## Official documentation
+## Documentação oficial
 
 - [Terraform](https://developer.hashicorp.com/terraform/install#linux)
-  - [Release notes](https://github.com/hashicorp/terraform/releases)
+  - [Notas de lançamento](https://github.com/hashicorp/terraform/releases)
 - [Google Cloud CLI](https://cloud.google.com/sdk/docs/install)
-  - [Release notes](https://cloud.google.com/sdk/docs/release-notes)
+  - [Notas de lançamento](https://cloud.google.com/sdk/docs/release-notes)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
-  - [Release notes](https://kubernetes.io/releases/)
+  - [Notas de lançamento](https://kubernetes.io/releases/)
 
 ---
 
-## License
+## Licença
 
-MIT - see the `LICENSE` file at the repository root.
+MIT - ver arquivo `LICENSE` na raiz do repositório.
 
 <!-- markdownlint-enable MD060 -->

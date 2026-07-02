@@ -1,116 +1,120 @@
 # base-images
 
-Repositório com imagens base para CI/CD e automação de infraestrutura.
+Repository of base images for CI/CD and infrastructure automation.
 
-Cada subprojeto possui Dockerfile, versionamento e documentação própria.
+Each subproject has its own Dockerfile, versioning, and documentation.
 
----
-
-## Sumário
-
-- [Visão geral](#visão-geral)
-- [Documentações das imagens](#documentações-das-imagens)
-- [Exemplos prontos](#exemplos-prontos)
-- [Estrutura do repositório](#estrutura-do-repositório)
-- [Versionamento e automação](#versionamento-e-automação)
-- [Fluxo recomendado](#fluxo-recomendado)
-- [Licença](#licença)
+🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/README.pt-BR.md)
 
 ---
 
-## Visão geral
+## Table of contents
 
-Este repositório centraliza imagens Docker para uso em pipelines e automações de infraestrutura.
-
-Cada imagem mantém:
-
-- Dockerfile com build reproduzível
-- arquivo VERSION para controle de release
-- DESCRIPTION com resumo funcional
-- README com conteúdo da imagem, início rápido, exemplos de pipelines e build local
-
----
-
-## Documentações das imagens
-
-| Subprojeto             | O que contém                                                                 | Documentação                                                     |
-| ---------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `aws-cli`              | AWS CLI v2 + kubectl                                                         | [aws-cli/README.md](aws-cli/README.md)                           |
-| `dockerx`              | Docker CLI + Buildx plugin para build multi-arquitetura                      | [dockerx/README.md](dockerx/README.md)                           |
-| `gcloud-cli`           | Google Cloud SDK (`gcloud`, `gsutil`, `bq`) + kubectl                        | [gcloud-cli/README.md](gcloud-cli/README.md)                     |
-| `opentofu`             | OpenTofu CLI                                                                 | [opentofu/README.md](opentofu/README.md)                         |
-| `tofu-aws`             | OpenTofu + AWS CLI v2 + kubectl                                              | [tofu-aws/README.md](tofu-aws/README.md)                         |
-| `tofu-gcloud`          | OpenTofu + Google Cloud SDK + kubectl                                        | [tofu-gcloud/README.md](tofu-gcloud/README.md)                   |
-| `tofu-aws-gcloud`      | OpenTofu + AWS CLI v2 + Google Cloud SDK + kubectl                           | [tofu-aws-gcloud/README.md](tofu-aws-gcloud/README.md)           |
-| `security-scanner`     | Trivy + Hadolint + BetterLeaks + wrapper `ark-tools` para scans e relatórios | [security-scanner/README.md](security-scanner/README.md)         |
-| `sonar-scanner`        | Sonar Scanner CLI para análises em pipelines CI/CD                           | [sonar-scanner/README.md](sonar-scanner/README.md)               |
-| `terraform`            | Terraform CLI (deprecated)                                                   | [terraform/README.md](terraform/README.md)                       |
-| `terraform-aws`        | Terraform + AWS CLI v2 + kubectl (deprecated)                                | [terraform-aws/README.md](terraform-aws/README.md)               |
-| `terraform-gcloud`     | Terraform + Google Cloud SDK + kubectl (deprecated)                          | [terraform-gcloud/README.md](terraform-gcloud/README.md)         |
-| `terraform-aws-gcloud` | Terraform + AWS CLI v2 + Google Cloud SDK + kubectl (deprecated)             | [terraform-aws-gcloud/README.md](terraform-aws-gcloud/README.md) |
-| `trivy-hadolint`       | Trivy + Hadolint + wrapper `ark-tools` para scans e relatórios               | [trivy-hadolint/README.md](trivy-hadolint/README.md)             |
+- [Overview](#overview)
+- [Image documentation](#image-documentation)
+- [Ready-made examples](#ready-made-examples)
+- [Repository structure](#repository-structure)
+- [Versioning and automation](#versioning-and-automation)
+- [Recommended workflow](#recommended-workflow)
+- [License](#license)
 
 ---
 
-## Exemplos prontos
+## Overview
 
-Use estes arquivos como ponto de partida para validação local e pipelines:
+This repository centralizes Docker images used in pipelines and infrastructure automation.
 
-- Guia com exemplos locais e instruções de uso: [samples/README.md](samples/README.md)
-- Pipeline de build/publicação no GitHub Actions: [samples/github-actions-images.yml](samples/github-actions-images.yml)
-- Pipeline de build/publicação no GitLab CI: [samples/gitlab-ci-images.yml](samples/gitlab-ci-images.yml)
+Each image keeps:
 
-Exemplos dedicados para security-scanner:
+- a Dockerfile with a reproducible build
+- a VERSION file for release control
+- a DESCRIPTION with a functional summary
+- a README with the image contents, quick start, pipeline examples, and local build
 
-- Execução local completa: [samples/security-scanner-local.sh](samples/security-scanner-local.sh)
-- Pipeline completo no GitHub Actions: [samples/security-scanner-github-actions.yml](samples/security-scanner-github-actions.yml)
-- Pipeline completo no GitLab CI: [samples/security-scanner-gitlab-ci.yml](samples/security-scanner-gitlab-ci.yml)
-
----
-
-## Estrutura do repositório
-
-- Cada pasta de subprojeto contém:
-  - `Dockerfile`: definição da imagem
-  - `VERSION`: versão do subprojeto
-  - `DESCRIPTION`: resumo curto da imagem
-  - `README.md`: uso, variáveis e exemplos
-  - `.trivyignore`: exceções de CVE aceitas para o scan de segurança da imagem
+All images share the same base (`debian:13-slim`), run as the non-root user (`app`), and use the same `docker-entrypoint.sh`, which adjusts the `docker.sock` GID and drops privileges via `gosu` at runtime.
 
 ---
 
-## Versionamento e automação
+## Image documentation
 
-O arquivo [versions.env](versions.env) centraliza as versões de todas as ferramentas e imagens.
-
-A pasta `script/` contém os scripts de automação:
-
-| Script                            | Função                                                        |
-| --------------------------------- | ------------------------------------------------------------- |
-| `fetch-latest-stable-versions.py` | Consulta as versões estáveis mais recentes de cada ferramenta |
-| `update-versions.py`              | Atualiza `versions.env` e gerencia os arquivos `.trivyignore` |
-
-### Gestão automática de .trivyignore
-
-Quando o script `update-versions.py` detecta uma nova versão de ferramenta, ele:
-
-1. **Limpa e reinicializa** o `.trivyignore` de **todas as imagens impactadas** pela versão alterada.
-2. **Não reconstrói nem herda automaticamente** exceções entre imagens.
-3. Recria o arquivo com um cabeçalho padrão e data de revisão automática para o mantenedor adicionar manualmente apenas as CVEs aceitas para aquela versão.
-
-> Exemplo: se `GCLOUD_VERSION` muda, o script limpa e recria `.trivyignore` de `gcloud-cli/`, `tofu-gcloud/`, `terraform-gcloud/` e `terraform-aws-gcloud/`. Nenhum desses arquivos recebe CVEs automaticamente.
+| Subproject             | What it contains                                                            | Documentation                                                    |
+| ---------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `aws-cli`              | AWS CLI v2 + kubectl + Docker CLI + Buildx                                  | [aws-cli/README.md](aws-cli/README.md)                           |
+| `dockerx`              | Docker CLI + Buildx plugin for multi-architecture builds                    | [dockerx/README.md](dockerx/README.md)                           |
+| `gcloud-cli`           | Google Cloud SDK (`gcloud`, `gsutil`, `bq`) + kubectl + Docker CLI + Buildx | [gcloud-cli/README.md](gcloud-cli/README.md)                     |
+| `tofu`                 | OpenTofu CLI                                                                | [tofu/README.md](tofu/README.md)                                 |
+| `tofu-aws`             | OpenTofu + AWS CLI v2 + kubectl                                             | [tofu-aws/README.md](tofu-aws/README.md)                         |
+| `tofu-gcloud`          | OpenTofu + Google Cloud SDK + kubectl                                       | [tofu-gcloud/README.md](tofu-gcloud/README.md)                   |
+| `tofu-aws-gcloud`      | OpenTofu + AWS CLI v2 + Google Cloud SDK + kubectl                          | [tofu-aws-gcloud/README.md](tofu-aws-gcloud/README.md)           |
+| `security-scanner`     | Trivy + Hadolint + BetterLeaks + `ark-tools` wrapper for scans and reports  | [security-scanner/README.md](security-scanner/README.md)         |
+| `sonar-scanner`        | Sonar Scanner CLI for analysis in CI/CD pipelines                           | [sonar-scanner/README.md](sonar-scanner/README.md)               |
+| `terraform`            | Terraform CLI (deprecated)                                                  | [terraform/README.md](terraform/README.md)                       |
+| `terraform-aws`        | Terraform + AWS CLI v2 + kubectl (deprecated)                               | [terraform-aws/README.md](terraform-aws/README.md)               |
+| `terraform-gcloud`     | Terraform + Google Cloud SDK + kubectl (deprecated)                         | [terraform-gcloud/README.md](terraform-gcloud/README.md)         |
+| `terraform-aws-gcloud` | Terraform + AWS CLI v2 + Google Cloud SDK + kubectl (deprecated)            | [terraform-aws-gcloud/README.md](terraform-aws-gcloud/README.md) |
+| `trivy-hadolint`       | Trivy + Hadolint + `ark-tools` wrapper for scans and reports                | [trivy-hadolint/README.md](trivy-hadolint/README.md)             |
 
 ---
 
-## Fluxo recomendado
+## Ready-made examples
 
-1. Escolha a imagem pelo catálogo em [Documentações das imagens](#documentações-das-imagens).
-2. Siga o início rápido e as variáveis no README da imagem escolhida.
-3. Use os exemplos em [samples/README.md](samples/README.md) e os arquivos dedicados do security-scanner para integração inicial.
-4. Para releases e atualizações de versão, use os scripts da pasta [script/](script/fetch-latest-stable-versions.py).
+Use these files as a starting point for local validation and pipelines:
+
+- Guide with local examples and usage instructions: [samples/README.md](samples/README.md)
+- Build/publish pipeline for GitHub Actions: [samples/github-actions-images.yml](samples/github-actions-images.yml)
+- Build/publish pipeline for GitLab CI: [samples/gitlab-ci-images.yml](samples/gitlab-ci-images.yml)
+
+Dedicated examples for security-scanner:
+
+- Full local run: [samples/security-scanner-local.sh](samples/security-scanner-local.sh)
+- Full GitHub Actions pipeline: [samples/security-scanner-github-actions.yml](samples/security-scanner-github-actions.yml)
+- Full GitLab CI pipeline: [samples/security-scanner-gitlab-ci.yml](samples/security-scanner-gitlab-ci.yml)
 
 ---
 
-## Licença
+## Repository structure
 
-MIT - ver arquivo [LICENSE](LICENSE) na raiz do repositório.
+- Each subproject folder contains:
+  - `Dockerfile`: image definition
+  - `VERSION`: subproject version
+  - `DESCRIPTION`: short image summary
+  - `README.md`: usage, variables, and examples
+  - `.trivyignore`: accepted CVE exceptions for the image security scan
+
+---
+
+## Versioning and automation
+
+The [versions.env](versions.env) file centralizes the versions of all tools and images.
+
+The `script/` folder contains the automation scripts:
+
+| Script                            | Purpose                                                     |
+| --------------------------------- | ----------------------------------------------------------- |
+| `fetch-latest-stable-versions.py` | Fetches the latest stable versions of each tool             |
+| `update-versions.py`              | Updates `versions.env` and manages the `.trivyignore` files |
+
+### Automatic .trivyignore management
+
+When the `update-versions.py` script detects a new tool version, it:
+
+1. **Clears and reinitializes** the `.trivyignore` of **all images impacted** by the changed version.
+2. **Does not rebuild or automatically inherit** exceptions across images.
+3. Recreates the file with a standard header and an automatic review date, so the maintainer can manually add only the CVEs accepted for that version.
+
+> Example: if `GCLOUD_VERSION` changes, the script clears and recreates the `.trivyignore` of `gcloud-cli/`, `tofu-gcloud/`, `terraform-gcloud/`, and `terraform-aws-gcloud/`. None of these files receive CVEs automatically.
+
+---
+
+## Recommended workflow
+
+1. Choose the image from the catalog in [Image documentation](#image-documentation).
+2. Follow the quick start and the variables in the chosen image's README.
+3. Use the examples in [samples/README.md](samples/README.md) and the dedicated security-scanner files for initial integration.
+4. For releases and version updates, use the scripts in the [script/](script/fetch-latest-stable-versions.py) folder.
+
+---
+
+## License
+
+MIT - see the [LICENSE](LICENSE) file at the repository root.

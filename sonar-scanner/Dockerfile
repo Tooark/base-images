@@ -47,7 +47,7 @@ ARG SONAR_CLI_VERSION
 
 # Metadados da imagem
 LABEL org.opencontainers.image.title="sonar-scanner" \
-  org.opencontainers.image.description="Base image with integrated Sonar Scanner CLI for Go, PHP and other languages (multi-arch) for Linux/amd64 and Linux/arm64" \
+  org.opencontainers.image.description="Base image with Sonar Scanner CLI for Go, PHP and other languages for Linux/amd64 and Linux/arm64" \
   org.opencontainers.image.vendor="Tooark" \
   org.opencontainers.image.licenses="MIT" \
   org.opencontainers.image.version="${SONAR_CLI_VERSION}" \
@@ -62,7 +62,7 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates bash git openjdk-21-jre \
+ && apt-get install -y --no-install-recommends ca-certificates bash git openjdk-21-jre gosu \
  && update-ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
@@ -71,6 +71,10 @@ COPY --from=builder /opt/sonar-scanner /opt/sonar-scanner
 
 # Copia o entrypoint para auto-configuração do acesso ao Docker
 COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Remove CR e BOM do entrypoint (proteção contra arquivos vindos de Windows)
+RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/docker-entrypoint.sh \
+ && sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
 
 # Cria apenas o usuário não-root
 RUN useradd -m -s /bin/bash app

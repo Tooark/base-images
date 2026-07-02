@@ -1,14 +1,14 @@
 # samples
 
-🌐 **English** | **[Português](README.pt-BR.md)**
+🌐 **[English](README.md)** | **Português**
 
-Usage examples for the images in three scenarios:
+Exemplos de uso das imagens em três cenários:
 
-- local usage
+- uso local
 - GitHub Actions
 - GitLab CI
 
-## Covered images
+## Imagens cobertas
 
 - ghcr.io/tooark/dockerx:latest
 - ghcr.io/tooark/aws-cli:latest
@@ -21,22 +21,22 @@ Usage examples for the images in three scenarios:
 - ghcr.io/tooark/trivy-hadolint:latest
 - ghcr.io/tooark/security-scanner:latest
 
-## Dedicated examples: security-scanner
+## Exemplos dedicados: security-scanner
 
-Complete files for the `security-scanner` image:
+Arquivos completos para a imagem `security-scanner`:
 
-- Full local usage: [security-scanner-local.sh](security-scanner-local.sh)
-- Full GitHub Actions: [security-scanner-github-actions.yml](security-scanner-github-actions.yml)
-- Full GitLab CI: [security-scanner-gitlab-ci.yml](security-scanner-gitlab-ci.yml)
+- Uso local completo: [security-scanner-local.sh](security-scanner-local.sh)
+- GitHub Actions completo: [security-scanner-github-actions.yml](security-scanner-github-actions.yml)
+- GitLab CI completo: [security-scanner-gitlab-ci.yml](security-scanner-gitlab-ci.yml)
 
-These examples cover:
+Esses exemplos cobrem:
 
-- All the main commands (`image-scan`, `filesystem-scan`, `config-scan`, `repo-scan`, `dockerfile-lint`, `secret-scan`, `full-scan`)
-- Metadata flags (`--branch`, `--commit`, `--user`, `--repository|--repo`, `--tag`)
-- Specific parameters (`--sbom`, `--sbom-format`, `--no-git`, `--baseline`, `--path`, `--dockerfiles`, `--scan-mode`, `--skip-*`)
-- Environment variables for Trivy, Hadolint, Betterleaks, SBOM, Full-scan, and Webhook
+- Todos os comandos principais (`image-scan`, `filesystem-scan`, `config-scan`, `repo-scan`, `dockerfile-lint`, `secret-scan`, `full-scan`)
+- Flags de metadata (`--branch`, `--commit`, `--user`, `--repository|--repo`, `--tag`)
+- Parâmetros específicos (`--sbom`, `--sbom-format`, `--no-git`, `--baseline`, `--path`, `--dockerfiles`, `--scan-mode`, `--skip-*`)
+- Variáveis de ambiente de Trivy, Hadolint, Betterleaks, SBOM, Full-scan e Webhook
 
-## 1) Local usage (docker run)
+## 1) Uso local (docker run)
 
 ### docker (dockerx)
 
@@ -124,31 +124,31 @@ docker run --rm \
 
 ## 2) GitHub Actions
 
-Complete example file for the 9 images:
+Arquivo completo de exemplo para as 9 imagens:
 
 - [github-actions-images.yml](github-actions-images.yml)
 
-How to use:
+Como usar:
 
-1. Copy the file to .github/workflows/base-images-sample.yml
-2. Adjust secrets and variables if you run authenticated commands (AWS/GCP)
-3. Run it via push or workflow_dispatch
+1. Copie o arquivo para .github/workflows/base-images-sample.yml
+2. Ajuste segredos e variáveis se for executar comandos autenticados (AWS/GCP)
+3. Execute por push ou workflow_dispatch
 
 ## 3) GitLab CI
 
-Complete example file for the 9 images:
+Arquivo completo de exemplo para as 9 imagens:
 
 - [gitlab-ci-images.yml](gitlab-ci-images.yml)
 
-How to use:
+Como usar:
 
-1. Copy the content into .gitlab-ci.yml (or include it as a template)
-2. Adjust protected variables for AWS/GCP credentials
-3. Run the pipeline
+1. Copie o conteúdo para .gitlab-ci.yml (ou inclua como template)
+2. Ajuste variáveis protegidas para credenciais AWS/GCP
+3. Rode a pipeline
 
-## Notes
+## Observações
 
-- The examples use latest for simplicity. In production, prefer pinned tags.
-- For authenticated commands, inject credentials via CI variables.
-- The trivy-hadolint examples now show how to set severity/gate, persist reports, and pass metadata when the command runs via docker run.
-- The trivy-hadolint example may download the vulnerability database on the first run.
+- Os exemplos usam latest para simplificar. Em produção, prefira tags fixas.
+- Para comandos autenticados, injete credenciais via variáveis do CI.
+- Os exemplos de trivy-hadolint agora mostram como definir severidade/gate, persistir relatórios e informar metadata quando o comando roda via docker run.
+- O exemplo de trivy-hadolint pode baixar banco de vulnerabilidades na primeira execução.

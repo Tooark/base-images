@@ -1,63 +1,65 @@
-# docker
+# dockerx
 
-Imagem base com `docker` (Docker CLI) e `docker buildx`, prontos para uso em
-pipelines e execuções ad-hoc em container.
+Base image with `docker` (Docker CLI) and `docker buildx`, ready to use in
+pipelines and ad-hoc container runs.
+
+🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/dockerx/README.pt-BR.md)
 
 ---
 
-## Sumário
+## Table of contents
 
-- [Recursos](#recursos)
-- [Tags da imagem](#tags-da-imagem)
-- [Conteúdo da imagem](#conteúdo-da-imagem)
-- [Início rápido](#início-rápido)
+- [Features](#features)
+- [Image tags](#image-tags)
+- [Image contents](#image-contents)
+- [Quick start](#quick-start)
 - [Pipelines](#pipelines)
-- [Build local](#build-local)
-- [Documentação oficial](#documentação-oficial)
-- [Licença](#licença)
+- [Local build](#local-build)
+- [Official documentation](#official-documentation)
+- [License](#license)
 
 ---
 
-## Recursos
+## Features
 
-- **Docker CLI** e **Docker Buildx** prontos para uso em CI/CD
-- Base Debian minimalista com usuário não-root
-- Compatível com linux/amd64 e linux/arm64
-
----
-
-## Tags da imagem
-
-| Tag                                          | Descrição       |
-| -------------------------------------------- | --------------- |
-| `ghcr.io/tooark/dockerx:<MAJOR.MINOR.PATCH>` | Versão completa |
-| `ghcr.io/tooark/dockerx:<MAJOR.MINOR>`       | Versão curta    |
-| `ghcr.io/tooark/dockerx:<MAJOR>`             | Major track     |
-| `ghcr.io/tooark/dockerx:latest`              | Última estável  |
-
-## Conteúdo da imagem
-
-| Item                  | Descrição                                             |
-| --------------------- | ----------------------------------------------------- |
-| Base                  | `debian:12-slim`                                      |
-| Docker CLI            | `/usr/local/bin/docker`                               |
-| Docker Buildx         | `/usr/local/libexec/docker/cli-plugins/docker-buildx` |
-| Runtime deps          | `ca-certificates`, `git`                              |
-| Usuário padrão        | `app` (não-root)                                      |
-| Identificador família | `ARK_IMAGE_FAMILY=dockerx`                            |
+- **Docker CLI** and **Docker Buildx** ready to use in CI/CD
+- Minimal Debian base with a non-root user
+- Compatible with linux/amd64 and linux/arm64
 
 ---
 
-## Início rápido
+## Image tags
 
-Verificar versão do Docker CLI e do Buildx:
+| Tag                                          | Description   |
+| -------------------------------------------- | ------------- |
+| `ghcr.io/tooark/dockerx:<MAJOR.MINOR.PATCH>` | Full version  |
+| `ghcr.io/tooark/dockerx:<MAJOR.MINOR>`       | Short version |
+| `ghcr.io/tooark/dockerx:<MAJOR>`             | Major track   |
+| `ghcr.io/tooark/dockerx:latest`              | Latest stable |
+
+## Image contents
+
+| Item              | Description                                           |
+| ----------------- | ----------------------------------------------------- |
+| Base              | `debian:13-slim`                                      |
+| Docker CLI        | `/usr/local/bin/docker`                               |
+| Docker Buildx     | `/usr/local/libexec/docker/cli-plugins/docker-buildx` |
+| Runtime deps      | `ca-certificates`, `git`, `gosu`                      |
+| Default user      | `app` (non-root)                                      |
+| Family identifier | `ARK_IMAGE_FAMILY=dockerx`                            |
+
+---
+
+## Quick start
+
+Check the Docker CLI and Buildx versions:
 
 ```bash
 docker run --rm ghcr.io/tooark/dockerx:latest docker --version
 docker run --rm ghcr.io/tooark/dockerx:latest docker buildx version
 ```
 
-Listar builders (com acesso ao socket Docker do host Linux):
+List builders (with access to the Linux host's Docker socket):
 
 ```bash
 docker run --rm \
@@ -65,10 +67,10 @@ docker run --rm \
   ghcr.io/tooark/dockerx:latest docker buildx ls
 ```
 
-O `docker-entrypoint.sh` da imagem sincroniza automaticamente o GID do
-`/var/run/docker.sock` e executa como usuário não-root (`app`).
+The image's `docker-entrypoint.sh` automatically syncs the `/var/run/docker.sock`
+GID and runs as the non-root user (`app`).
 
-Build e push multi-arquitetura com Buildx:
+Multi-architecture build and push with Buildx:
 
 ```bash
 docker run --rm \
@@ -84,7 +86,7 @@ docker run --rm \
 
 ### GitHub Actions
 
-#### Exemplo básico (GH)
+#### Basic example (GH)
 
 ```yaml
 name: Docker Buildx
@@ -109,7 +111,7 @@ jobs:
 
 ### GitLab CI
 
-#### Exemplo básico (GL)
+#### Basic example (GL)
 
 ```yaml
 stages:
@@ -125,9 +127,9 @@ build_image:
 
 ---
 
-## Build local
+## Local build
 
-Ao construir localmente, publique tags equivalentes para a mesma imagem (versão completa, curta e `latest`).
+When building locally, publish equivalent tags for the same image (full version, short version, and `latest`).
 
 ```bash
 version="29.1.1"       # DockerX
@@ -147,15 +149,15 @@ docker build \
 
 ---
 
-## Documentação oficial
+## Official documentation
 
 - [Docker CLI](https://docs.docker.com/reference/cli/docker/)
-  - [Notas de lançamento](https://docs.docker.com/engine/release-notes/)
+  - [Release notes](https://docs.docker.com/engine/release-notes/)
 - [Docker Buildx](https://docs.docker.com/reference/cli/docker/buildx/)
-  - [Notas de lançamento](https://github.com/docker/buildx/releases/)
+  - [Release notes](https://github.com/docker/buildx/releases/)
 
 ---
 
-## Licença
+## License
 
-MIT — ver `LICENSE` na raiz do repositório.
+MIT — see `LICENSE` at the repository root.

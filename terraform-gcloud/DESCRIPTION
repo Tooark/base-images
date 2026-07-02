@@ -1,1 +1,1 @@
-Base image with integrated Terraform, GCLOUD CLI and kubectl for Linux/amd64 and Linux/arm64
+Base image with Terraform, Google Cloud SDK and kubectl for Linux/amd64 and Linux/arm64
