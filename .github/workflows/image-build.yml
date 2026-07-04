@@ -299,9 +299,15 @@ jobs:
             $BUILD_ARGS \
             --label "org.opencontainers.image.title=${{ matrix.image }}" \
             --label "org.opencontainers.image.description=$DESCRIPTION" \
-            --label "org.opencontainers.image.source=${{ github.repository }}" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.version=${{ steps.tags.outputs.full }}" \
+            --annotation "index:org.opencontainers.image.title=${{ matrix.image }}" \
+            --annotation "index:org.opencontainers.image.description=$DESCRIPTION" \
+            --annotation "index:org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --annotation "index:org.opencontainers.image.revision=${{ github.sha }}" \
+            --annotation "index:org.opencontainers.image.version=${{ steps.tags.outputs.full }}" \
+            --annotation "index:org.opencontainers.image.licenses=MIT" \
             -t $IMAGE_NAME:${{ steps.tags.outputs.full }} \
             -t $IMAGE_NAME:${{ steps.tags.outputs.short }} \
             -t $IMAGE_NAME:${{ steps.tags.outputs.major }} \
