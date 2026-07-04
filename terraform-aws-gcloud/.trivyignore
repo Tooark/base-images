@@ -5,3 +5,16 @@
 # Revisão:
 # 2026-08-04 (ou antes, ao atualizar base/pacotes da imagem).
 
+# Python (python-pkg)
+GHSA-537c-gmf6-5ccf
+
+# usr/local/bin/kubectl (gobinary)
+CVE-2026-25681
+CVE-2026-27136
+CVE-2026-33814
+CVE-2026-39821
+CVE-2026-42502
+
+# usr/local/bin/terraform (gobinary)
+CVE-2026-27145
+CVE-2026-42504
