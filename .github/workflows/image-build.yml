@@ -3,6 +3,7 @@ name: Build and Push Docker Images
 permissions:
   contents: write
   packages: write
+  id-token: write # necessário para assinatura keyless (OIDC) com Cosign
 
 env:
   REGISTRY: ghcr.io/tooark
@@ -295,6 +296,7 @@ jobs:
 
           # Build and push the multi-arch image with labels
           # BUILD_ARGS was exported by the scan step via GITHUB_ENV
+          # --metadata-file exporta o digest do image index para uso na assinatura
           docker buildx build --platform linux/amd64,linux/arm64 \
             $BUILD_ARGS \
             --label "org.opencontainers.image.title=${{ matrix.image }}" \
@@ -312,10 +314,30 @@ jobs:
             -t $IMAGE_NAME:${{ steps.tags.outputs.short }} \
             -t $IMAGE_NAME:${{ steps.tags.outputs.major }} \
             -t $IMAGE_NAME:latest \
+            --metadata-file /tmp/build-metadata.json \
             ./${{ matrix.image }} --push
+
+          # Extrai o digest do image index para assinar por digest (cobre todas as tags)
+          IMAGE_DIGEST=$(jq -r '.["containerimage.digest"]' /tmp/build-metadata.json)
+          echo "IMAGE_NAME=$IMAGE_NAME" >> "$GITHUB_ENV"
+          echo "IMAGE_DIGEST=$IMAGE_DIGEST" >> "$GITHUB_ENV"
 
           # Remove local scan image to free disk space
           docker rmi "$SCAN_IMAGE" || true
+
+      - name: Install Cosign
+        if: ${{ steps.detect.outputs.build == 'true' }}
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image with Cosign (keyless)
+        if: ${{ steps.detect.outputs.build == 'true' }}
+        env:
+          COSIGN_YES: "true"
+        run: |
+          set -eu
+          # Assinatura keyless via OIDC do GitHub Actions (sem chaves privadas).
+          # Assina o digest do image index, cobrindo todas as tags publicadas.
+          cosign sign --recursive "${IMAGE_NAME}@${IMAGE_DIGEST}"
 
       - name: Create and push tag
         if: ${{ steps.detect.outputs.build == 'true' }}
