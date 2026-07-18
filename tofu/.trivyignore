@@ -3,14 +3,5 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-08-01 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-08-18 (ou antes, ao atualizar base/pacotes da imagem).
 
-# usr/local/bin/tofu (gobinary)
-CVE-2026-25681
-CVE-2026-27136
-CVE-2026-39821
-CVE-2026-39883
-CVE-2026-42502
-
-# oras.land/oras-go/v2
-CVE-2026-50151

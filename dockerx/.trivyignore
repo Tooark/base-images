@@ -3,10 +3,5 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-07-05 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-08-18 (ou antes, ao atualizar base/pacotes da imagem).
 
-# usr/local/libexec/docker/cli-plugins/docker-buildx (gobinary)
-CVE-2026-34040
-CVE-2026-53488
-CVE-2026-53489
-CVE-2026-53492
