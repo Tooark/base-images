@@ -3,5 +3,23 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-08-18 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-08-21 (ou antes, ao atualizar base/pacotes da imagem).
 
+# Python (python-pkg) - cryptography (METADATA)
+GHSA-537c-gmf6-5ccf
+
+# usr/local/bin/kubectl (gobinary) - golang.org/x/net
+CVE-2026-25681
+CVE-2026-27136
+CVE-2026-33814
+CVE-2026-39821
+CVE-2026-42502
+
+# usr/local/bin/tofu (gobinary) - go.opentelemetry.io/otel/sdk
+CVE-2026-39883
+
+# usr/local/bin/tofu (gobinary) - golang.org/x/net
+CVE-2026-25681
+CVE-2026-27136
+CVE-2026-39821
+CVE-2026-42502
