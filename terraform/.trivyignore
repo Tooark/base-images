@@ -3,7 +3,9 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-07-05 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-08-21 (ou antes, ao atualizar base/pacotes da imagem).
 
-# usr/local/bin/terraform (gobinary)
+# usr/local/bin/terraform (gobinary) - stdlib
 CVE-2026-27145
+CVE-2026-39822
+CVE-2026-42504

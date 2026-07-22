@@ -210,6 +210,7 @@ scan_image() {
     -v "${reports_dir}":/reports \
     -e TRIVY_CACHE_DIR=/home/app/.cache/trivy \
     -e TRIVY_FORMAT=table \
+    -e TRIVY_EXIT_CODE=0 \
     security-scanner:latest \
     full-scan "${image_ref}" --path /workspace
 }

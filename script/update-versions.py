@@ -238,7 +238,7 @@ for composite_key, dependency_keys in COMPOSITE_VERSION_RULES.items():
   changed.append((composite_key, composite_old_val, composite_new_val))
 
 if changed:
-  with open("versions.env", "w", encoding="utf-8") as f:
+  with open("versions.env", "w", encoding="utf-8", newline="\n") as f:
     f.writelines(lines)
 
   trivyignore_standard_header = build_trivyignore_standard_header()

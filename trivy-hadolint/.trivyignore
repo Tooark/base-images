@@ -3,5 +3,10 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-08-01 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-08-21 (ou antes, ao atualizar base/pacotes da imagem).
 
+# usr/local/bin/trivy (gobinary) - oras.land/oras-go/v2
+CVE-2026-50151
+
+# usr/local/bin/trivy (gobinary) - stdlib
+CVE-2026-39822
