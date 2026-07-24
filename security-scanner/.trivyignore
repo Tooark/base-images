@@ -10,6 +10,9 @@ CVE-2026-27145
 CVE-2026-39822
 CVE-2026-42504
 
+# usr/local/bin/trivy (gobinary) - google.golang.org/grpc
+GHSA-hrxh-6v49-42gf
+
 # usr/local/bin/trivy (gobinary) - oras.land/oras-go/v2
 CVE-2026-50151
 
