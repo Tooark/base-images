@@ -221,17 +221,81 @@ rm -f "$TMP_IGNORE"
 unset TRIVY_IGNOREFILE
 assert_eq "$(resolve_trivy_ignorefile)" "" "no file -> empty"
 
+section "trivy_common_flags() - unfixed is report-scope only"
+reset_envs
+unset TRIVY_IGNORE_UNFIXED TRIVY_SEVERITY TRIVY_EXIT_CODE TRIVY_TIMEOUT TRIVY_SCANNERS TRIVY_SERVER
+
+## Retorna "yes"/"no" conforme a flag esteja presente no array
+has_flag() {
+  local needle="$1"; shift
+  local f
+  for f in "$@"; do
+    [[ "$f" == "$needle" ]] && { echo "yes"; return; }
+  done
+  echo "no"
+}
+
+common_flags=()
+trivy_common_flags common_flags false >/dev/null 2>&1
+assert_eq "$(has_flag "--ignore-unfixed" "${common_flags[@]}")" "no" "default -> full report"
+
+TRIVY_IGNORE_UNFIXED="true"
+common_flags=()
+trivy_common_flags common_flags false >/dev/null 2>&1
+assert_eq "$(has_flag "--ignore-unfixed" "${common_flags[@]}")" "yes" "opt-in -> flag added"
+
+TRIVY_IGNORE_UNFIXED="1"
+common_flags=()
+trivy_common_flags common_flags false >/dev/null 2>&1
+assert_eq "$(has_flag "--ignore-unfixed" "${common_flags[@]}")" "yes" "is_true variant '1'"
+
+## O gate NÃO deve influenciar as flags do scan
+unset TRIVY_IGNORE_UNFIXED
+TRIVY_IGNORE_UNFIXED_FAIL="false"
+common_flags=()
+trivy_common_flags common_flags false >/dev/null 2>&1
+assert_eq "$(has_flag "--ignore-unfixed" "${common_flags[@]}")" "no" "_FAIL does not touch scan"
+unset TRIVY_IGNORE_UNFIXED_FAIL
+
 section "trivy_failure_gate()"
+unset TRIVY_IGNORE_UNFIXED_FAIL TRIVY_SEVERITY_FAIL
 clean_report="$(mktemp)"; echo '{"Results":[]}' > "$clean_report"
 assert_ok "clean report passes" trivy_failure_gate "json" "$clean_report" "HIGH,CRITICAL"
 
 dirty_report="$(mktemp)"
 cat > "$dirty_report" <<'EOF'
-{"Results":[{"Target":"x","Vulnerabilities":[{"VulnerabilityID":"CVE-1","Severity":"CRITICAL"}]}]}
+{"Results":[{"Target":"x","Vulnerabilities":[{"VulnerabilityID":"CVE-1","Severity":"CRITICAL","FixedVersion":"1.2.3"}]}]}
 EOF
-assert_fail "dirty report fails" trivy_failure_gate "json" "$dirty_report" "HIGH,CRITICAL"
+assert_fail "fixable vuln fails" trivy_failure_gate "json" "$dirty_report" "HIGH,CRITICAL"
 assert_ok "non-json skips gate" trivy_failure_gate "table" "$dirty_report" "HIGH,CRITICAL"
-rm -f "$clean_report" "$dirty_report"
+
+section "trivy_failure_gate() - TRIVY_IGNORE_UNFIXED_FAIL"
+unfixed_report="$(mktemp)"
+cat > "$unfixed_report" <<'EOF'
+{"Results":[{"Target":"x","Vulnerabilities":[{"VulnerabilityID":"CVE-2","Severity":"CRITICAL","FixedVersion":""}]}]}
+EOF
+assert_ok   "unfixed ignored by default" trivy_failure_gate "json" "$unfixed_report" "HIGH,CRITICAL"
+assert_fail "arg override counts unfixed" trivy_failure_gate "json" "$unfixed_report" "HIGH,CRITICAL" "false"
+
+TRIVY_IGNORE_UNFIXED_FAIL="false"
+assert_fail "env override counts unfixed" trivy_failure_gate "json" "$unfixed_report" "HIGH,CRITICAL"
+unset TRIVY_IGNORE_UNFIXED_FAIL
+
+## Vulnerabilidade sem a chave FixedVersion também é unfixed
+no_key_report="$(mktemp)"
+cat > "$no_key_report" <<'EOF'
+{"Results":[{"Target":"x","Vulnerabilities":[{"VulnerabilityID":"CVE-3","Severity":"CRITICAL"}]}]}
+EOF
+assert_ok "missing FixedVersion == unfixed" trivy_failure_gate "json" "$no_key_report" "HIGH,CRITICAL"
+
+## Misconfig/secret/license não têm fix e devem contar sempre
+misconfig_report="$(mktemp)"
+cat > "$misconfig_report" <<'EOF'
+{"Results":[{"Target":"Dockerfile","Misconfigurations":[{"ID":"DS002","Severity":"HIGH"}],"Secrets":[{"RuleID":"aws","Severity":"CRITICAL"}]}]}
+EOF
+assert_fail "misconfig/secret always count" trivy_failure_gate "json" "$misconfig_report" "HIGH,CRITICAL"
+
+rm -f "$clean_report" "$dirty_report" "$unfixed_report" "$no_key_report" "$misconfig_report"
 
 section "betterleaks_failure_gate()"
 empty_findings="$(mktemp)"; echo "[]" > "$empty_findings"

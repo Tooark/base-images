@@ -225,7 +225,9 @@ trivy_common_flags() {
   flags_ref+=( --severity "$severity" )
   flags_ref+=( --exit-code "$exit_code" )
   flags_ref+=( --timeout "$timeout" )
-  [[ "${TRIVY_IGNORE_UNFIXED:-true}" == "true" ]] && flags_ref+=( --ignore-unfixed )
+  ## Default false: o relatório é sempre completo. O filtro de unfixed
+  ## aplica-se apenas ao gate, via TRIVY_IGNORE_UNFIXED_FAIL.
+  is_true "${TRIVY_IGNORE_UNFIXED:-false}" && flags_ref+=( --ignore-unfixed )
   [[ -n "${TRIVY_SCANNERS:-}" ]] && flags_ref+=( --scanners "$TRIVY_SCANNERS" )
 
   ignorefile="$(resolve_trivy_ignorefile)"
@@ -242,10 +244,12 @@ trivy_common_flags() {
 ## $1 format (formato do relatório, deve ser "json" para análise)
 ## $2 output (path do arquivo de relatório JSON)
 ## $3 fail_severity (severidades que disparam falha, default: TRIVY_SEVERITY_FAIL ou "HIGH,CRITICAL")
+## $4 ignore_unfixed_fail (ignora vulnerabilidades sem fix no gate, default: TRIVY_IGNORE_UNFIXED_FAIL ou "true")
 trivy_failure_gate() {
   local format="${1:-}"
   local output="${2:-}"
   local fail_severity="${3:-${TRIVY_SEVERITY_FAIL:-HIGH,CRITICAL}}"
+  local ignore_unfixed_fail="${4:-${TRIVY_IGNORE_UNFIXED_FAIL:-true}}"
 
   ## Verifica se o formato é JSON para análise e se o arquivo existe antes de tentar processar.
   if [[ "$format" != "json" || ! -f "$output" || ! -s "$output" ]]; then
@@ -256,18 +260,31 @@ trivy_failure_gate() {
   ## Verifica se 'jq' está disponível para processar o JSON
   require_command jq || return 127
 
+  ## Converte o filtro de unfixed para booleano JSON (consumido via --argjson)
+  local skip_unfixed="false"
+  is_true "$ignore_unfixed_fail" && skip_unfixed="true"
+
   ## Executa uma única chamada jq que produz linhas por severidade e no final o total
+  ## Findings sem VulnerabilityID (misconfig/secret/license) nunca têm fix e sempre contam.
   local jq_out
-  jq_out=$(jq -r --arg sevs "$fail_severity" '
+  jq_out=$(jq -r --arg sevs "$fail_severity" --argjson skip_unfixed "$skip_unfixed" '
+    def count_sev($list; $sev): $list | map(select((.Severity // "") | ascii_upcase == $sev)) | length;
     ($sevs | split(",") | map(gsub("^\\s+|\\s+$"; "") | ascii_upcase)) as $slist
     | [ .Results[]? | (
         (.Vulnerabilities[]? // empty),
         (.Misconfigurations[]? // empty),
         (.Secrets[]? // empty),
         (.Licenses[]? // empty)
-      ) ] as $v
-    | ($slist | map(. as $sev | "\($sev): \($v | map(select((.Severity // "") | ascii_upcase == $sev)) | length)"))[],
-      ($slist | map(. as $sev | ($v | map(select((.Severity // "") | ascii_upcase == $sev)) | length)) | add)
+      ) ] as $all
+    | ( if $skip_unfixed
+        then [ $all[] | select(((.VulnerabilityID // "") == "") or ((.FixedVersion // "") != "")) ]
+        else $all
+        end ) as $gated
+    | ($slist | map(. as $sev
+        | count_sev($gated; $sev) as $g
+        | count_sev($all; $sev) as $a
+        | if $g == $a then "\($sev): \($g)" else "\($sev): \($g) (report: \($a))" end))[],
+      ($slist | map(. as $sev | count_sev($gated; $sev)) | add)
   ' "$output" 2>/dev/null || true)
 
   local severity_summary=""
@@ -281,9 +298,15 @@ trivy_failure_gate() {
     [[ "$vuln_found_count" =~ ^[0-9]+$ ]] || vuln_found_count=0
   fi
 
+  ## Informa o escopo do gate quando difere do relatório.
+  local gate_scope="all findings in report"
+  if [[ "$skip_unfixed" == "true" ]]; then
+    gate_scope="fixable vulnerabilities only (TRIVY_IGNORE_UNFIXED_FAIL=true)"
+  fi
+
   ## Verifica se o resumo por severidade foi gerado.
   if [[ -n "$severity_summary" ]]; then
-    log_err "Failure gate summary by severity (from JSON report):"
+    log_err "Failure gate summary by severity (from JSON report) — scope: $gate_scope"
     echo "$severity_summary" >&2
   fi
 
@@ -293,7 +316,7 @@ trivy_failure_gate() {
     return 1
   fi
 
-  log_ok "No vulnerabilities matching TRIVY_SEVERITY_FAIL=$fail_severity found. Gate passed."
+  log_ok "No vulnerabilities matching TRIVY_SEVERITY_FAIL=$fail_severity found. Gate passed ($gate_scope)."
   return 0
 }
 
@@ -1038,10 +1061,17 @@ Metadata flags (all scan commands):
                            Bitbucket Pipelines, Jenkins.
 
 Trivy environment variables:
-  TRIVY_SEVERITY         (default: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL")
-  TRIVY_SEVERITY_FAIL    (default: "HIGH,CRITICAL")
-  TRIVY_EXIT_CODE        (default: "1" - pipeline fails on vulnerabilities)
-  TRIVY_IGNORE_UNFIXED   (default: "true")
+  Report scope (what goes into the report):
+    TRIVY_SEVERITY             (default: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL")
+    TRIVY_IGNORE_UNFIXED       (default: "false") drops unfixed vulns from the report
+  Gate scope (what blocks the pipeline):
+    TRIVY_SEVERITY_FAIL        (default: "HIGH,CRITICAL")
+    TRIVY_IGNORE_UNFIXED_FAIL  (default: "true") blocks only on vulns with a fix
+    TRIVY_EXIT_CODE            (default: "1" - "0" disables the gate entirely)
+
+  The gate evaluates the report, so *_FAIL only narrows what was collected:
+  a finding excluded by TRIVY_SEVERITY/TRIVY_IGNORE_UNFIXED can never block.
+
   TRIVY_FORMAT           (e.g. "json", "sarif", "table")
   TRIVY_OUTPUT           (e.g. "trivy.sarif")
   TRIVY_TIMEOUT          (e.g. "5m")

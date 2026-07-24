@@ -85,8 +85,9 @@ trivy_hadolint:
     TRIVY_CACHE_DIR: "$CI_PROJECT_DIR/.cache/trivy"
     REPORT_DIR: "$CI_PROJECT_DIR/scan-reports"
     TRIVY_SEVERITY: "HIGH,CRITICAL"
+    TRIVY_IGNORE_UNFIXED: "false"
     TRIVY_SEVERITY_FAIL: "HIGH,CRITICAL"
-    TRIVY_IGNORE_UNFIXED: "true"
+    TRIVY_IGNORE_UNFIXED_FAIL: "true"
     HADOLINT_FAILURE_LEVEL: "warning"
   script:
     - ark-tools version

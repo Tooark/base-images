@@ -147,18 +147,19 @@ Flags de metadata aplicáveis a **todos** os comandos de scan:
 
 ### Trivy (gerais)
 
-| Variável               | Default                            | Descrição                                                           |
-| ---------------------- | ---------------------------------- | ------------------------------------------------------------------- |
-| `TRIVY_SEVERITY`       | `UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL` | Severidades incluídas no relatório                                  |
-| `TRIVY_SEVERITY_FAIL`  | `HIGH,CRITICAL`                    | Severidades que disparam o gate                                     |
-| `TRIVY_EXIT_CODE`      | `1`                                | `0` desativa o gate                                                 |
-| `TRIVY_IGNORE_UNFIXED` | `true`                             | Ignora vulnerabilidades sem fix                                     |
-| `TRIVY_FORMAT`         | `json`                             | `json`, `sarif`, `table`, `cyclonedx`, `spdx-json`                  |
-| `TRIVY_OUTPUT`         | por comando                        | Caminho de saída                                                    |
-| `TRIVY_TIMEOUT`        | `10m`                              | Timeout                                                             |
-| `TRIVY_SCANNERS`       | padrão do Trivy                    | Ex.: `vuln,secret,misconfig,license`                                |
-| `TRIVY_ALL_PACKAGES`   | `true`                             | Inclui `--list-all-pkgs` (auto-disable em `config-scan` e não-JSON) |
-| `TRIVY_IGNOREFILE`     | auto-detect                        | Path do `.trivyignore`                                              |
+| Variável                    | Default                            | Descrição                                                           |
+| --------------------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| `TRIVY_SEVERITY`            | `UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL` | Severidades incluídas no relatório                                  |
+| `TRIVY_IGNORE_UNFIXED`      | `false`                            | Remove vulnerabilidades sem fix do **relatório**                    |
+| `TRIVY_SEVERITY_FAIL`       | `HIGH,CRITICAL`                    | Severidades que disparam o gate                                     |
+| `TRIVY_IGNORE_UNFIXED_FAIL` | `true`                             | Gate bloqueia apenas em vulnerabilidades que possuem fix            |
+| `TRIVY_EXIT_CODE`           | `1`                                | `0` desativa o gate                                                 |
+| `TRIVY_FORMAT`              | `json`                             | `json`, `sarif`, `table`, `cyclonedx`, `spdx-json`                  |
+| `TRIVY_OUTPUT`              | por comando                        | Caminho de saída                                                    |
+| `TRIVY_TIMEOUT`             | `10m`                              | Timeout                                                             |
+| `TRIVY_SCANNERS`            | padrão do Trivy                    | Ex.: `vuln,secret,misconfig,license`                                |
+| `TRIVY_ALL_PACKAGES`        | `true`                             | Inclui `--list-all-pkgs` (auto-disable em `config-scan` e não-JSON) |
+| `TRIVY_IGNOREFILE`          | auto-detect                        | Path do `.trivyignore`                                              |
 
 ### Trivy Server (opcional)
 
@@ -313,11 +314,15 @@ ark-tools full-scan --sbom myapp:latest --path /workspace
 
 ## Failure gates
 
-| Gate        | Condição                                 | Var de controle                               |
-| ----------- | ---------------------------------------- | --------------------------------------------- |
-| Trivy       | Severidade em `TRIVY_SEVERITY_FAIL`      | `TRIVY_EXIT_CODE=1` (default)                 |
-| Hadolint    | Issues no nível `HADOLINT_FAILURE_LEVEL` | `HADOLINT_FAILURE_LEVEL`                      |
-| Betterleaks | Qualquer secret detectado                | `BETTERLEAKS_FAIL_ON_FINDINGS=true` (default) |
+| Gate        | Condição                                    | Var de controle                               |
+| ----------- | ------------------------------------------- | --------------------------------------------- |
+| Trivy       | Severidade em `TRIVY_SEVERITY_FAIL` com fix | `TRIVY_EXIT_CODE=1` (default)                 |
+| Hadolint    | Issues no nível `HADOLINT_FAILURE_LEVEL`    | `HADOLINT_FAILURE_LEVEL`                      |
+| Betterleaks | Qualquer secret detectado                   | `BETTERLEAKS_FAIL_ON_FINDINGS=true` (default) |
+
+Por padrão o gate do Trivy bloqueia apenas em vulnerabilidades que possuem fix
+(`TRIVY_IGNORE_UNFIXED_FAIL=true`); defina como `false` para bloquear também nas
+sem fix. O relatório em si mantém tudo (`TRIVY_IGNORE_UNFIXED=false`).
 
 ---
 

@@ -147,18 +147,19 @@ Todos os comandos de scan aceitam também as
 
 ### Trivy (gerais)
 
-| Variável               | Default                            | Descrição                                                                                                   |
-| ---------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `TRIVY_SEVERITY`       | `UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL` | Severidades **incluídas no relatório**                                                                      |
-| `TRIVY_SEVERITY_FAIL`  | `HIGH,CRITICAL`                    | Severidades que **disparam o failure gate**                                                                 |
-| `TRIVY_EXIT_CODE`      | `1`                                | `0` desativa o gate; `1` falha o pipeline ao detectar issues                                                |
-| `TRIVY_IGNORE_UNFIXED` | `true`                             | Ignora vulnerabilidades sem fix                                                                             |
-| `TRIVY_FORMAT`         | `json`                             | `json`, `sarif`, `table`, `cyclonedx`, `spdx-json`                                                          |
-| `TRIVY_OUTPUT`         | por comando                        | Caminho de saída (para comandos unitários)                                                                  |
-| `TRIVY_TIMEOUT`        | `10m`                              | Timeout do scan                                                                                             |
-| `TRIVY_SCANNERS`       | padrão do Trivy                    | Ex.: `vuln,secret,misconfig,license`                                                                        |
-| `TRIVY_ALL_PACKAGES`   | `true`                             | Inclui inventário completo (`--list-all-pkgs`). Auto-desativa se `TRIVY_FORMAT != json` ou em `config-scan` |
-| `TRIVY_IGNOREFILE`     | auto-detect                        | Path explícito de `.trivyignore`                                                                            |
+| Variável                    | Default                            | Descrição                                                                                                   |
+| --------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `TRIVY_SEVERITY`            | `UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL` | Severidades **incluídas no relatório**                                                                      |
+| `TRIVY_IGNORE_UNFIXED`      | `false`                            | Remove vulnerabilidades sem fix do **relatório**                                                            |
+| `TRIVY_SEVERITY_FAIL`       | `HIGH,CRITICAL`                    | Severidades que **disparam o failure gate**                                                                 |
+| `TRIVY_IGNORE_UNFIXED_FAIL` | `true`                             | Gate bloqueia apenas em vulnerabilidades que **possuem fix**                                                |
+| `TRIVY_EXIT_CODE`           | `1`                                | `0` desativa o gate; `1` falha o pipeline ao detectar issues                                                |
+| `TRIVY_FORMAT`              | `json`                             | `json`, `sarif`, `table`, `cyclonedx`, `spdx-json`                                                          |
+| `TRIVY_OUTPUT`              | por comando                        | Caminho de saída (para comandos unitários)                                                                  |
+| `TRIVY_TIMEOUT`             | `10m`                              | Timeout do scan                                                                                             |
+| `TRIVY_SCANNERS`            | padrão do Trivy                    | Ex.: `vuln,secret,misconfig,license`                                                                        |
+| `TRIVY_ALL_PACKAGES`        | `true`                             | Inclui inventário completo (`--list-all-pkgs`). Auto-desativa se `TRIVY_FORMAT != json` ou em `config-scan` |
+| `TRIVY_IGNOREFILE`          | auto-detect                        | Path explícito de `.trivyignore`                                                                            |
 
 ### Trivy Server (opcional)
 
@@ -362,11 +363,19 @@ ark-tools container --sbom myapp:latest --path /workspace
 ## Failure gate
 
 - O **relatório** sempre é gerado com **todas as severidades** definidas em
-  `TRIVY_SEVERITY`, independente do gate.
+  `TRIVY_SEVERITY`, independente do gate. Por padrão (`TRIVY_IGNORE_UNFIXED=false`)
+  ele também mantém vulnerabilidades ainda sem fix, dando visão completa aos dashboards.
 - Quando `TRIVY_EXIT_CODE=1` (default), o wrapper analisa o JSON e verifica se
   há findings com severidade em `TRIVY_SEVERITY_FAIL`. Se sim, o pipeline falha.
+- Por padrão (`TRIVY_IGNORE_UNFIXED_FAIL=true`) o **gate** bloqueia apenas em
+  vulnerabilidades que possuem fix disponível; as sem fix permanecem no relatório
+  mas não falham o build. Defina como `false` para bloquear também nas sem fix.
+- `TRIVY_IGNORE_UNFIXED_FAIL` filtra o relatório que o gate lê, então uma
+  vulnerabilidade já excluída por `TRIVY_IGNORE_UNFIXED=true` nunca dispara o gate.
 - Quando `TRIVY_FORMAT != json`, o gate é **ignorado** (com aviso).
 - O gate analisa `Vulnerabilities`, `Misconfigurations`, `Secrets` e `Licenses`.
+  Misconfigurations, secrets e licenses não têm conceito de "fix" e sempre contam
+  para o gate.
 
 ---
 
@@ -439,7 +448,8 @@ docker run --rm \
   -e TRIVY_SERVER_REQUIRED=false \
   -e TRIVY_SEVERITY=CRITICAL,HIGH \
   -e TRIVY_EXIT_CODE=1 \
-  -e TRIVY_IGNORE_UNFIXED=true \
+  -e TRIVY_IGNORE_UNFIXED=false \
+  -e TRIVY_IGNORE_UNFIXED_FAIL=true \
   -e HADOLINT_FAILURE_LEVEL=warning \
   -e REPORT_URL=https://example.internal/security/report \
   -e REPORT_TOKEN="$REPORT_TOKEN" \
@@ -512,6 +522,7 @@ jobs:
             -e TRIVY_SERVER -e TRIVY_TOKEN \
             -e TRIVY_SEVERITY=CRITICAL,HIGH \
             -e TRIVY_EXIT_CODE=1 \
+            -e TRIVY_IGNORE_UNFIXED_FAIL=true \
             -e HADOLINT_FAILURE_LEVEL=warning \
             -e REPORT_URL -e REPORT_TOKEN \
             -e REPORT_FAIL_ON_ERROR=true \
@@ -532,7 +543,8 @@ stages: [scan]
 variables:
   TRIVY_SEVERITY: "CRITICAL,HIGH"
   TRIVY_EXIT_CODE: "1"
-  TRIVY_IGNORE_UNFIXED: "true"
+  TRIVY_IGNORE_UNFIXED: "false"
+  TRIVY_IGNORE_UNFIXED_FAIL: "true"
   HADOLINT_FAILURE_LEVEL: "warning"
   REPORT_FAIL_ON_ERROR: "true"
 

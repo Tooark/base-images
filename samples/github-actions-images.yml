@@ -100,8 +100,9 @@ jobs:
             -e GITHUB_REPOSITORY -e GITHUB_ACTOR \
             -e GITHUB_RUN_ID -e GITHUB_JOB -e GITHUB_SERVER_URL \
             -e TRIVY_SEVERITY=HIGH,CRITICAL \
+            -e TRIVY_IGNORE_UNFIXED=false \
             -e TRIVY_SEVERITY_FAIL=HIGH,CRITICAL \
-            -e TRIVY_IGNORE_UNFIXED=true \
+            -e TRIVY_IGNORE_UNFIXED_FAIL=true \
             -e HADOLINT_FAILURE_LEVEL=warning \
             ghcr.io/tooark/trivy-hadolint:latest \
             ark-tools container nginx:latest --path /workspace

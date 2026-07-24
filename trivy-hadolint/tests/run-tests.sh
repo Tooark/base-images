@@ -315,6 +315,28 @@ rm -f "$raw_report" "$out_report"
 # ===========================================================
 # 14) trivy_failure_gate — relatório limpo passa
 # ===========================================================
+section "trivy_common_flags() - unfixed is report-scope only"
+reset_envs
+## Retorna "yes"/"no" conforme a flag esteja presente no array
+has_flag() {
+  local needle="$1"; shift
+  local f
+  for f in "$@"; do
+    [[ "$f" == "$needle" ]] && { echo "yes"; return; }
+  done
+  echo "no"
+}
+
+common_flags=()
+trivy_common_flags common_flags false >/dev/null 2>&1
+assert_eq "$(has_flag "--ignore-unfixed" "${common_flags[@]}")" "no" "default -> full report"
+
+TRIVY_IGNORE_UNFIXED="true"
+common_flags=()
+trivy_common_flags common_flags false >/dev/null 2>&1
+assert_eq "$(has_flag "--ignore-unfixed" "${common_flags[@]}")" "yes" "opt-in -> flag added"
+unset TRIVY_IGNORE_UNFIXED
+
 section "trivy_failure_gate()"
 clean_report="$(mktemp)"
 echo '{"Results":[]}' > "$clean_report"
@@ -322,14 +344,33 @@ assert_ok "clean report passes gate" trivy_failure_gate "json" "$clean_report" "
 
 dirty_report="$(mktemp)"
 cat > "$dirty_report" <<'EOF'
-{"Results":[{"Target":"x","Vulnerabilities":[{"VulnerabilityID":"CVE-2025-1","Severity":"CRITICAL"}]}]}
+{"Results":[{"Target":"x","Vulnerabilities":[{"VulnerabilityID":"CVE-2025-1","Severity":"CRITICAL","FixedVersion":"1.2.3"}]}]}
 EOF
-assert_fail "dirty report triggers gate" trivy_failure_gate "json" "$dirty_report" "HIGH,CRITICAL"
+assert_fail "fixable vuln triggers gate" trivy_failure_gate "json" "$dirty_report" "HIGH,CRITICAL"
 
 # Gate ignora não-json
 assert_ok "non-json format skips gate" trivy_failure_gate "table" "$dirty_report" "HIGH,CRITICAL"
 
-rm -f "$clean_report" "$dirty_report"
+section "trivy_failure_gate() - TRIVY_IGNORE_UNFIXED_FAIL"
+unfixed_report="$(mktemp)"
+cat > "$unfixed_report" <<'EOF'
+{"Results":[{"Target":"x","Vulnerabilities":[{"VulnerabilityID":"CVE-2025-2","Severity":"CRITICAL","FixedVersion":""}]}]}
+EOF
+assert_ok   "unfixed ignored by default"   trivy_failure_gate "json" "$unfixed_report" "HIGH,CRITICAL"
+assert_fail "arg override counts unfixed"  trivy_failure_gate "json" "$unfixed_report" "HIGH,CRITICAL" "false"
+
+TRIVY_IGNORE_UNFIXED_FAIL="false"
+assert_fail "env override counts unfixed"  trivy_failure_gate "json" "$unfixed_report" "HIGH,CRITICAL"
+unset TRIVY_IGNORE_UNFIXED_FAIL
+
+## Misconfig/secret não têm fix e devem contar sempre
+misconfig_report="$(mktemp)"
+cat > "$misconfig_report" <<'EOF'
+{"Results":[{"Target":"Dockerfile","Misconfigurations":[{"ID":"DS002","Severity":"HIGH"}]}]}
+EOF
+assert_fail "misconfig always counts" trivy_failure_gate "json" "$misconfig_report" "HIGH,CRITICAL"
+
+rm -f "$clean_report" "$dirty_report" "$unfixed_report" "$misconfig_report"
 
 # ===========================================================
 # 15) _report_file_or_null
