@@ -134,10 +134,8 @@ def max_change_level(levels):
 
 
 # Mapeamento de chaves de versão composta para suas chaves de dependência.
+# Imagens terraform* foram descontinuadas e não recebem mais bump automático.
 COMPOSITE_VERSION_RULES = {
-    "TF_AWS_VERSION": ["TERRAFORM_VERSION", "AWSCLI_VERSION"],
-    "TF_GCLOUD_VERSION": ["TERRAFORM_VERSION", "GCLOUD_VERSION"],
-    "TF_AWS_GCLOUD_VERSION": ["TERRAFORM_VERSION", "AWSCLI_VERSION", "GCLOUD_VERSION"],
     "TOFU_AWS_VERSION": ["OPENTOFU_VERSION", "AWSCLI_VERSION"],
     "TOFU_GCLOUD_VERSION": ["OPENTOFU_VERSION", "GCLOUD_VERSION"],
     "TOFU_AWS_GCLOUD_VERSION": ["OPENTOFU_VERSION", "AWSCLI_VERSION", "GCLOUD_VERSION"],
@@ -149,11 +147,10 @@ COMPOSITE_VERSION_RULES = {
 # Mapeamento de cada chave de versão para TODAS as imagens impactadas.
 # Regra: quando qualquer pacote base muda, o .trivyignore das imagens impactadas é limpo.
 VERSION_KEY_TO_DIRS = {
-    "AWSCLI_VERSION": ["aws-cli", "terraform-aws", "terraform-aws-gcloud"],
-    "GCLOUD_VERSION": ["gcloud-cli", "terraform-gcloud", "terraform-aws-gcloud"],
-    "KUBECTL_VERSION": ["aws-cli", "gcloud-cli", "tofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud", "terraform-aws", "terraform-gcloud", "terraform-aws-gcloud"],
+    "AWSCLI_VERSION": ["aws-cli", "tofu-aws", "tofu-aws-gcloud"],
+    "GCLOUD_VERSION": ["gcloud-cli", "tofu-gcloud", "tofu-aws-gcloud"],
+    "KUBECTL_VERSION": ["aws-cli", "gcloud-cli", "tofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud"],
     "OPENTOFU_VERSION": ["tofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud"],
-    "TERRAFORM_VERSION": ["terraform", "terraform-aws", "terraform-gcloud", "terraform-aws-gcloud"],
     "TRIVY_VERSION": ["trivy-hadolint", "security-scanner"],
     "HADOLINT_VERSION": ["trivy-hadolint", "security-scanner"],
     "BETTERLEAKS_VERSION": ["security-scanner"],
@@ -164,9 +161,6 @@ VERSION_KEY_TO_DIRS = {
 
 # Versões compostas também mapeiam para suas imagens para cobrir atualização manual.
 COMPOSITE_KEY_TO_DIRS = {
-    "TF_AWS_VERSION": ["terraform-aws"],
-    "TF_GCLOUD_VERSION": ["terraform-gcloud"],
-    "TF_AWS_GCLOUD_VERSION": ["terraform-aws-gcloud"],
     "TOFU_AWS_VERSION": ["tofu-aws"],
     "TOFU_GCLOUD_VERSION": ["tofu-gcloud"],
     "TOFU_AWS_GCLOUD_VERSION": ["tofu-aws-gcloud"],

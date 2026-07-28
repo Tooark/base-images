@@ -36,7 +36,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           source versions.env
           git add versions.env ./*/.trivyignore
-          git commit -m "chore(versions): AWS ${AWSCLI_VERSION} | GCloud ${GCLOUD_VERSION} | K8s ${KUBECTL_VERSION} | Terraform ${TERRAFORM_VERSION} | Sonar ${SONAR_CLI_VERSION} | Trivy ${TRIVY_VERSION} | Hadolint ${HADOLINT_VERSION} | Docker ${DOCKER_VERSION} | Buildx ${DOCKER_BUILDX_VERSION}"
+          git commit -m "chore(versions): AWS ${AWSCLI_VERSION} | GCloud ${GCLOUD_VERSION} | K8s ${KUBECTL_VERSION} | Tofu ${OPENTOFU_VERSION} | Sonar ${SONAR_CLI_VERSION} | Trivy ${TRIVY_VERSION} | Hadolint ${HADOLINT_VERSION} | Docker ${DOCKER_VERSION} | Buildx ${DOCKER_BUILDX_VERSION}"
           git push
 
       - name: Trigger image build workflow

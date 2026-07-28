@@ -23,4 +23,5 @@ CVE-2026-39821
 GHSA-hrxh-6v49-42gf
 
 # usr/local/bin/tofu (gobinary) - oras.land/oras-go/v2
+CVE-2026-50151
 CVE-2026-50163
