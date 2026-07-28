@@ -906,6 +906,7 @@ run_betterleaks() {
   local baseline="${BETTERLEAKS_BASELINE:-}"
   local exit_code="${BETTERLEAKS_EXIT_CODE:-1}"
   local force_dir="${BETTERLEAKS_NO_GIT:-$no_git}"
+  local redact="${BETTERLEAKS_REDACT:-100}"
 
   ## Verifica se o comando Betterleaks está disponível antes de tentar executar o scan.
   require_command betterleaks || return 127
@@ -921,6 +922,15 @@ run_betterleaks() {
 
   [[ -n "$config" ]] && betterleaks_args+=( --config "$config" )
   [[ -n "$baseline" ]] && betterleaks_args+=( --baseline-path "$baseline" )
+
+  ## Redação dos campos Secret/Match no relatório: percentual mascarado 0-100
+  ## (default: 100). Ex.: 80 mantém 20% visível para identificação; 0 desativa
+  ## e grava em claro. Valor inválido cai no fail-safe (100% mascarado).
+  if [[ ! "$redact" =~ ^[0-9]+$ ]] || (( redact > 100 )); then
+    log_warn "Invalid BETTERLEAKS_REDACT '$redact' (expected 0-100); using 100."
+    redact=100
+  fi
+  (( redact > 0 )) && betterleaks_args+=( "--redact=$redact" )
 
   ## Executa o comando Betterleaks e captura o código de saída.
   local rc=0
@@ -958,8 +968,118 @@ betterleaks_failure_gate() {
 
   ## Se encontrou findings, loga o número e decide se deve falhar com base na configuração.
   log_err "Betterleaks: $count potential secret(s) detected (see $output)"
+
+  ## Summary seguro por finding: apenas regra, arquivo, linha e commit — nunca
+  ## os campos Secret/Match/Line, que podem conter o conteúdo do segredo.
+  local max_log="${BETTERLEAKS_LOG_MAX_FINDINGS:-20}"
+  [[ "$max_log" =~ ^[0-9]+$ ]] || max_log=20
+  jq -r --argjson max "$max_log" '
+    .[:$max][] |
+    "  - \(.RuleID // "unknown-rule")  \(.File // "?"):\(.StartLine // "?")"
+    + (if (.Commit // "") != "" then "  commit \(.Commit[0:7])" else "" end)
+  ' "$output" >&2 2>/dev/null || true
+
+  ## Indica quando o log foi truncado em relação ao relatório completo.
+  if (( count > max_log )); then
+    log_err "  ... and $((count - max_log)) more finding(s) in the report."
+  fi
+
   is_true "$fail_on_findings" && return 1
 
+  return 0
+}
+
+## --- Failure gate Hadolint ---------------------------------------------------
+## Avalia gate de falha por nível a partir de um relatório JSON do Hadolint.
+## O relatório sempre contém todos os níveis (error/warning/info/style); o gate
+## apenas decide o que bloqueia — mesmo conceito report/gate do Trivy
+## (TRIVY_SEVERITY vs TRIVY_SEVERITY_FAIL).
+## Argumentos:
+## $1 output (path do relatório JSON do Hadolint — array de findings)
+## $2 fail_level (nível mínimo que dispara falha, default: HADOLINT_FAILURE_LEVEL ou "error")
+hadolint_failure_gate() {
+  local output="${1:-}"
+  local fail_level="${2:-${HADOLINT_FAILURE_LEVEL:-error}}"
+
+  ## Sem relatório ou arquivo vazio -> nada a avaliar.
+  if [[ ! -f "$output" || ! -s "$output" ]]; then
+    log_ok "Hadolint: no findings."
+    return 0
+  fi
+
+  ## Verifica se 'jq' está disponível para processar o JSON.
+  require_command jq || return 127
+
+  ## Formatos não-JSON não são analisáveis pelo gate.
+  if ! jq -e 'type == "array"' "$output" >/dev/null 2>&1; then
+    log_warn "Cannot analyze Hadolint gate for non-JSON report. Skipping."
+    return 0
+  fi
+
+  local total
+  total=$(jq 'length' "$output" 2>/dev/null || echo "0")
+  [[ "$total" =~ ^[0-9]+$ ]] || total=0
+
+  ## Verifica se há findings no relatório.
+  if (( total == 0 )); then
+    log_ok "Hadolint: no findings."
+    return 0
+  fi
+
+  ## Summary por nível (sempre logado quando há findings).
+  local level_summary
+  level_summary=$(jq -r '
+    group_by(.level // "unknown")
+    | map("\(.[0].level // "unknown"): \(length)")
+    | join(", ")
+  ' "$output" 2>/dev/null || echo "")
+  log_warn "Hadolint: $total finding(s) — $level_summary"
+
+  ## Itemização: código [nível] arquivo:linha mensagem (limitado no log).
+  local max_log="${HADOLINT_LOG_MAX_FINDINGS:-20}"
+  [[ "$max_log" =~ ^[0-9]+$ ]] || max_log=20
+  jq -r --argjson max "$max_log" '
+    .[:$max][] |
+    "  - \(.code // "?") [\(.level // "?")] \(.file // "?"):\(.line // "?") \(.message // "")"
+  ' "$output" >&2 2>/dev/null || true
+
+  ## Indica quando o log foi truncado em relação ao relatório completo.
+  if (( total > max_log )); then
+    log_warn "  ... and $((total - max_log)) more finding(s) in the report."
+  fi
+
+  ## Normaliza o nível de falha e resolve os níveis que bloqueiam.
+  fail_level=$(echo "$fail_level" | tr '[:upper:]' '[:lower:]')
+  local gate_levels=""
+  case "$fail_level" in
+    error) gate_levels='["error"]' ;;
+    warning) gate_levels='["error","warning"]' ;;
+    info) gate_levels='["error","warning","info"]' ;;
+    style) gate_levels='["error","warning","info","style"]' ;;
+    none|ignore)
+      log "Hadolint gate disabled (failure level: $fail_level)."
+      return 0
+    ;;
+    *)
+      log_warn "Unknown Hadolint failure level '$fail_level'; using 'error'."
+      gate_levels='["error"]'
+    ;;
+  esac
+
+  ## Conta os findings no nível de falha ou acima.
+  local gate_count
+  gate_count=$(jq --argjson lvls "$gate_levels" '
+    [ .[] | select(.level as $l | $lvls | index($l)) ] | length
+  ' "$output" 2>/dev/null || echo "0")
+  [[ "$gate_count" =~ ^[0-9]+$ ]] || gate_count=0
+
+  ## Verifica se encontrou findings que correspondem ao critério de falha.
+  if (( gate_count > 0 )); then
+    log_err "Hadolint failure gate: $gate_count finding(s) at level '$fail_level' or above."
+    return 1
+  fi
+
+  log_ok "Hadolint gate passed: no findings at level '$fail_level' or above."
   return 0
 }
 
@@ -1137,7 +1257,7 @@ usage() {
   cat <<'EOF'
 ark-tools - Security Scanner (Trivy + Hadolint + Betterleaks)
 
-Commands:   
+Commands:
   image-scan <image>            Trivy image scan                              [is, img-scan]
   filesystem-scan [path]        Trivy filesystem scan                         [fs, fs-scan]
   config-scan [path]            Trivy IaC config scan                         [cs, cfg-scan]
@@ -1195,12 +1315,25 @@ Betterleaks environment variables:
   BETTERLEAKS_BASELINE         path to baseline file
   BETTERLEAKS_EXIT_CODE        (default: "1")
   BETTERLEAKS_FAIL_ON_FINDINGS (default: "true")
+  BETTERLEAKS_REDACT           (default: "100") percent of the secret masked in
+                               the report, 0-100 (e.g. "80" masks 80% and keeps
+                               20% visible); "0" disables and writes in clear
+  BETTERLEAKS_LOG_MAX_FINDINGS (default: "20") max findings itemized in the log
+
+  On findings the log prints a safe summary (rule, file:line, commit) — never
+  the secret content itself.
 
 Hadolint environment variables:
-  HADOLINT_CONFIG        path to .hadolint.yaml
-  HADOLINT_FORMAT        (default: "json")
-  HADOLINT_FAILURE_LEVEL (e.g. "warning", "error")
-  HADOLINT_OUTPUT        hadolint output file path
+  HADOLINT_CONFIG           path to .hadolint.yaml
+  HADOLINT_FORMAT           (default: "json")
+  HADOLINT_FAILURE_LEVEL    (default: "error") gate level: error|warning|info|style|none
+  HADOLINT_OUTPUT           hadolint output file path
+  HADOLINT_LOG_MAX_FINDINGS (default: "20") max findings itemized in the log
+
+  Report/gate split (like Trivy): with JSON format the report always contains
+  all levels; HADOLINT_FAILURE_LEVEL only controls which levels block the
+  pipeline. The log always prints a per-level summary and an itemized list.
+  With non-JSON formats the gate falls back to hadolint's own exit code.
 
 Full-scan environment variables:
   FULL_SCAN_PATH          project path (default: auto-detect path)
@@ -1340,6 +1473,9 @@ Examples:
 Notes:
   - Uses Hadolint with common flags from environment variables.
   - Output defaults to $REPORT_DIR/hadolint.json (or HADOLINT_OUTPUT when set).
+  - The JSON report always contains all levels (error/warning/info/style);
+    only findings at HADOLINT_FAILURE_LEVEL (default: "error") or above fail
+    the command. The log prints a per-level summary and an itemized list.
   - A ark-report-tools envelope is always generated for standardized sending.
   - Use "--" to pass additional flags directly to Hadolint.
 EOF
@@ -1362,6 +1498,10 @@ Examples:
 Notes:
   - Uses Betterleaks with git/dir scan mode selected from the target and --no-git.
   - Output defaults to $REPORT_DIR/betterleaks.json (or BETTERLEAKS_OUTPUT when set).
+  - Secrets are fully redacted in the report by default (BETTERLEAKS_REDACT=100);
+    lower the percent (e.g. "80") to keep part visible, or "0" to disable.
+  - On findings the log prints a safe summary (rule, file:line, commit)
+    without exposing the secret content.
   - A ark-report-tools envelope is always generated for standardized sending.
   - Exit code gate is controlled by BETTERLEAKS_FAIL_ON_FINDINGS.
   - Use "--" to pass additional flags directly to Betterleaks.
@@ -1821,27 +1961,47 @@ do_dockerfile_lint() {
   local hadolint_args=( --format "$format" )
 
   ## Adiciona argumentos opcionais de configuração do Hadolint
-  [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]] && hadolint_args+=( --failure-threshold "$HADOLINT_FAILURE_LEVEL" )
   [[ -n "${HADOLINT_CONFIG:-}" ]] && hadolint_args+=( --config "$HADOLINT_CONFIG" )
 
-  ## Executa o Hadolint e captura o código de saída.
-  hadolint "${hadolint_args[@]}" "$@" "$file" > "$output" 2>&1 || rc=$?
+  ## Split report/gate (mesmo conceito do Trivy):
+  ## - JSON: o relatório é sempre completo (--no-fail) e o gate é avaliado
+  ## depois a partir do JSON via hadolint_failure_gate (HADOLINT_FAILURE_LEVEL).
+  ## - Não-JSON: o gate é delegado ao exit code do próprio Hadolint
+  ## (--failure-threshold), pois o relatório não é analisável.
+  if [[ "$format" == "json" ]]; then
+    hadolint --no-fail "${hadolint_args[@]}" "$@" "$file" > "$output" 2>&1 || rc=$?
 
-  ## Hadolint retorna 0 se não encontrou problemas, 1 se encontrou problemas no nível de falha ou acima, e outros códigos para erros de execução.
-  case $rc in
-    0)
-      log_ok "Dockerfile OK."
-    ;;
-    1)
-      log_warn "Hadolint findings (see $output)."
-    ;;
-    *)
+    ## Com --no-fail, qualquer exit code != 0 é erro real de execução.
+    if [[ $rc -ne 0 ]]; then
       log_err "Hadolint error (exit $rc)."
       return $rc
-    ;;
-  esac
+    fi
+  else
+    [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]] && hadolint_args+=( --failure-threshold "$HADOLINT_FAILURE_LEVEL" )
+    hadolint "${hadolint_args[@]}" "$@" "$file" > "$output" 2>&1 || rc=$?
+
+    ## Hadolint retorna 0 se não encontrou problemas, 1 se encontrou problemas no nível de falha ou acima, e outros códigos para erros de execução.
+    case $rc in
+      0)
+        log_ok "Dockerfile OK."
+      ;;
+      1)
+        log_warn "Hadolint findings (see $output)."
+      ;;
+      *)
+        log_err "Hadolint error (exit $rc)."
+        return $rc
+      ;;
+    esac
+  fi
 
   [[ ! -s "$output" ]] && { log_err "Report empty: $output"; return 1; }
+
+  ## Gate por nível a partir do relatório JSON (loga summary + itemização).
+  if [[ "$format" == "json" ]]; then
+    rc=0
+    hadolint_failure_gate "$output" || rc=$?
+  fi
 
   local metadata_json
   metadata_json="$(collect_metadata "$(default_fs_target)")"
@@ -1855,7 +2015,6 @@ do_dockerfile_lint() {
     "false" \
     "false" \
     "$metadata_json"
-
 
   ## Envia o relatório do Dockerfile lint se a configuração REPORT_SEND_EACH_SCAN estiver ativa.
   is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "$wrapped_report"
@@ -2101,27 +2260,51 @@ do_full_scan() {
       safe_name=$(echo "$df" | tr '/' '-' | tr '.' '-')
       local lint_output="$REPORT_DIR/hadolint-${safe_name}.json"
       local lint_rc=0
-      local hadolint_args=( --format "${HADOLINT_FORMAT:-json}" )
-      [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]] && hadolint_args+=( --failure-threshold "$HADOLINT_FAILURE_LEVEL" )
+      local lint_format="${HADOLINT_FORMAT:-json}"
+      local hadolint_args=( --format "$lint_format" )
       [[ -n "${HADOLINT_CONFIG:-}" ]] && hadolint_args+=( --config "$HADOLINT_CONFIG" )
-      hadolint "${hadolint_args[@]}" "$df_path" > "$lint_output" 2>&1 || lint_rc=$?
 
-      ## Valida o código de saída do Hadolint:
-      ## 0 = sem problemas
-      ## 1 = problemas encontrados no nível de falha ou acima
-      ## outros códigos indicam erros de execução
-      case $lint_rc in
-        0)
-          log_ok "$df OK."
-        ;;
-        1)
-          log_warn "$df has findings."
-        ;;
-        *)
+      ## Split report/gate: em JSON o relatório é sempre completo (--no-fail)
+      ## e o gate por nível é aplicado no final via hadolint_failure_gate.
+      if [[ "$lint_format" == "json" ]]; then
+        hadolint --no-fail "${hadolint_args[@]}" "$df_path" > "$lint_output" 2>&1 || lint_rc=$?
+
+        ## Com --no-fail, qualquer exit code != 0 é erro real de execução.
+        if [[ $lint_rc -ne 0 ]]; then
           log_err "$df error (exit $lint_rc)."
           errors=$((errors + 1))
-        ;;
-      esac
+        else
+          ## Loga a contagem de findings do arquivo (o gate decide depois).
+          local df_count
+          df_count=$(jq 'length' "$lint_output" 2>/dev/null || echo "0")
+          [[ "$df_count" =~ ^[0-9]+$ ]] || df_count=0
+          if (( df_count > 0 )); then
+            log_warn "$df: $df_count finding(s)."
+          else
+            log_ok "$df OK."
+          fi
+        fi
+      else
+        [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]] && hadolint_args+=( --failure-threshold "$HADOLINT_FAILURE_LEVEL" )
+        hadolint "${hadolint_args[@]}" "$df_path" > "$lint_output" 2>&1 || lint_rc=$?
+
+        ## Valida o código de saída do Hadolint:
+        ## 0 = sem problemas
+        ## 1 = problemas encontrados no nível de falha ou acima
+        ## outros códigos indicam erros de execução
+        case $lint_rc in
+          0)
+            log_ok "$df OK."
+          ;;
+          1)
+            log_warn "$df has findings."
+          ;;
+          *)
+            log_err "$df error (exit $lint_rc)."
+            errors=$((errors + 1))
+          ;;
+        esac
+      fi
 
       ## Se o relatório de lint não estiver vazio, adiciona à lista de resultados para consolidação
       if [[ -s "$lint_output" ]]; then
@@ -2227,16 +2410,13 @@ do_full_scan() {
       betterleaks_failure_gate "$secret_output" || errors=$((errors + 1))
     fi
 
-    ## Verifica o relatório de lint do Dockerfile para aplicar o gate de falha.
-    if ! is_true "$skip_lint" && [[ -n "${HADOLINT_FAILURE_LEVEL:-}" ]]; then
-      local lint_error_count
-      lint_error_count=$(jq '[.[]?.report[]? | select(.level == "error")] | length' "$lint_reports_file" 2>/dev/null || echo "0")
-
-      ## Verifica se a contagem de erros é um número válido e se é maior que zero para determinar se o gate de falha deve ser acionado.
-      if [[ "$lint_error_count" =~ ^[0-9]+$ ]] && (( lint_error_count > 0 )); then
-        log_err "Hadolint failure gate: $lint_error_count error(s)."
-        errors=$((errors + 1))
-      fi
+    ## Verifica o relatório de lint do Dockerfile para aplicar o gate de falha,
+    ## usando o mesmo gate por nível do comando standalone (HADOLINT_FAILURE_LEVEL).
+    if ! is_true "$skip_lint"; then
+      local merged_lints="$REPORT_DIR/.lint-merged.json"
+      jq '[.[]?.report[]?]' "$lint_reports_file" > "$merged_lints" 2>/dev/null || echo "[]" > "$merged_lints"
+      hadolint_failure_gate "$merged_lints" || errors=$((errors + 1))
+      rm -f "$merged_lints"
     fi
   fi
 

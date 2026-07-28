@@ -172,24 +172,45 @@ Metadata flags applicable to **all** scan commands:
 
 ### Hadolint
 
-| Variable                 | Default     | Description            |
-| ------------------------ | ----------- | ---------------------- |
-| `HADOLINT_CONFIG`        | empty       | `.hadolint.yaml`       |
-| `HADOLINT_FORMAT`        | `json`      | `json`, `tty`, `sarif` |
-| `HADOLINT_FAILURE_LEVEL` | empty       | `warning`, `error`     |
-| `HADOLINT_OUTPUT`        | per command | Output                 |
+| Variable                    | Default     | Description                                             |
+| --------------------------- | ----------- | ------------------------------------------------------- |
+| `HADOLINT_CONFIG`           | empty       | `.hadolint.yaml`                                        |
+| `HADOLINT_FORMAT`           | `json`      | `json`, `tty`, `sarif`                                  |
+| `HADOLINT_FAILURE_LEVEL`    | `error`     | Gate level: `error`, `warning`, `info`, `style`, `none` |
+| `HADOLINT_OUTPUT`           | per command | Output                                                  |
+| `HADOLINT_LOG_MAX_FINDINGS` | `20`        | Max findings itemized in the log                        |
+
+> **Report/gate split (like Trivy):** with JSON format the report always contains **all** levels (`error`, `warning`, `info`, `style`);  
+> `HADOLINT_FAILURE_LEVEL` only controls which levels block the pipeline (default: only `error`). The log always prints a per-level summary  
+> (`error: N, warning: N, ...`) plus an itemized list (`code [level] file:line message`). With non-JSON formats the gate falls back to  
+> hadolint's own exit code (`--failure-threshold`).
 
 ### Betterleaks
 
-| Variable                       | Default     | Description                                 |
-| ------------------------------ | ----------- | ------------------------------------------- |
-| `BETTERLEAKS_CONFIG`           | empty       | Path to `.betterleaks.toml`                 |
-| `BETTERLEAKS_BASELINE`         | empty       | Path to `betterleaks-baseline.json`         |
-| `BETTERLEAKS_FORMAT`           | `json`      | `json`, `csv`, `junit`, `sarif`, `template` |
-| `BETTERLEAKS_OUTPUT`           | per command | Output                                      |
-| `BETTERLEAKS_NO_GIT`           | `false`     | Forces a local scan with `dir`              |
-| `BETTERLEAKS_EXIT_CODE`        | `1`         | Exit code when secrets are found            |
-| `BETTERLEAKS_FAIL_ON_FINDINGS` | `true`      | Fails the pipeline if secrets are found     |
+| Variable                       | Default     | Description                                                            |
+| ------------------------------ | ----------- | ---------------------------------------------------------------------- |
+| `BETTERLEAKS_CONFIG`           | empty       | Path to `.betterleaks.toml`                                            |
+| `BETTERLEAKS_BASELINE`         | empty       | Path to `betterleaks-baseline.json`                                    |
+| `BETTERLEAKS_FORMAT`           | `json`      | `json`, `csv`, `junit`, `sarif`, `template`                            |
+| `BETTERLEAKS_OUTPUT`           | per command | Output                                                                 |
+| `BETTERLEAKS_NO_GIT`           | `false`     | Forces a local scan with `dir`                                         |
+| `BETTERLEAKS_EXIT_CODE`        | `1`         | Exit code when secrets are found                                       |
+| `BETTERLEAKS_FAIL_ON_FINDINGS` | `true`      | Fails the pipeline if secrets are found                                |
+| `BETTERLEAKS_REDACT`           | `100`       | Percent of the secret masked in the report (`0-100`); `0` = clear text |
+| `BETTERLEAKS_LOG_MAX_FINDINGS` | `20`        | Max findings itemized in the log                                       |
+
+> **Safe log summary:** when secrets are found, the log prints one line per finding with rule, file, line and short commit  
+> — never the secret content:
+>
+> ```text
+> [ark-tools] Betterleaks: 2 potential secret(s) detected (see /reports/betterleaks.json)
+>   - aws-access-key-id  deploy/config.sh:14  commit a1b2c3d
+>   - generic-api-key    src/settings.py:88   commit 9f8e7d6
+> ```
+>
+> The report itself has `Secret`/`Match` fully redacted by default (`BETTERLEAKS_REDACT=100`). Each finding keeps its `Fingerprint`,  
+> which uniquely identifies the secret even fully redacted. Use e.g. `BETTERLEAKS_REDACT=80` to keep 20% of the secret visible for  
+> triage, or `BETTERLEAKS_REDACT=0` to write it in clear (not recommended). Invalid values fall back to `100` (fail-safe).
 
 ### SBOM (optional)
 
@@ -314,15 +335,22 @@ ark-tools full-scan --sbom myapp:latest --path /workspace
 
 ## Failure gates
 
-| Gate        | Condition                                    | Control variable                              |
-| ----------- | -------------------------------------------- | --------------------------------------------- |
-| Trivy       | Severity in `TRIVY_SEVERITY_FAIL` with a fix | `TRIVY_EXIT_CODE=1` (default)                 |
-| Hadolint    | Issues at `HADOLINT_FAILURE_LEVEL`           | `HADOLINT_FAILURE_LEVEL`                      |
-| Betterleaks | Any secret detected                          | `BETTERLEAKS_FAIL_ON_FINDINGS=true` (default) |
+| Gate        | Condition                                     | Control variable                              |
+| ----------- | --------------------------------------------- | --------------------------------------------- |
+| Trivy       | Severity in `TRIVY_SEVERITY_FAIL` with a fix  | `TRIVY_EXIT_CODE=1` (default)                 |
+| Hadolint    | Findings at `HADOLINT_FAILURE_LEVEL` or above | `HADOLINT_FAILURE_LEVEL=error` (default)      |
+| Betterleaks | Any secret detected                           | `BETTERLEAKS_FAIL_ON_FINDINGS=true` (default) |
 
-The Trivy gate blocks only on vulnerabilities that have a fix by default
-(`TRIVY_IGNORE_UNFIXED_FAIL=true`); set it to `false` to also block on unfixed
-ones. The report itself keeps everything (`TRIVY_IGNORE_UNFIXED=false`).
+The Trivy gate blocks only on vulnerabilities that have a fix by default (`TRIVY_IGNORE_UNFIXED_FAIL=true`);  
+set it to `false` to also block on unfixed ones. The report itself keeps everything (`TRIVY_IGNORE_UNFIXED=false`).
+
+The Hadolint gate follows the same report/gate split: warnings and lower levels always show up in the report and  
+in the log summary, but only findings at `HADOLINT_FAILURE_LEVEL` or above (default: `error`) fail the pipeline.  
+Set it to `warning` to also block on warnings, or `none` to disable the gate. The same gate is applied consistently  
+by `dockerfile-lint` and `full-scan`.
+
+When a gate is triggered, the log always prints a summary of what was found — per severity/level for Trivy and  
+Hadolint, and per finding (rule, file, line, commit — never the secret content) for Betterleaks.
 
 ---
 
@@ -588,7 +616,8 @@ The suite covers:
 - `should_use_list_all_pkgs()` and `trivy_list_all_pkgs_flag()` (config does NOT receive it)
 - `resolve_trivy_ignorefile()`
 - `trivy_failure_gate()`
-- `betterleaks_failure_gate()`
+- `betterleaks_failure_gate()` (including the safe summary that never leaks the secret)
+- `hadolint_failure_gate()` (report/gate split per level)
 
 ---
 

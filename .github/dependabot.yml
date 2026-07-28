@@ -1,0 +1,38 @@
+# ==============================================================================
+# Tooark base-images — Dependabot configuration
+# ==============================================================================
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Scope:
+#   - GitHub Actions: weekly, minor/patch grouped into one PR.
+#   - Docker/tool versions are NOT managed here on purpose: base image and
+#     tool versions are centralized in versions.env and updated by
+#     script/update-versions.py, which also resets the .trivyignore files of
+#     impacted images. Letting Dependabot touch Dockerfiles would bypass that
+#     flow.
+# ==============================================================================
+
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

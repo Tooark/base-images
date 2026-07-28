@@ -1,0 +1,63 @@
+name: ✨ Feature request
+description: Suggest an improvement to an existing image or a new base image.
+title: "[feat] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your idea! Please explain the **problem** you are trying to solve, not just the solution.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I have searched existing issues.
+          required: true
+
+  - type: dropdown
+    id: image
+    attributes:
+      label: Which image?
+      options:
+        - aws-cli
+        - dockerx
+        - gcloud-cli
+        - security-scanner
+        - sonar-scanner
+        - tofu / tofu-aws / tofu-gcloud / tofu-aws-gcloud
+        - trivy-hadolint
+        - New image / cross-cutting
+        - Repo tooling (scripts, workflows, samples)
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve? Who is affected?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: For new tools, include where releases/checksums are published (the build pins and verifies versions).
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to help implement this.
+        - label: I would be willing to help test this.

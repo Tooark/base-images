@@ -1,0 +1,109 @@
+name: 🐛 Bug report
+description: Report a defect in one of the base images.
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill out the sections below.
+        For **security vulnerabilities**, do NOT file a public issue — see [`SECURITY.md`](https://github.com/Tooark/base-images/blob/main/SECURITY.md).
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I have searched existing issues and this is not a duplicate.
+          required: true
+        - label: I am using the latest tag of the image.
+          required: true
+        - label: This is not a security vulnerability (those go through the private channel).
+          required: true
+
+  - type: dropdown
+    id: image
+    attributes:
+      label: Which image?
+      options:
+        - aws-cli
+        - dockerx
+        - gcloud-cli
+        - security-scanner
+        - sonar-scanner
+        - tofu
+        - tofu-aws
+        - tofu-gcloud
+        - tofu-aws-gcloud
+        - terraform (deprecated)
+        - terraform-aws (deprecated)
+        - terraform-gcloud (deprecated)
+        - terraform-aws-gcloud (deprecated)
+        - trivy-hadolint
+        - Repo tooling (scripts, workflows, samples)
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: image-tag
+    attributes:
+      label: Image tag
+      placeholder: "e.g., ghcr.io/tooark/aws-cli:2.36.5"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Where did you run it?
+      options:
+        - GitHub Actions
+        - GitLab CI
+        - Local Docker
+        - Kubernetes
+        - Other CI (Jenkins, Azure DevOps…)
+    validations:
+      required: true
+
+  - type: input
+    id: docker-version
+    attributes:
+      label: Docker / runner version
+      placeholder: "e.g., Docker 29.6.2 on ubuntu-latest"
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The command, pipeline snippet, or `docker run` invocation that reproduces the problem.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste the relevant output. ⚠️ Redact credentials, tokens, and account IDs.
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context

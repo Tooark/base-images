@@ -219,7 +219,11 @@ TRIVY_IGNOREFILE="$TMP_IGNORE"
 assert_eq "$(resolve_trivy_ignorefile)" "$TMP_IGNORE" "TRIVY_IGNOREFILE"
 rm -f "$TMP_IGNORE"
 unset TRIVY_IGNOREFILE
-assert_eq "$(resolve_trivy_ignorefile)" "" "no file -> empty"
+## Executa a partir de um diretório vazio: o PWD do repo contém um .trivyignore
+## real que faria o auto-detect encontrar um arquivo legítimo.
+empty_pwd="$(mktemp -d)"
+assert_eq "$(cd "$empty_pwd" && resolve_trivy_ignorefile)" "" "no file -> empty"
+rmdir "$empty_pwd"
 
 section "trivy_common_flags() - unfixed is report-scope only"
 reset_envs
@@ -310,6 +314,84 @@ assert_ok "findings + fail=false" betterleaks_failure_gate "$with_findings"
 unset BETTERLEAKS_FAIL_ON_FINDINGS
 rm -f "$empty_findings" "$with_findings"
 
+section "betterleaks_failure_gate() - safe summary (no secret leak)"
+leak_report="$(mktemp)"
+cat > "$leak_report" <<'EOF'
+[{"RuleID":"aws-access-key-id","File":"deploy/config.sh","StartLine":14,"Commit":"a1b2c3d4e5f6a7b8","Secret":"AKIAIOSFODNN7EXAMPLE","Match":"AWS_KEY=AKIAIOSFODNN7EXAMPLE"}]
+EOF
+gate_log_file="$(mktemp)"
+BETTERLEAKS_FAIL_ON_FINDINGS=true
+gate_rc=0
+betterleaks_failure_gate "$leak_report" > "$gate_log_file" 2>&1 || gate_rc=$?
+assert_eq "$gate_rc" "1" "gate fails with findings"
+assert_fail "secret content not in log" grep -q "AKIAIOSFODNN7EXAMPLE" "$gate_log_file"
+assert_ok   "rule in log"               grep -q "aws-access-key-id" "$gate_log_file"
+assert_ok   "file:line in log"          grep -q "deploy/config.sh:14" "$gate_log_file"
+assert_ok   "short commit in log"       grep -q "commit a1b2c3d" "$gate_log_file"
+unset BETTERLEAKS_FAIL_ON_FINDINGS
+rm -f "$leak_report" "$gate_log_file"
+
+section "run_betterleaks() - BETTERLEAKS_REDACT flag"
+bl_args_file="$(mktemp)"
+betterleaks() { printf '%s\n' "$@" > "$bl_args_file"; return 0; }
+bl_target="$(mktemp -d)"
+bl_out="$(mktemp)"
+
+unset BETTERLEAKS_REDACT
+run_betterleaks "$bl_target" "$bl_out" "true" >/dev/null 2>&1
+assert_ok "default adds --redact=100" grep -qx -- "--redact=100" "$bl_args_file"
+
+BETTERLEAKS_REDACT=80
+run_betterleaks "$bl_target" "$bl_out" "true" >/dev/null 2>&1
+assert_ok "percent adds --redact=80" grep -qx -- "--redact=80" "$bl_args_file"
+
+BETTERLEAKS_REDACT=0
+run_betterleaks "$bl_target" "$bl_out" "true" >/dev/null 2>&1
+assert_fail "0 disables redact" grep -q -- "--redact" "$bl_args_file"
+
+## Valores inválidos caem no fail-safe (100% mascarado), nunca em claro
+BETTERLEAKS_REDACT=false
+run_betterleaks "$bl_target" "$bl_out" "true" >/dev/null 2>&1
+assert_ok "non-numeric falls back to --redact=100" grep -qx -- "--redact=100" "$bl_args_file"
+
+BETTERLEAKS_REDACT=250
+run_betterleaks "$bl_target" "$bl_out" "true" >/dev/null 2>&1
+assert_ok "out-of-range falls back to --redact=100" grep -qx -- "--redact=100" "$bl_args_file"
+
+unset BETTERLEAKS_REDACT
+unset -f betterleaks
+rm -rf "$bl_target"
+rm -f "$bl_args_file" "$bl_out"
+
+section "hadolint_failure_gate()"
+unset HADOLINT_FAILURE_LEVEL
+hl_empty="$(mktemp)"; echo "[]" > "$hl_empty"
+assert_ok "empty report passes" hadolint_failure_gate "$hl_empty"
+
+hl_warn="$(mktemp)"
+echo '[{"code":"DL3007","level":"warning","file":"Dockerfile","line":1,"message":"latest tag"}]' > "$hl_warn"
+assert_ok "warning passes with default (error)" hadolint_failure_gate "$hl_warn"
+
+hl_err="$(mktemp)"
+echo '[{"code":"DL3000","level":"error","file":"Dockerfile","line":2,"message":"abs WORKDIR"},{"code":"DL3007","level":"warning","file":"Dockerfile","line":1,"message":"latest tag"}]' > "$hl_err"
+assert_fail "error fails with default" hadolint_failure_gate "$hl_err"
+
+assert_fail "warning fails with arg level=warning" hadolint_failure_gate "$hl_warn" "warning"
+HADOLINT_FAILURE_LEVEL="warning"
+assert_fail "warning fails with env level=warning" hadolint_failure_gate "$hl_warn"
+HADOLINT_FAILURE_LEVEL="none"
+assert_ok "level=none disables gate" hadolint_failure_gate "$hl_err"
+unset HADOLINT_FAILURE_LEVEL
+
+hl_tty="$(mktemp)"; echo "Dockerfile:1 DL3007 warning: text output" > "$hl_tty"
+assert_ok "non-json report skips gate" hadolint_failure_gate "$hl_tty"
+
+hl_log="$(mktemp)"
+hadolint_failure_gate "$hl_err" > "$hl_log" 2>&1 || true
+assert_ok "per-level summary logged" grep -q "error: 1, warning: 1" "$hl_log"
+assert_ok "itemized finding logged"  grep -q "DL3000 \[error\] Dockerfile:2" "$hl_log"
+rm -f "$hl_empty" "$hl_warn" "$hl_err" "$hl_tty" "$hl_log"
+
 section "do_full_scan() - converts non-json trivy outputs"
 full_scan_dir="$(mktemp -d)"
 printf 'FROM scratch\n' > "$full_scan_dir/Dockerfile"
@@ -345,6 +427,41 @@ assert_ok "filesystem conversion recorded" grep -q "trivy-filesystem.json|$TEST_
 unset TRIVY_FORMAT TRIVY_EXIT_CODE FULL_SCAN_SKIP_SECRETS FULL_SCAN_SKIP_LINT
 rm -rf "$full_scan_dir"
 rm -f "$convert_calls"
+
+section "do_full_scan() - hadolint gate aligned with standalone"
+fs_gate_dir="$(mktemp -d)"
+printf 'FROM scratch\n' > "$fs_gate_dir/Dockerfile"
+
+run_trivy_scan() { printf '{"Results":[]}' > "$3"; }
+trivy_failure_gate() { return 0; }
+send_report() { return 0; }
+
+TRIVY_EXIT_CODE="1"
+FULL_SCAN_SKIP_SECRETS="true"
+unset HADOLINT_FAILURE_LEVEL HADOLINT_FORMAT
+
+## Hadolint mockado emitindo apenas warning: gate default (error) deve passar
+hadolint() {
+  echo '[{"code":"DL3007","level":"warning","file":"Dockerfile","line":1,"message":"latest tag"}]'
+}
+assert_ok "warnings only pass (default gate=error)" do_full_scan "example:latest" --path "$fs_gate_dir"
+
+## Hadolint mockado emitindo error: gate default deve falhar (sem precisar de env)
+hadolint() {
+  echo '[{"code":"DL3000","level":"error","file":"Dockerfile","line":2,"message":"abs WORKDIR"}]'
+}
+assert_fail "error fails (default gate=error)" do_full_scan "example:latest" --path "$fs_gate_dir"
+
+## Com HADOLINT_FAILURE_LEVEL=warning, warnings também bloqueiam o full-scan
+HADOLINT_FAILURE_LEVEL="warning"
+hadolint() {
+  echo '[{"code":"DL3007","level":"warning","file":"Dockerfile","line":1,"message":"latest tag"}]'
+}
+assert_fail "warning fails with level=warning" do_full_scan "example:latest" --path "$fs_gate_dir"
+
+unset HADOLINT_FAILURE_LEVEL TRIVY_EXIT_CODE FULL_SCAN_SKIP_SECRETS
+unset -f hadolint
+rm -rf "$fs_gate_dir"
 
 # ===========================================================
 # Final report

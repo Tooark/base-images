@@ -16,6 +16,7 @@ Cada subprojeto possui Dockerfile, versionamento e documentação própria.
 - [Estrutura do repositório](#estrutura-do-repositório)
 - [Versionamento e automação](#versionamento-e-automação)
 - [Fluxo recomendado](#fluxo-recomendado)
+- [Comunidade](#comunidade)
 - [Licença](#licença)
 
 ---
@@ -78,7 +79,8 @@ Exemplos dedicados para security-scanner:
   - `Dockerfile`: definição da imagem
   - `VERSION`: versão do subprojeto
   - `DESCRIPTION`: resumo curto da imagem
-  - `README.md`: uso, variáveis e exemplos
+  - `README.md`: uso, variáveis e exemplos (inglês)
+  - `README.pt-BR.md`: a mesma documentação em português (mantida em sincronia)
   - `.trivyignore`: exceções de CVE aceitas para o scan de segurança da imagem
 
 ---
@@ -93,6 +95,17 @@ A pasta `script/` contém os scripts de automação:
 | --------------------------------- | ------------------------------------------------------------- |
 | `fetch-latest-stable-versions.py` | Consulta as versões estáveis mais recentes de cada ferramenta |
 | `update-versions.py`              | Atualiza `versions.env` e gerencia os arquivos `.trivyignore` |
+
+### Workflows de automação
+
+Dois workflows do GitHub Actions conduzem o ciclo de release:
+
+| Workflow                                                               | Função                                                                                                                                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [update-tool-versions.yml](.github/workflows/update-tool-versions.yml) | Roda semanalmente: consulta as versões estáveis mais recentes, atualiza `versions.env`, reseta os `.trivyignore` impactados e dispara o build das imagens                            |
+| [image-build.yml](.github/workflows/image-build.yml)                   | Faz o build de cada imagem nova (amd64 + arm64), roda o scan completo de segurança, publica em `ghcr.io/tooark`, assina com **Cosign (keyless)** e cria a tag git e o GitHub Release |
+
+Todas as imagens publicadas são assinadas com [Cosign](https://docs.sigstore.dev/cosign/verifying/verify/) via OIDC do GitHub Actions — consumidores podem verificar a assinatura antes de usar.
 
 ### Gestão automática de .trivyignore
 
@@ -111,7 +124,16 @@ Quando o script `update-versions.py` detecta uma nova versão de ferramenta, ele
 1. Escolha a imagem pelo catálogo em [Documentações das imagens](#documentações-das-imagens).
 2. Siga o início rápido e as variáveis no README da imagem escolhida.
 3. Use os exemplos em [samples/README.md](samples/README.md) e os arquivos dedicados do security-scanner para integração inicial.
-4. Para releases e atualizações de versão, use os scripts da pasta [script/](script/fetch-latest-stable-versions.py).
+4. Para releases e atualizações de versão, use os scripts da pasta [script/](script/).
+
+---
+
+## Comunidade
+
+- 🤝 [Guia de contribuição](CONTRIBUTING.md) — como propor mudanças, build e scan local
+- 📜 [Código de Conduta](CODE_OF_CONDUCT.md)
+- 🔒 [Política de segurança](SECURITY.md) — **reporte vulnerabilidades em privado**, nunca via issue pública
+- 🙋 [Suporte](SUPPORT.md) — onde tirar dúvidas e pedir ajuda
 
 ---
 

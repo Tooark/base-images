@@ -16,6 +16,7 @@ Each subproject has its own Dockerfile, versioning, and documentation.
 - [Repository structure](#repository-structure)
 - [Versioning and automation](#versioning-and-automation)
 - [Recommended workflow](#recommended-workflow)
+- [Community](#community)
 - [License](#license)
 
 ---
@@ -78,7 +79,8 @@ Dedicated examples for security-scanner:
   - `Dockerfile`: image definition
   - `VERSION`: subproject version
   - `DESCRIPTION`: short image summary
-  - `README.md`: usage, variables, and examples
+  - `README.md`: usage, variables, and examples (English)
+  - `README.pt-BR.md`: the same documentation in Portuguese (kept in sync)
   - `.trivyignore`: accepted CVE exceptions for the image security scan
 
 ---
@@ -93,6 +95,17 @@ The `script/` folder contains the automation scripts:
 | --------------------------------- | ----------------------------------------------------------- |
 | `fetch-latest-stable-versions.py` | Fetches the latest stable versions of each tool             |
 | `update-versions.py`              | Updates `versions.env` and manages the `.trivyignore` files |
+
+### Automation workflows
+
+Two GitHub Actions workflows drive the release cycle:
+
+| Workflow                                                               | Purpose                                                                                                                                                                     |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [update-tool-versions.yml](.github/workflows/update-tool-versions.yml) | Runs weekly: fetches the latest stable tool versions, updates `versions.env`, resets the impacted `.trivyignore` files, and triggers the image build                        |
+| [image-build.yml](.github/workflows/image-build.yml)                   | Builds each new image (amd64 + arm64), runs the full security scan, pushes to `ghcr.io/tooark`, signs with **Cosign (keyless)**, and creates the git tag and GitHub Release |
+
+All published images are signed with [Cosign](https://docs.sigstore.dev/cosign/verifying/verify/) via GitHub Actions OIDC — consumers can verify the signature before use.
 
 ### Automatic .trivyignore management
 
@@ -111,7 +124,16 @@ When the `update-versions.py` script detects a new tool version, it:
 1. Choose the image from the catalog in [Image documentation](#image-documentation).
 2. Follow the quick start and the variables in the chosen image's README.
 3. Use the examples in [samples/README.md](samples/README.md) and the dedicated security-scanner files for initial integration.
-4. For releases and version updates, use the scripts in the [script/](script/fetch-latest-stable-versions.py) folder.
+4. For releases and version updates, use the scripts in the [script/](script/) folder.
+
+---
+
+## Community
+
+- 🤝 [Contributing guide](CONTRIBUTING.md) — how to propose changes, build and scan locally
+- 📜 [Code of Conduct](CODE_OF_CONDUCT.md)
+- 🔒 [Security policy](SECURITY.md) — **report vulnerabilities privately**, never via public issues
+- 🙋 [Support](SUPPORT.md) — where to ask questions and get help
 
 ---
 
