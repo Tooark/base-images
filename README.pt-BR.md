@@ -1,4 +1,4 @@
-# base-images
+# Imagens Base
 
 Repositório com imagens base para CI/CD e automação de infraestrutura.
 
@@ -131,9 +131,10 @@ Quando o script `update-versions.py` detecta uma nova versão de ferramenta, ele
 ## Comunidade
 
 - 🤝 [Guia de contribuição](CONTRIBUTING.md) — como propor mudanças, build e scan local
-- 📜 [Código de Conduta](CODE_OF_CONDUCT.md)
+- 📜 [Código de Conduta](CODE_OF_CONDUCT.md) — comportamento esperado dos contribuidores
 - 🔒 [Política de segurança](SECURITY.md) — **reporte vulnerabilidades em privado**, nunca via issue pública
 - 🙋 [Suporte](SUPPORT.md) — onde tirar dúvidas e pedir ajuda
+- 💖 Apoie o projeto — [GitHub Sponsors](https://github.com/sponsors/paulosfjunior) · [Ko-fi](https://ko-fi.com/paulosfjunior) · [PayPal](https://www.paypal.com/donate/?business=62KETU4PXBWZC&no_recurring=0&currency_code=BRL)
 
 ---
 
