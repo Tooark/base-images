@@ -10,6 +10,7 @@ GHSA-hrxh-6v49-42gf
 
 # usr/local/bin/trivy (gobinary) - oras.land/oras-go/v2
 CVE-2026-50151
+CVE-2026-50163
 
 # usr/local/bin/trivy (gobinary) - stdlib
 CVE-2026-39822
