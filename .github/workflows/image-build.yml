@@ -36,7 +36,7 @@ jobs:
       trivy-db-key: ${{ steps.trivy-key.outputs.key }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Load and export versions
         id: load
@@ -110,7 +110,7 @@ jobs:
           - security-scanner
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
