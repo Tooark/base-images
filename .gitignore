@@ -46,3 +46,6 @@ Thumbs.db
 
 # Report files
 scan-reports/
+
+# Config AI files
+.claude/

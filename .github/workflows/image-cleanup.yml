@@ -1,0 +1,76 @@
+name: Cleanup Old Docker Images
+
+# Política de retenção de imagens no GHCR (implementada pela action Arklean):
+#   - Untagged / manifests órfãos ......... excluir após 7 dias
+#   - Tags de commit ou branch ............ excluir após 30 dias
+#   - Últimas versões ..................... manter pelo menos 10
+#   - Releases SemVer (v1.2.3 / 1.2.3) .... preservar sempre
+#   - latest, stable e production ......... preservar sempre
+#
+# A action Tooark/action-ark-clean (Arklean) aplica essa política por padrão:
+# protected-tags cobre latest/stable/production/SemVer e ephemeral-tags cobre
+# tags de SHA, branch e scan. Protege automaticamente os manifests-filhos por
+# arquitetura (multi-arch) e os referrers (assinaturas/atestados/SBOMs Cosign),
+# valida o inventário antes e depois da exclusão e só apaga quando
+# confirm-delete corresponde exatamente a owner/package.
+# Por ser uma action first-party (mantida pela própria Tooark), é usada pela
+# major tag v0, recebendo correções automaticamente a cada release.
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  schedule:
+    # Execução semanal: segunda-feira às 03:00 UTC
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry-run: apenas loga o que seria excluído, sem apagar"
+        type: boolean
+        default: true
+
+concurrency:
+  group: image-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        image:
+          - aws-cli
+          - gcloud-cli
+          - tofu
+          - tofu-aws
+          - tofu-gcloud
+          - tofu-aws-gcloud
+          - sonar-scanner
+          - trivy-hadolint
+          - dockerx
+          - security-scanner
+          - terraform
+          - terraform-aws
+          - terraform-gcloud
+          - terraform-aws-gcloud
+    steps:
+      # Um único passo cobre tags efêmeras antigas e manifests untagged/órfãos.
+      # Os defaults da action já correspondem à política acima
+      # (ephemeral-retention-days: 30, untagged-retention-days: 7,
+      # keep-latest: 10); delete-untagged precisa ser habilitado
+      # explicitamente. max-deletions é um orçamento de segurança por
+      # execução — sobras além do limite são apagadas nas próximas execuções.
+      - name: Cleanup old images (Arklean)
+        uses: Tooark/action-ark-clean@v0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          owner: ${{ github.repository_owner }}
+          package: ${{ matrix.image }}
+          delete-untagged: true
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+          confirm-delete: ${{ github.repository_owner }}/${{ matrix.image }}
+          max-deletions: 50
