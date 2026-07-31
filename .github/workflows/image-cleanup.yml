@@ -15,6 +15,22 @@ name: Cleanup Old Docker Images
 # confirm-delete corresponde exatamente a owner/package.
 # Por ser uma action first-party (mantida pela própria Tooark), é usada pela
 # major tag v0, recebendo correções automaticamente a cada release.
+#
+# IMPORTANTE — semântica dos orçamentos (max-deletions / max-delete-percentage):
+# são portões fail-closed, NÃO fatias. Se o plano exceder qualquer um dos dois,
+# a execução aborta com ABORTED_BUDGET_EXCEEDED e NADA é excluído — não existe
+# "apagar até o limite e deixar o resto para a próxima execução". Por isso a
+# primeira passada de backlog usa orçamentos altos (100 / 100%); depois de
+# zerar o backlog, reduzir para o regime permanente conservador (20 / 25%).
+#
+# MODO DE EXECUÇÃO (fase de validação):
+#   - agendado (cron) ..... SEMPRE dry-run: só gera o plano, nada é excluído
+#   - manual (dispatch) ... dry-run por padrão; desmarcar o checkbox para
+#                           aplicar de verdade
+# Após a validação (2 ciclos agendados com planos revisados + pull de imagem
+# multi-arch retida depois de um apply), trocar a expressão de dry-run para
+# permitir apply agendado:
+#   dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
 
 permissions:
   contents: read
@@ -61,16 +77,32 @@ jobs:
       # Um único passo cobre tags efêmeras antigas e manifests untagged/órfãos.
       # Os defaults da action já correspondem à política acima
       # (ephemeral-retention-days: 30, untagged-retention-days: 7,
-      # keep-latest: 10); delete-untagged precisa ser habilitado
-      # explicitamente. max-deletions é um orçamento de segurança por
-      # execução — sobras além do limite são apagadas nas próximas execuções.
+      # keep-latest: 10); delete-untagged precisa ser habilitado explicitamente.
       - name: Cleanup old images (Arklean)
+        id: arklean
         uses: Tooark/action-ark-clean@v0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           owner: ${{ github.repository_owner }}
           package: ${{ matrix.image }}
           delete-untagged: true
-          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+          # Validação: agendado fica em dry-run; apply só manual e consciente.
+          dry-run: ${{ github.event_name != 'workflow_dispatch' || inputs.dry-run }}
           confirm-delete: ${{ github.repository_owner }}/${{ matrix.image }}
-          max-deletions: 50
+          # Primeira passada (backlog): orçamentos altos de propósito — um
+          # plano que exceda qualquer orçamento aborta POR INTEIRO (nota no
+          # topo). Regime permanente após o backlog: 20 / 25.
+          max-deletions: 100
+          max-delete-percentage: 100
+
+      # Publica o plano (e o relatório de apply, quando existir) como artifact
+      # de auditoria — inclusive quando um orçamento aborta: desde a v0.1.1 o
+      # plan-path é emitido antes dos portões de segurança.
+      - name: Upload audit plan
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arklean-plan-${{ matrix.image }}
+          path: ${{ runner.temp }}/arklean-*.json
+          if-no-files-found: ignore
+          retention-days: 90
