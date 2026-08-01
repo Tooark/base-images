@@ -3,14 +3,5 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-08-21 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-09-01 (ou antes, ao atualizar base/pacotes da imagem).
 
-# usr/local/bin/trivy (gobinary) - google.golang.org/grpc
-GHSA-hrxh-6v49-42gf
-
-# usr/local/bin/trivy (gobinary) - oras.land/oras-go/v2
-CVE-2026-50151
-CVE-2026-50163
-
-# usr/local/bin/trivy (gobinary) - stdlib
-CVE-2026-39822
