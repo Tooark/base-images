@@ -4,3 +4,9 @@
 #
 # Revisão:
 # 2026-08-21 (ou antes, ao atualizar base/pacotes da imagem).
+
+# sonar-scanner:latest (debian 13.6) (debian) - libexpat1
+CVE-2025-59375
+CVE-2026-25210
+CVE-2026-45186
+CVE-2026-56408

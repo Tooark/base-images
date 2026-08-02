@@ -11,8 +11,14 @@ CVE-2026-27136
 CVE-2026-33814
 CVE-2026-39821
 
+# usr/local/bin/kubectl (gobinary) - golang.org/x/text
+CVE-2026-56852
+
 # usr/local/bin/terraform (gobinary) - google.golang.org/grpc
 GHSA-hrxh-6v49-42gf
+
+# usr/local/bin/terraform (gobinary) - golang.org/x/text
+CVE-2026-56852
 
 # usr/local/bin/terraform (gobinary) - stdlib
 CVE-2026-27145

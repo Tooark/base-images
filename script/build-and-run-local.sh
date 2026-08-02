@@ -211,8 +211,70 @@ scan_image() {
     -e TRIVY_CACHE_DIR=/home/app/.cache/trivy \
     -e TRIVY_FORMAT=table \
     -e TRIVY_EXIT_CODE=0 \
+    -e TRIVY_IGNORE_UNFIXED=true \
+    -e TRIVY_SEVERITY=HIGH,CRITICAL \
     security-scanner:latest \
     full-scan "${image_ref}" --path /workspace
+}
+
+collect_image_cves() {
+  local image="$1"
+  local reports_dir="${ROOT_DIR}/scan-reports/${image}"
+  local files=()
+  local report
+
+  for report in trivy-image.json trivy-filesystem.json; do
+    if [[ -f "${reports_dir}/${report}" ]]; then
+      files+=("/reports/${report}")
+    fi
+  done
+
+  if [[ ${#files[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  # Agrupa cada CVE por "alvo (tipo) - dependencia", no mesmo formato dos .trivyignore.
+  # Considera apenas HIGH/CRITICAL com correcao disponivel (FixedVersion preenchido).
+  docker run --rm \
+    --entrypoint jq \
+    -v "${reports_dir}":/reports:ro \
+    security-scanner:latest \
+    -rs '
+      [ .[]
+        | (.Results // [])[]
+        | . as $r
+        | ($r.Vulnerabilities // [])[]
+        | select(.Severity == "HIGH" or .Severity == "CRITICAL")
+        | select((.FixedVersion // "") != "")
+        | { grp: "\($r.Target) (\($r.Type // "unknown")) - \(.PkgName)",
+            id: .VulnerabilityID } ]
+      | unique
+      | group_by(.grp)
+      | map("# \(.[0].grp)\n" + ([.[].id] | unique | join("\n")))
+      | join("\n\n")
+    ' "${files[@]}"
+}
+
+summarize_scans() {
+  local summary_file="${ROOT_DIR}/scan-reports/cve-summary.txt"
+  local image section
+
+  : > "${summary_file}"
+
+  for image in "$@"; do
+    section="$(collect_image_cves "${image}")"
+    {
+      printf '## %s\n\n' "${image}"
+      if [[ -n "${section}" ]]; then
+        printf '%s\n\n' "${section}"
+      else
+        printf 'Nenhuma CVE HIGH/CRITICAL com correcao disponivel.\n\n'
+      fi
+    } >> "${summary_file}"
+  done
+
+  log "Resumo de CVEs por imagem (scan-reports/cve-summary.txt):"
+  cat "${summary_file}"
 }
 
 main() {
@@ -259,6 +321,7 @@ main() {
         log "Executando scan local em ${image}:latest"
         scan_image "${image}"
       done
+      summarize_scans "${targets[@]}"
       ;;
     all)
       for image in "${targets[@]}"; do
@@ -270,6 +333,7 @@ main() {
         log "Executando scan local em ${image}:latest"
         scan_image "${image}"
       done
+      summarize_scans "${targets[@]}"
       ;;
   esac
 
