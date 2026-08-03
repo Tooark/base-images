@@ -99,7 +99,7 @@ jobs:
       # de auditoria — inclusive quando um orçamento aborta: desde a v0.1.1 o
       # plan-path é emitido antes dos portões de segurança.
       - name: Upload audit plan
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: arklean-plan-${{ matrix.image }}
