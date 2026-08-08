@@ -3,24 +3,5 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-09-01 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-09-08 (ou antes, ao atualizar base/pacotes da imagem).
 
-# usr/local/bin/betterleaks (gobinary) - golang.org/x/text
-CVE-2026-56852
-
-# usr/local/bin/betterleaks (gobinary) - stdlib
-CVE-2026-27145
-CVE-2026-39822
-CVE-2026-42504
-
-# usr/local/bin/trivy (gobinary) - golang.org/x/text
-CVE-2026-56852
-
-# usr/local/bin/trivy (gobinary) - google.golang.org/grpc
-GHSA-hrxh-6v49-42gf
-
-# usr/local/bin/trivy (gobinary) - oras.land/oras-go/v2
-CVE-2026-50151
-
-# usr/local/bin/trivy (gobinary) - stdlib
-CVE-2026-39822
