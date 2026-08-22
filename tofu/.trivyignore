@@ -5,3 +5,78 @@
 # Revisão:
 # 2026-09-22 (ou antes, ao atualizar base/pacotes da imagem).
 
+# tofu:latest (debian 13.6) (debian) - bsdutils
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# tofu:latest (debian 13.6) (debian) - libblkid1
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# tofu:latest (debian 13.6) (debian) - liblastlog2-2
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# tofu:latest (debian 13.6) (debian) - libmount1
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# tofu:latest (debian 13.6) (debian) - libsmartcols1
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# tofu:latest (debian 13.6) (debian) - libuuid1
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# tofu:latest (debian 13.6) (debian) - login
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# tofu:latest (debian 13.6) (debian) - mount
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# tofu:latest (debian 13.6) (debian) - util-linux
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# usr/local/bin/tofu (gobinary) - go.opentelemetry.io/otel/sdk
+CVE-2026-39883
+
+# usr/local/bin/tofu (gobinary) - golang.org/x/mod
+CVE-2026-56864
+CVE-2026-56865
+
+# usr/local/bin/tofu (gobinary) - golang.org/x/net
+CVE-2026-25681
+CVE-2026-27136
+CVE-2026-39821
+CVE-2026-46600
+
+# usr/local/bin/tofu (gobinary) - golang.org/x/text
+CVE-2026-56852
+
+# usr/local/bin/tofu (gobinary) - google.golang.org/grpc
+GHSA-hrxh-6v49-42gf
+
+# usr/local/bin/tofu (gobinary) - oras.land/oras-go/v2
+CVE-2026-50163

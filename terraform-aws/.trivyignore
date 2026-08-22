@@ -5,6 +5,60 @@
 # Revisão:
 # 2026-08-27 (ou antes, ao atualizar base/pacotes da imagem).
 
+# terraform-aws:latest (debian 13.6) (debian) - bsdutils
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# terraform-aws:latest (debian 13.6) (debian) - libblkid1
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# terraform-aws:latest (debian 13.6) (debian) - liblastlog2-2
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# terraform-aws:latest (debian 13.6) (debian) - libmount1
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# terraform-aws:latest (debian 13.6) (debian) - libsmartcols1
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# terraform-aws:latest (debian 13.6) (debian) - libuuid1
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# terraform-aws:latest (debian 13.6) (debian) - login
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# terraform-aws:latest (debian 13.6) (debian) - mount
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
+# terraform-aws:latest (debian 13.6) (debian) - util-linux
+CVE-2026-53612
+CVE-2026-53613
+CVE-2026-53614
+CVE-2026-53615
+
 # usr/local/bin/kubectl (gobinary) - golang.org/x/net
 CVE-2026-25681
 CVE-2026-27136
@@ -14,13 +68,35 @@ CVE-2026-39821
 # usr/local/bin/kubectl (gobinary) - golang.org/x/text
 CVE-2026-56852
 
-# usr/local/bin/terraform (gobinary) - google.golang.org/grpc
-GHSA-hrxh-6v49-42gf
+# usr/local/bin/kubectl (gobinary) - stdlib
+CVE-2026-33818
+CVE-2026-46600
+CVE-2026-56853
+CVE-2026-56858
+CVE-2026-56859
+CVE-2026-56860
+CVE-2026-56862
+
+# usr/local/bin/terraform (gobinary) - golang.org/x/mod
+CVE-2026-56864
+CVE-2026-56865
+
+# usr/local/bin/terraform (gobinary) - golang.org/x/net
+CVE-2026-46600
 
 # usr/local/bin/terraform (gobinary) - golang.org/x/text
 CVE-2026-56852
 
+# usr/local/bin/terraform (gobinary) - google.golang.org/grpc
+GHSA-hrxh-6v49-42gf
+
 # usr/local/bin/terraform (gobinary) - stdlib
 CVE-2026-27145
+CVE-2026-33818
 CVE-2026-39822
 CVE-2026-42504
+CVE-2026-56853
+CVE-2026-56858
+CVE-2026-56859
+CVE-2026-56860
+CVE-2026-56862
