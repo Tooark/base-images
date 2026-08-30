@@ -40,9 +40,9 @@ Exemplos:
   ./script/build-and-run-local.sh scan terraform-aws
 
 Imagens suportadas:
-  aws-cli, dockerx, gcloud-cli, tofu, security-scanner, sonar-scanner,
-  terraform, terraform-aws, terraform-gcloud, terraform-aws-gcloud,
-  tofu-aws, tofu-gcloud, tofu-aws-gcloud, trivy-hadolint
+  aws-cli, dockerx, gcloud-cli,
+  tofu, tofu-aws, tofu-gcloud, tofu-aws-gcloud,
+  security-scanner, sonar-scanner, trivy-hadolint
 EOF
 }
 
@@ -318,7 +318,7 @@ main() {
     scan)
       ensure_scanner_image
       for image in "${targets[@]}"; do
-        log "Executando scan local em ${image}:latest"
+        log "\n\nExecutando scan local em ${image}:latest"
         scan_image "${image}"
       done
       summarize_scans "${targets[@]}"
