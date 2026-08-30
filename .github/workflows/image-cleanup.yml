@@ -16,12 +16,13 @@ name: Cleanup Old Docker Images
 # Por ser uma action first-party (mantida pela própria Tooark), é usada pela
 # major tag v0, recebendo correções automaticamente a cada release.
 #
-# IMPORTANTE — semântica dos orçamentos (max-deletions / max-delete-percentage):
-# são portões fail-closed, NÃO fatias. Se o plano exceder qualquer um dos dois,
-# a execução aborta com ABORTED_BUDGET_EXCEEDED e NADA é excluído — não existe
-# "apagar até o limite e deixar o resto para a próxima execução". Por isso a
-# primeira passada de backlog usa orçamentos altos (100 / 100%); depois de
-# zerar o backlog, reduzir para o regime permanente conservador (20 / 25%).
+# ORÇAMENTOS (max-deletions / max-delete-percentage) com budget-mode: cap:
+# a action apaga os candidatos mais antigos que cabem em AMBOS os orçamentos e
+# difere o restante (DEFERRED_BUDGET) para a próxima execução semanal — o
+# backlog é drenado gradualmente, sem abortar o run. (No modo padrão "abort",
+# um plano acima do orçamento aborta inteiro com ABORTED_BUDGET_EXCEEDED.)
+# Os valores atuais (100 / 100%) só limitam planos com mais de 100 exclusões;
+# para um regime permanente mais conservador, reduzir para algo como 20 / 25%.
 #
 # MODO DE EXECUÇÃO (fase de validação):
 #   - agendado (cron) ..... SEMPRE dry-run: só gera o plano, nada é excluído
@@ -89,15 +90,20 @@ jobs:
           # Validação: agendado fica em dry-run; apply só manual e consciente.
           dry-run: ${{ github.event_name != 'workflow_dispatch' || inputs.dry-run }}
           confirm-delete: ${{ github.repository_owner }}/${{ matrix.image }}
-          # Primeira passada (backlog): orçamentos altos de propósito — um
-          # plano que exceda qualquer orçamento aborta POR INTEIRO (nota no
-          # topo). Regime permanente após o backlog: 20 / 25.
+          # cap: apaga os candidatos mais antigos que cabem no orçamento e difere
+          # o restante (DEFERRED_BUDGET) para a próxima execução semanal.
+          # Não há mais a necessidade de "primeira passada" com orçamentos altos.
+          budget-mode: cap
+          # Orçamento por execução. Com 100 / 100% o cap só atua em planos com
+          # mais de 100 exclusões (ver nota no topo); reduzir para 20 / 25 se
+          # quiser um regime permanente mais conservador.
           max-deletions: 100
           max-delete-percentage: 100
 
       # Publica o plano (e o relatório de apply, quando existir) como artifact
-      # de auditoria — inclusive quando um orçamento aborta: desde a v0.1.1 o
-      # plan-path é emitido antes dos portões de segurança.
+      # de auditoria — inclusive quando há itens diferidos por orçamento ou o
+      # run falha: desde a v0.1.1 o plan-path é emitido antes dos portões de
+      # segurança.
       - name: Upload audit plan
         uses: actions/upload-artifact@v7
         if: always()
