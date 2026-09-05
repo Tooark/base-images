@@ -3,26 +3,5 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-09-29 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-10-05 (ou antes, ao atualizar base/pacotes da imagem).
 
-# usr/local/bin/tofu (gobinary) - go.opentelemetry.io/otel/sdk
-CVE-2026-39883
-
-# usr/local/bin/tofu (gobinary) - golang.org/x/mod
-CVE-2026-56864
-CVE-2026-56865
-
-# usr/local/bin/tofu (gobinary) - golang.org/x/net
-CVE-2026-25681
-CVE-2026-27136
-CVE-2026-39821
-CVE-2026-46600
-
-# usr/local/bin/tofu (gobinary) - golang.org/x/text
-CVE-2026-56852
-
-# usr/local/bin/tofu (gobinary) - google.golang.org/grpc
-GHSA-hrxh-6v49-42gf
-
-# usr/local/bin/tofu (gobinary) - oras.land/oras-go/v2
-CVE-2026-50163

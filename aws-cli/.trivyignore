@@ -3,31 +3,5 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-09-29 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-10-05 (ou antes, ao atualizar base/pacotes da imagem).
 
-# usr/local/bin/docker (gobinary) - stdlib
-CVE-2026-33818
-CVE-2026-39821
-CVE-2026-46600
-CVE-2026-56853
-CVE-2026-56858
-CVE-2026-56859
-CVE-2026-56860
-CVE-2026-56862
-
-# usr/local/libexec/docker/cli-plugins/docker-buildx (gobinary) - github.com/moby/go-archive
-CVE-2026-17106
-
-# usr/local/libexec/docker/cli-plugins/docker-buildx (gobinary) - golang.org/x/mod
-CVE-2026-56864
-CVE-2026-56865
-
-# usr/local/libexec/docker/cli-plugins/docker-buildx (gobinary) - stdlib
-CVE-2026-33818
-CVE-2026-39821
-CVE-2026-46600
-CVE-2026-56853
-CVE-2026-56858
-CVE-2026-56859
-CVE-2026-56860
-CVE-2026-56862
