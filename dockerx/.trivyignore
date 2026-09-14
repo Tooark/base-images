@@ -5,3 +5,16 @@
 # Revisão:
 # 2026-10-12 (ou antes, ao atualizar base/pacotes da imagem).
 
+# dockerx:latest (debian 13.6) (debian) - gzip
+CVE-2026-41992
+
+# dockerx:latest (debian 13.6) (debian) - libpcre2-8-0
+CVE-2026-86145
+CVE-2026-89161
+
+# dockerx:latest (debian 13.6) (debian) - libsqlite3-0
+CVE-2026-11822
+CVE-2026-11824
+
+# usr/local/libexec/docker/cli-plugins/docker-buildx (gobinary) - github.com/moby/go-archive
+CVE-2026-17106
