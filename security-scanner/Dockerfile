@@ -71,7 +71,7 @@ COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY --chmod=0755 ark-tools.sh /usr/local/bin/ark-tools
 
 # Copia o JSON Schema do relatório ark-report-tools (referência local)
-COPY schemas/ark-report-tools.schema.v1.2.json /usr/local/share/ark-tools/ark-report-tools.schema.v1.2.json
+COPY schemas/ark-report-tools.schema.v1.3.json /usr/local/share/ark-tools/ark-report-tools.schema.v1.3.json
 
 # Remove CR e BOM do wrapper e do entrypoint (proteção contra arquivos vindos de Windows)
 RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/ark-tools \
@@ -97,12 +97,18 @@ HEALTHCHECK NONE
 WORKDIR /workspace
 
 # Variáveis de ambiente padrão
+# ARK_IMAGE_NAME/ARK_IMAGE_VERSION identificam a imagem que executa o scan e
+# alimentam o campo "image" do envelope do relatório. ARK_IMAGE_TAG e
+# ARK_IMAGE_DIGEST só o chamador conhece — passe via -e quando quiser registrar
+# a tag/digest exatos usados na execução.
 ENV ARK_IMAGE_FAMILY=security-scanner \
+    ARK_IMAGE_NAME=ghcr.io/tooark/security-scanner \
+    ARK_IMAGE_VERSION=${SECURITY_SCANNER_VERSION} \
     ARK_RUNTIME_USER=app \
     ARK_ENTRYPOINT_CMD=/usr/local/bin/ark-tools \
     TRIVY_CACHE_DIR=/home/app/.cache/trivy \
     REPORT_DIR=/reports \
-    ARK_REPORT_SCHEMA=/usr/local/share/ark-tools/ark-report-tools.schema.v1.2.json
+    ARK_REPORT_SCHEMA=/usr/local/share/ark-tools/ark-report-tools.schema.v1.3.json
 
 # Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
 # e faz o drop de privilégios para 'app' via gosu em runtime.

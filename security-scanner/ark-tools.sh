@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ark-tools - Security Scanner (Trivy + Hadolint + Betterleaks)
 # Família: security-scanner
-# Schema: ark-report-tools v1.2
+# Schema: ark-report-tools v1.3
 # Licença: MIT
 
 set -euo pipefail
@@ -530,6 +530,55 @@ collect_metadata() {
     }'
 }
 
+## --- Identificação da imagem executora ---------------------------------------
+## Monta o objeto `image` do envelope: descreve a imagem ark-* que está
+## EXECUTANDO o scan (o scanner), não o alvo — o alvo continua em `target`.
+## Fontes (todas opcionais; as duas primeiras são gravadas no build da imagem):
+## ARK_IMAGE_NAME    nome/repositório (ex.: ghcr.io/tooark/security-scanner)
+## ARK_IMAGE_VERSION versão da imagem gravada no build (ex.: 1.9.0)
+## ARK_IMAGE_TAG     tag usada na execução (ex.: 1.9, latest) — informada via -e
+## ARK_IMAGE_DIGEST  digest resolvido (ex.: sha256:...) — informado via -e
+## Campos sem valor viram null; `reference` prioriza digest sobre tag.
+collect_image_info() {
+  local name="${ARK_IMAGE_NAME:-}"
+  local version="${ARK_IMAGE_VERSION:-}"
+  local tag="${ARK_IMAGE_TAG:-}"
+  local digest="${ARK_IMAGE_DIGEST:-}"
+
+  ## Sem nome explícito, a família é o identificador mínimo disponível
+  [[ -z "$name" ]] && name="${ARK_IMAGE_FAMILY:-}"
+
+  ## Sem tag explícita, assume a versão gravada no build
+  [[ -z "$tag" ]] && tag="$version"
+
+  ## Referência completa: digest é imutável, então tem precedência sobre a tag
+  local reference=""
+  if [[ -n "$name" && -n "$digest" ]]; then
+    reference="${name}@${digest}"
+  elif [[ -n "$name" && -n "$tag" ]]; then
+    reference="${name}:${tag}"
+  else
+    reference="$name"
+  fi
+
+  ## Gera o JSON da imagem usando jq, convertendo strings vazias para null.
+  jq -n \
+    --arg name      "$name" \
+    --arg version   "$version" \
+    --arg tag       "$tag" \
+    --arg digest    "$digest" \
+    --arg reference "$reference" \
+    '
+    def nz(v): if (v|length) > 0 then v else null end;
+    {
+      name:      nz($name),
+      version:   nz($version),
+      tag:       nz($tag),
+      digest:    nz($digest),
+      reference: nz($reference)
+    }'
+}
+
 ## --- Parse das flags de metadata ---------------------------------------------
 ## Esta função PRECISA ser executada no shell pai (não em subshell),
 ## pois ela seta CLI_BRANCH/CLI_COMMIT/CLI_USER/CLI_REPOSITORY/CLI_TAG.
@@ -649,7 +698,7 @@ _post_scan_artifacts() {
   fi
 }
 
-## --- Relatório padronizado ark-report-tools v1.2 -----------------------------
+## --- Relatório padronizado ark-report-tools v1.3 -----------------------------
 ## Envolve a saída bruta de uma ferramenta no schema ark-report-tools.
 ## Argumentos:
 ## $1 command (image-scan|secret-scan|terraform-scan|full-scan|...)
@@ -685,11 +734,16 @@ wrap_ark_report() {
   local safe_report_file
   safe_report_file=$(_report_file_or_null "$report_file")
 
+  ## Identifica a imagem ark-* que está executando o scan
+  local image_json
+  image_json="$(collect_image_info)"
+
   ## --slurpfile lê do arquivo sem passar pelo ARG_MAX do OS
   jq -n \
     --arg schema "ark-report-tools" \
-    --arg version "1.2" \
+    --arg version "1.3" \
     --arg image_family "${ARK_IMAGE_FAMILY:-unknown}" \
+    --argjson image "$image_json" \
     --arg ts "$(now_iso)" \
     --arg cmd "$command" \
     --arg target "$target" \
@@ -703,6 +757,7 @@ wrap_ark_report() {
       schema: $schema,
       version: $version,
       image_family: $image_family,
+      image: $image,
       timestamp: $ts,
       command: $cmd,
       target: $target,
@@ -1561,6 +1616,7 @@ EOF
 ## Exibe as versões do wrapper e das ferramentas subjacentes (Trivy, Hadolint).
 do_version() {
   echo "ark-tools - security-scanner"
+  echo "image: ${ARK_IMAGE_NAME:-${ARK_IMAGE_FAMILY:-unknown}}:${ARK_IMAGE_TAG:-${ARK_IMAGE_VERSION:-unknown}}"
   echo "---"
   trivy --version 2>/dev/null | head -1 || echo "trivy: not found"
   hadolint --version 2>/dev/null | head -1 || echo "hadolint: not found"
@@ -2333,11 +2389,16 @@ do_full_scan() {
   local metadata_json
   metadata_json="$(collect_metadata "$scan_path")"
 
+  ## Identifica a imagem ark-* que está executando o scan
+  local image_json
+  image_json="$(collect_image_info)"
+
   ## Consolida os resultados em um único envelope usando o schema ark-report-tools
   jq -n \
     --arg schema "ark-report-tools" \
-    --arg version "1.2" \
+    --arg version "1.3" \
     --arg image_family "${ARK_IMAGE_FAMILY:-security-scanner}" \
+    --argjson image "$image_json" \
     --arg ts "$(now_iso)" \
     --arg target "$image" \
     --argjson sbom_enabled  "$sbom_enabled" \
@@ -2354,6 +2415,7 @@ do_full_scan() {
       schema: $schema,
       version: $version,
       image_family: $image_family,
+      image: $image,
       timestamp: $ts,
       command: "full-scan",
       target: $target,

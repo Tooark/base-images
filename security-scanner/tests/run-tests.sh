@@ -151,27 +151,68 @@ assert_eq "$CLI_USER"       "u"    "--user=u"
 assert_eq "$CLI_REPOSITORY" "r/r"  "--repo=r/r"
 assert_eq "$CLI_TAG"        "v1"   "--tag=v1"
 
-section "wrap_ark_report() - envelope v1.2"
+reset_image_envs() {
+  unset ARK_IMAGE_NAME ARK_IMAGE_VERSION ARK_IMAGE_TAG ARK_IMAGE_DIGEST ARK_IMAGE_FAMILY
+}
+
+section "collect_image_info()"
+reset_image_envs
+export ARK_IMAGE_NAME="ghcr.io/tooark/security-scanner"
+export ARK_IMAGE_VERSION="1.9.0"
+img="$(collect_image_info)"
+assert_eq "$(echo "$img" | jq -r .name)"      "ghcr.io/tooark/security-scanner"       "name"
+assert_eq "$(echo "$img" | jq -r .version)"   "1.9.0"                                 "version"
+assert_eq "$(echo "$img" | jq -r .tag)"       "1.9.0"                                 "tag falls back to version"
+assert_eq "$(echo "$img" | jq -r .digest)"    "null"                                  "digest null when unset"
+assert_eq "$(echo "$img" | jq -r .reference)" "ghcr.io/tooark/security-scanner:1.9.0" "reference name:tag"
+
+export ARK_IMAGE_TAG="1.9"
+assert_eq "$(collect_image_info | jq -r .tag)"       "1.9"                                 "explicit tag wins"
+assert_eq "$(collect_image_info | jq -r .reference)" "ghcr.io/tooark/security-scanner:1.9" "reference uses explicit tag"
+
+export ARK_IMAGE_DIGEST="sha256:abababababababababababababababababababababababababababababababab"
+assert_eq "$(collect_image_info | jq -r .digest)"    "sha256:abababababababababababababababababababababababababababababababab" "digest"
+assert_eq "$(collect_image_info | jq -r .reference)" "ghcr.io/tooark/security-scanner@sha256:abababababababababababababababababababababababababababababababab" "digest wins over tag"
+
+reset_image_envs
+export ARK_IMAGE_FAMILY="security-scanner"
+assert_eq "$(collect_image_info | jq -r .name)"      "security-scanner" "name falls back to image_family"
+assert_eq "$(collect_image_info | jq -r .version)"   "null"             "version null without env"
+assert_eq "$(collect_image_info | jq -r .reference)" "security-scanner" "reference with name only"
+
+reset_image_envs
+assert_eq "$(collect_image_info | jq -c .)" \
+  '{"name":null,"version":null,"tag":null,"digest":null,"reference":null}' "all null without envs"
+
+section "wrap_ark_report() - envelope v1.3"
 reset_envs
+reset_image_envs
 export ARK_IMAGE_FAMILY="test-family"
+export ARK_IMAGE_NAME="ghcr.io/tooark/security-scanner"
+export ARK_IMAGE_VERSION="1.9.0"
+export ARK_IMAGE_TAG="1.9"
 raw_report="$(mktemp)"; echo '{"foo":"bar"}' > "$raw_report"
 out_report="$(mktemp)"
 metadata='{"scm":{"branch":"main"},"ci":{"platform":"github"}}'
 wrap_ark_report "image-scan" "nginx:latest" "trivy" "$raw_report" "$out_report" "false" "true" "$metadata" 2>/dev/null
 
-assert_eq "$(jq -r .schema       "$out_report")" "ark-report-tools"  "schema"
-assert_eq "$(jq -r .version      "$out_report")" "1.2"               "version"
-assert_eq "$(jq -r .image_family "$out_report")" "test-family"       "image_family"
-assert_eq "$(jq -r .command      "$out_report")" "image-scan"        "command"
-assert_eq "$(jq -r .target       "$out_report")" "nginx:latest"      "target"
-assert_eq "$(jq -r .tool         "$out_report")" "trivy"             "tool"
-assert_eq "$(jq -r .sbom_enabled "$out_report")" "false"             "sbom_enabled"
-assert_eq "$(jq -r .list_all_pkgs "$out_report")" "true"             "list_all_pkgs"
-assert_eq "$(jq -r .metadata.scm.branch  "$out_report")" "main"      "metadata.scm"
-assert_eq "$(jq -r .metadata.ci.platform "$out_report")" "github"    "metadata.ci"
-assert_eq "$(jq -r .report.foo            "$out_report")" "bar"      "raw report preserved"
+assert_eq "$(jq -r .schema                "$out_report")" "ark-report-tools"                    "schema"
+assert_eq "$(jq -r .version               "$out_report")" "1.3"                                 "version"
+assert_eq "$(jq -r .image_family          "$out_report")" "test-family"                         "image_family"
+assert_eq "$(jq -r .image.name            "$out_report")" "ghcr.io/tooark/security-scanner"     "image.name"
+assert_eq "$(jq -r .image.version         "$out_report")" "1.9.0"                               "image.version"
+assert_eq "$(jq -r .image.tag             "$out_report")" "1.9"                                 "image.tag"
+assert_eq "$(jq -r .image.reference       "$out_report")" "ghcr.io/tooark/security-scanner:1.9" "image.reference"
+assert_eq "$(jq -r .command               "$out_report")" "image-scan"                          "command"
+assert_eq "$(jq -r .target                "$out_report")" "nginx:latest"                        "target"
+assert_eq "$(jq -r .tool                  "$out_report")" "trivy"                               "tool"
+assert_eq "$(jq -r .sbom_enabled          "$out_report")" "false"                               "sbom_enabled"
+assert_eq "$(jq -r .list_all_pkgs         "$out_report")" "true"                                "list_all_pkgs"
+assert_eq "$(jq -r .metadata.scm.branch   "$out_report")" "main"                                "metadata.scm"
+assert_eq "$(jq -r .metadata.ci.platform  "$out_report")" "github"                              "metadata.ci"
+assert_eq "$(jq -r .report.foo            "$out_report")" "bar"                                 "raw report preserved"
 rm -f "$raw_report" "$out_report"
-unset ARK_IMAGE_FAMILY
+reset_image_envs
 
 section "wrap_ark_report() - empty metadata default"
 raw_report="$(mktemp)"; echo '{}' > "$raw_report"
@@ -418,12 +459,24 @@ TRIVY_EXIT_CODE="0"
 FULL_SCAN_SKIP_SECRETS="true"
 FULL_SCAN_SKIP_LINT="true"
 
+reset_image_envs
+export ARK_IMAGE_NAME="ghcr.io/tooark/security-scanner"
+export ARK_IMAGE_VERSION="1.9.0"
+export ARK_IMAGE_TAG="1.9"
+
 assert_ok "full-scan runs with conversion" do_full_scan "example:latest" --path "$full_scan_dir"
 
 assert_eq "$(wc -l < "$convert_calls" | tr -d '[:space:]')" "2" "converts image and source scans"
 assert_ok "image conversion recorded" grep -q "trivy-image.json|$TEST_REPORT_DIR/trivy-image.table" "$convert_calls"
 assert_ok "filesystem conversion recorded" grep -q "trivy-filesystem.json|$TEST_REPORT_DIR/trivy-filesystem.table" "$convert_calls"
 
+full_scan_report="$TEST_REPORT_DIR/full-scan-report.json"
+assert_eq "$(jq -r .image.name      "$full_scan_report")" "ghcr.io/tooark/security-scanner"     "full-scan image.name"
+assert_eq "$(jq -r .image.version   "$full_scan_report")" "1.9.0"                               "full-scan image.version"
+assert_eq "$(jq -r .image.tag       "$full_scan_report")" "1.9"                                 "full-scan image.tag"
+assert_eq "$(jq -r .image.reference "$full_scan_report")" "ghcr.io/tooark/security-scanner:1.9" "full-scan image.reference"
+
+reset_image_envs
 unset TRIVY_FORMAT TRIVY_EXIT_CODE FULL_SCAN_SKIP_SECRETS FULL_SCAN_SKIP_LINT
 rm -rf "$full_scan_dir"
 rm -f "$convert_calls"

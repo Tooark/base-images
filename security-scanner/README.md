@@ -48,7 +48,7 @@ any repository.
 - Optional SBOM generation (CycloneDX/SPDX)
 - Full package inventory (`--list-all-pkgs`)
 - CI/SCM auto-detection (GitLab/GitHub/Azure/Bitbucket/Jenkins)
-- Standardized webhook envelope (`ark-report-tools v1.2`)
+- Standardized webhook envelope (`ark-report-tools v1.3`)
 - Trivy Server + local fallback
 - Failure gates configurable per severity
 
@@ -74,7 +74,7 @@ any repository.
 | Hadolint          | `/usr/local/bin/hadolint`                                      |
 | Betterleaks       | `/usr/local/bin/betterleaks`                                   |
 | CLI wrapper       | `/usr/local/bin/ark-tools`                                     |
-| JSON Schema       | `/usr/local/share/ark-tools/ark-report-tools.schema.v1.2.json` |
+| JSON Schema       | `/usr/local/share/ark-tools/ark-report-tools.schema.v1.3.json` |
 | Runtime deps      | `bash`, `curl`, `jq`, `git`, `ca-certificates`, `gosu`         |
 | Default user      | `app` (non-root)                                               |
 | `WORKDIR`         | `/workspace`                                                   |
@@ -229,6 +229,28 @@ Metadata flags applicable to **all** scan commands:
 | `FULL_SCAN_SKIP_IMAGE`   | `false`      | Skip image scan        |
 | `FULL_SCAN_SKIP_LINT`    | `false`      | Skip Dockerfile lint   |
 | `FULL_SCAN_SKIP_SECRETS` | `false`      | Skip Betterleaks       |
+
+### Scanner image identity
+
+These variables fill the `image` object of the report envelope — **the image that runs the
+scan**, not the scanned target (the target stays in `target`).
+`ARK_IMAGE_NAME` and `ARK_IMAGE_VERSION` are baked at build time; the tag and
+digest are only known by the caller, so pass them with `-e` when you want the
+exact reference recorded.
+
+| Variable            | Default                                | Description                                             |
+| ------------------- | -------------------------------------- | ------------------------------------------------------- |
+| `ARK_IMAGE_NAME`    | `ghcr.io/tooark/security-scanner`      | Image name/repository (falls back to `ARK_IMAGE_FAMILY`) |
+| `ARK_IMAGE_VERSION` | image version baked at build           | Semantic version of the image (e.g. `1.9.0`)            |
+| `ARK_IMAGE_TAG`     | value of `ARK_IMAGE_VERSION`           | Tag actually used at runtime (e.g. `1.9`, `latest`)     |
+| `ARK_IMAGE_DIGEST`  | empty                                  | Resolved digest (`sha256:...`), when known              |
+
+```bash
+docker run --rm \
+  -e ARK_IMAGE_TAG=1.9 \
+  -e ARK_IMAGE_DIGEST=sha256:25a0f9cb7c8fdc7e1dcfc302eb2d20d488711e1216f674d6f275497a9dc6961d \
+  ghcr.io/tooark/security-scanner:1.9 image-scan myapp:latest
+```
 
 ### Webhook
 
@@ -532,11 +554,11 @@ These examples cover a broad set of commands, flags, and environment variables o
 
 ## JSON Schema (`ark-report-tools`)
 
-Every report follows the **`ark-report-tools v1.2`** envelope,
-formalized in [`schemas/ark-report-tools.schema.v1.2.json`](schemas/ark-report-tools.schema.v1.2.json).
+Every report follows the **`ark-report-tools v1.3`** envelope,
+formalized in [`schemas/ark-report-tools.schema.v1.3.json`](schemas/ark-report-tools.schema.v1.3.json).
 
 Inside the image, it is also available at
-`/usr/local/share/ark-tools/ark-report-tools.schema.v1.2.json`
+`/usr/local/share/ark-tools/ark-report-tools.schema.v1.3.json`
 (accessible via `ARK_REPORT_SCHEMA`).
 
 ### Structure
@@ -544,8 +566,15 @@ Inside the image, it is also available at
 ```json
 {
   "schema": "ark-report-tools",
-  "version": "1.2",
+  "version": "1.3",
   "image_family": "security-scanner",
+  "image": {
+    "name": "ghcr.io/tooark/security-scanner",
+    "version": "1.9.0",
+    "tag": "1.9",
+    "digest": "sha256:25a0f9cb...",
+    "reference": "ghcr.io/tooark/security-scanner@sha256:25a0f9cb..."
+  },
   "timestamp": "2026-05-31T18:00:00Z",
   "command": "full-scan",
   "target": "myapp:latest",
@@ -568,6 +597,24 @@ Inside the image, it is also available at
 Enables routing/analytics across **trivy-hadolint**, **security-scanner**,
 and **iac-scanner** in a single ingestion backend.
 
+### `image` field
+
+Records **which scanner image produced the report** and at which version/tag —
+`target` answers *what was scanned*, `image` answers *what scanned it*. Useful
+to reproduce a finding with the exact same toolchain and to spot reports still
+coming from an outdated scanner.
+
+| Field       | Source                                             |
+| ----------- | -------------------------------------------------- |
+| `name`      | `ARK_IMAGE_NAME`, falling back to `ARK_IMAGE_FAMILY` |
+| `version`   | `ARK_IMAGE_VERSION` (baked at build time)          |
+| `tag`       | `ARK_IMAGE_TAG`, falling back to `version`         |
+| `digest`    | `ARK_IMAGE_DIGEST` (only when provided)            |
+| `reference` | `name@digest` when the digest is known, else `name:tag` |
+
+Fields with no value are emitted as `null`. The object is optional in the
+schema, so reports generated before this field still validate.
+
 ### Validation
 
 ```bash
@@ -577,7 +624,7 @@ node -e "
   const fs = require('fs');
   const Ajv = require('ajv/dist/2020.js');
   const addFormats = require('ajv-formats');
-  const schema = JSON.parse(fs.readFileSync('schemas/ark-report-tools.schema.v1.2.json'));
+  const schema = JSON.parse(fs.readFileSync('schemas/ark-report-tools.schema.v1.3.json'));
   const report = JSON.parse(fs.readFileSync('full-scan-report.json'));
   const ajv = new Ajv({ strict: false }); addFormats(ajv);
   const validate = ajv.compile(schema);
@@ -590,7 +637,7 @@ pip install jsonschema
 python -c "
 import json
 from jsonschema import Draft202012Validator
-s = json.load(open('schemas/ark-report-tools.schema.v1.2.json'))
+s = json.load(open('schemas/ark-report-tools.schema.v1.3.json'))
 r = json.load(open('full-scan-report.json'))
 Draft202012Validator(s).validate(r)
 print('OK')
@@ -611,7 +658,8 @@ The suite covers:
 - `is_true()`, `detect_ci_platform()`, `_first_nonempty()`
 - `collect_metadata()` (auto-detect, precedence, null normalization)
 - `parse_metadata_flags()` (including the parent-shell bugfix with `REMAINING_ARGS`)
-- `wrap_ark_report()` (v1.2 envelope + `image_family`)
+- `collect_image_info()` (scanner image identity, fallbacks and `reference`)
+- `wrap_ark_report()` (v1.3 envelope + `image_family` + `image`)
 - `_report_file_or_null()`
 - `should_use_list_all_pkgs()` and `trivy_list_all_pkgs_flag()` (config does NOT receive it)
 - `resolve_trivy_ignorefile()`

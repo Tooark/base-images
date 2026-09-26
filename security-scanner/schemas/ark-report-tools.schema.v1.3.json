@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:tooark:schemas:ark-report-tools:1.2",
+  "$id": "urn:tooark:schemas:ark-report-tools:1.3",
   "title": "ark-report-tools",
   "description": "Envelope padronizado para relatórios gerados pelas imagens da família ark-* (security-scanner, iac-scanner, trivy-hadolint).",
   "type": "object",
@@ -22,7 +22,7 @@
     "version": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+$",
-      "description": "Versão do envelope (ex.: 1.2)."
+      "description": "Versão do envelope (ex.: 1.3)."
     },
     "image_family": {
       "type": [
@@ -37,6 +37,52 @@
         null
       ],
       "description": "Família/imagem que gerou o relatório. Útil para roteamento e analytics."
+    },
+    "image": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Imagem ark-* que EXECUTOU o scan (o scanner), não o alvo — o alvo fica em 'target'. Preenchida a partir de ARK_IMAGE_NAME / ARK_IMAGE_VERSION / ARK_IMAGE_TAG / ARK_IMAGE_DIGEST.",
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Nome/repositório da imagem (ex.: 'ghcr.io/tooark/security-scanner'). Sem ARK_IMAGE_NAME, cai para o valor de image_family."
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Versão da imagem gravada no build (ex.: '1.9.0')."
+        },
+        "tag": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Tag efetivamente usada na execução (ex.: '1.9', 'latest'). Sem ARK_IMAGE_TAG, cai para o valor de 'version'."
+        },
+        "digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Digest da imagem, quando conhecido (informado via ARK_IMAGE_DIGEST)."
+        },
+        "reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Referência completa: 'name@digest' quando o digest é conhecido, senão 'name:tag'."
+        }
+      }
     },
     "timestamp": {
       "type": "string",
