@@ -7,7 +7,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io/tooark
-  SECURITY_SCANNER_IMAGE: ghcr.io/tooark/security-scanner:1.4
+  SECURITY_SCANNER_IMAGE: ghcr.io/tooark/security-scanner:1.10
 
 on:
   push:
@@ -262,7 +262,7 @@ jobs:
             -e TRIVY_FORMAT="table" \
             -e TRIVY_SKIP_DB_UPDATE="${{ steps.trivy-cache.outputs.cache-hit == 'true' && 'true' || 'false' }}" \
             -e TRIVY_SKIP_JAVA_DB_UPDATE="${{ steps.trivy-cache.outputs.cache-hit == 'true' && 'true' || 'false' }}" \
-            -e HADOLINT_FORMAT="tty" \
+            -e HADOLINT_FORMAT="json" \
             -e BETTERLEAKS_FAIL_ON_FINDINGS="true" \
             -e FULL_SCAN_MODE="repo" \
             -e FULL_SCAN_DOCKERFILES="${{ matrix.image }}/Dockerfile" \
