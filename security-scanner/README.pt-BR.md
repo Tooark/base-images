@@ -81,6 +81,7 @@ qualquer repositório.
 | Cache Trivy           | `TRIVY_CACHE_DIR=/home/app/.cache/trivy`                       |
 | Diretório de reports  | `REPORT_DIR=/reports`                                          |
 | Identificador família | `ARK_IMAGE_FAMILY=security-scanner`                            |
+| Locale                | `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`                               |
 
 ---
 
@@ -239,7 +240,7 @@ então passe via `-e` quando quiser registrar a referência exata.
 
 | Variável            | Default                           | Descrição                                                 |
 | ------------------- | --------------------------------- | --------------------------------------------------------- |
-| `ARK_IMAGE_NAME`    | `ghcr.io/tooark/security-scanner` | Nome/repositório da imagem (cai para `ARK_IMAGE_FAMILY`)   |
+| `ARK_IMAGE_NAME`    | `ghcr.io/tooark/security-scanner` | Nome/repositório da imagem (cai para `ARK_IMAGE_FAMILY`)  |
 | `ARK_IMAGE_VERSION` | versão gravada no build           | Versão semântica da imagem (ex.: `1.9.0`)                 |
 | `ARK_IMAGE_TAG`     | valor de `ARK_IMAGE_VERSION`      | Tag efetivamente usada na execução (ex.: `1.9`, `latest`) |
 | `ARK_IMAGE_DIGEST`  | vazio                             | Digest resolvido (`sha256:...`), quando conhecido         |
@@ -599,17 +600,17 @@ e **iac-scanner** num backend de ingestão único.
 ### Campo `image`
 
 Registra **qual imagem do scanner gerou o relatório** e em que versão/tag —
-`target` responde *o que foi escaneado*, `image` responde *quem escaneou*. Serve
+`target` responde _o que foi escaneado_, `image` responde _quem escaneou_. Serve
 para reproduzir um achado com exatamente o mesmo toolchain e para identificar
 relatórios ainda vindos de um scanner desatualizado.
 
-| Campo       | Origem                                                  |
-| ----------- | ------------------------------------------------------- |
-| `name`      | `ARK_IMAGE_NAME`, caindo para `ARK_IMAGE_FAMILY`        |
-| `version`   | `ARK_IMAGE_VERSION` (gravada no build)                  |
-| `tag`       | `ARK_IMAGE_TAG`, caindo para `version`                  |
-| `digest`    | `ARK_IMAGE_DIGEST` (apenas quando informado)            |
-| `reference` | `name@digest` quando há digest, senão `name:tag`        |
+| Campo       | Origem                                           |
+| ----------- | ------------------------------------------------ |
+| `name`      | `ARK_IMAGE_NAME`, caindo para `ARK_IMAGE_FAMILY` |
+| `version`   | `ARK_IMAGE_VERSION` (gravada no build)           |
+| `tag`       | `ARK_IMAGE_TAG`, caindo para `version`           |
+| `digest`    | `ARK_IMAGE_DIGEST` (apenas quando informado)     |
+| `reference` | `name@digest` quando há digest, senão `name:tag` |
 
 Campos sem valor saem como `null`. O objeto é opcional no schema, então
 relatórios gerados antes deste campo continuam válidos.

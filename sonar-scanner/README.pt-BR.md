@@ -47,6 +47,7 @@ Imagem base com `sonar-scanner` (SonarQube Scanner CLI) pronto para uso em pipel
 | Runtime deps          | `ca-certificates`, `bash`, `git`, `openjdk-21-jre`, `gosu` |
 | Usuário padrão        | `app` (não-root)                                           |
 | Identificador família | `ARK_IMAGE_FAMILY=sonar-scanner`                           |
+| Locale                | `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`                           |
 
 ---
 

@@ -47,6 +47,7 @@ Base image with `sonar-scanner` (SonarQube Scanner CLI), ready to use in CI/CD p
 | Runtime deps      | `ca-certificates`, `bash`, `git`, `openjdk-21-jre`, `gosu` |
 | Default user      | `app` (non-root)                                           |
 | Family identifier | `ARK_IMAGE_FAMILY=sonar-scanner`                           |
+| Locale            | `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`                           |
 
 ---
 

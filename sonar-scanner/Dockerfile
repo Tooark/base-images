@@ -83,7 +83,12 @@ RUN useradd -m -s /bin/bash app
 HEALTHCHECK NONE
 
 # Variáveis de ambiente padrão
-ENV ARK_IMAGE_FAMILY=sonar-scanner \
+# LANG/LC_ALL=C.UTF-8: a JVM deriva `sun.jnu.encoding` (encoding de nomes de
+# arquivo) do locale; sem ele cai em ASCII e o scanner quebra com
+# InvalidPathException em arquivos com acento.
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    ARK_IMAGE_FAMILY=sonar-scanner \
     ARK_RUNTIME_USER=app \
     SONAR_USER_HOME=/home/app/.sonar \
     SONAR_SCANNER_HOME=/opt/sonar-scanner \

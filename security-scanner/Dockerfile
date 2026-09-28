@@ -101,7 +101,11 @@ WORKDIR /workspace
 # alimentam o campo "image" do envelope do relatório. ARK_IMAGE_TAG e
 # ARK_IMAGE_DIGEST só o chamador conhece — passe via -e quando quiser registrar
 # a tag/digest exatos usados na execução.
-ENV ARK_IMAGE_FAMILY=security-scanner \
+# LANG/LC_ALL=C.UTF-8 garante que nomes de arquivo e conteúdo com acento sejam
+# tratados como UTF-8 pelo bash/coreutils do wrapper e pelas ferramentas.
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    ARK_IMAGE_FAMILY=security-scanner \
     ARK_IMAGE_NAME=ghcr.io/tooark/security-scanner \
     ARK_IMAGE_VERSION=${SECURITY_SCANNER_VERSION} \
     ARK_RUNTIME_USER=app \

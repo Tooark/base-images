@@ -81,6 +81,7 @@ any repository.
 | Trivy cache       | `TRIVY_CACHE_DIR=/home/app/.cache/trivy`                       |
 | Reports directory | `REPORT_DIR=/reports`                                          |
 | Family identifier | `ARK_IMAGE_FAMILY=security-scanner`                            |
+| Locale            | `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`                               |
 
 ---
 
@@ -238,12 +239,12 @@ scan**, not the scanned target (the target stays in `target`).
 digest are only known by the caller, so pass them with `-e` when you want the
 exact reference recorded.
 
-| Variable            | Default                                | Description                                             |
-| ------------------- | -------------------------------------- | ------------------------------------------------------- |
-| `ARK_IMAGE_NAME`    | `ghcr.io/tooark/security-scanner`      | Image name/repository (falls back to `ARK_IMAGE_FAMILY`) |
-| `ARK_IMAGE_VERSION` | image version baked at build           | Semantic version of the image (e.g. `1.9.0`)            |
-| `ARK_IMAGE_TAG`     | value of `ARK_IMAGE_VERSION`           | Tag actually used at runtime (e.g. `1.9`, `latest`)     |
-| `ARK_IMAGE_DIGEST`  | empty                                  | Resolved digest (`sha256:...`), when known              |
+| Variable            | Default                           | Description                                              |
+| ------------------- | --------------------------------- | -------------------------------------------------------- |
+| `ARK_IMAGE_NAME`    | `ghcr.io/tooark/security-scanner` | Image name/repository (falls back to `ARK_IMAGE_FAMILY`) |
+| `ARK_IMAGE_VERSION` | image version baked at build      | Semantic version of the image (e.g. `1.9.0`)             |
+| `ARK_IMAGE_TAG`     | value of `ARK_IMAGE_VERSION`      | Tag actually used at runtime (e.g. `1.9`, `latest`)      |
+| `ARK_IMAGE_DIGEST`  | empty                             | Resolved digest (`sha256:...`), when known               |
 
 ```bash
 docker run --rm \
@@ -600,16 +601,16 @@ and **iac-scanner** in a single ingestion backend.
 ### `image` field
 
 Records **which scanner image produced the report** and at which version/tag —
-`target` answers *what was scanned*, `image` answers *what scanned it*. Useful
+`target` answers _what was scanned_, `image` answers _what scanned it_. Useful
 to reproduce a finding with the exact same toolchain and to spot reports still
 coming from an outdated scanner.
 
-| Field       | Source                                             |
-| ----------- | -------------------------------------------------- |
-| `name`      | `ARK_IMAGE_NAME`, falling back to `ARK_IMAGE_FAMILY` |
-| `version`   | `ARK_IMAGE_VERSION` (baked at build time)          |
-| `tag`       | `ARK_IMAGE_TAG`, falling back to `version`         |
-| `digest`    | `ARK_IMAGE_DIGEST` (only when provided)            |
+| Field       | Source                                                  |
+| ----------- | ------------------------------------------------------- |
+| `name`      | `ARK_IMAGE_NAME`, falling back to `ARK_IMAGE_FAMILY`    |
+| `version`   | `ARK_IMAGE_VERSION` (baked at build time)               |
+| `tag`       | `ARK_IMAGE_TAG`, falling back to `version`              |
+| `digest`    | `ARK_IMAGE_DIGEST` (only when provided)                 |
 | `reference` | `name@digest` when the digest is known, else `name:tag` |
 
 Fields with no value are emitted as `null`. The object is optional in the
