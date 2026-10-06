@@ -5,3 +5,14 @@
 # Revisão:
 # 2026-11-03 (ou antes, ao atualizar base/pacotes da imagem).
 
+# usr/local/bin/betterleaks (gobinary) - golang.org/x/crypto
+CVE-2026-56854
+
+# usr/local/bin/betterleaks (gobinary) - stdlib
+CVE-2026-33818
+CVE-2026-39821
+CVE-2026-56853
+CVE-2026-56858
+CVE-2026-56859
+CVE-2026-56860
+CVE-2026-56862

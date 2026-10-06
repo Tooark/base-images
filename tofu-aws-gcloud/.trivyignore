@@ -3,5 +3,16 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-11-03 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-11-06 (ou antes, ao atualizar base/pacotes da imagem).
 
+# Python (python-pkg) - cryptography
+CVE-2026-69247
+CVE-2026-69249
+GHSA-537c-gmf6-5ccf
+
+# usr/local/bin/tofu (gobinary) - golang.org/x/mod
+CVE-2026-56864
+CVE-2026-56865
+
+# usr/local/bin/tofu (gobinary) - google.golang.org/grpc
+CVE-2026-84445
