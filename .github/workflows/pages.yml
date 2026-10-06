@@ -1,0 +1,76 @@
+# =============================================================================
+# base-images :: GitHub Pages
+# -----------------------------------------------------------------------------
+# Publica docs/ como o catálogo em https://tooark.com/base-images/, depois que
+# script/render-docs.py preenche as versões a partir das tags de release de
+# cada imagem.
+#
+# As versões do site vêm das tags <imagem>-<versão>, que o image-build.yml cria
+# ao publicar. Por isso o site também é republicado quando uma build termina na
+# main: é nesse momento que surgem tags novas. Um bump no versions.env sozinho
+# não muda o site; ele só muda quando a imagem chega ao registry.
+#
+# O deploy por artefato precisa que o Pages use a fonte "GitHub Actions"
+# (Settings > Pages), uma única vez. A API não configura isso, e a primeira
+# execução falha com "Pages site not found" até alguém fazer.
+#
+# Nada aqui toca as imagens: uma falha na documentação nunca segura uma release.
+# =============================================================================
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "script/render-docs.py"
+      - ".github/workflows/pages.yml"
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+# id-token: write é o que permite ao deploy-pages provar que o deploy veio deste
+# workflow. contents continua somente leitura: o job publica, nunca faz commit.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Um deploy por vez, e nunca cancelar um em andamento: um deploy cancelado pode
+# deixar o site pela metade.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Publish the image catalog
+    # O image-build também roda em pull_request; uma build de PR não cria tag e
+    # não tem por que republicar o site.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.event != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # fetch-depth: 0 traz as tags de release, de onde saem as versões.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/configure-pages@v6
+
+      # A cópia renderizada de docs/ é a raiz do site, então docs/index.html é
+      # a página inicial. Falha se sobrar marcador sem valor ou se uma imagem
+      # não tiver seção no catálogo.
+      - name: Render the catalog
+        run: python3 script/render-docs.py _site
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v5

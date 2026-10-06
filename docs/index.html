@@ -1,0 +1,3898 @@
+<!doctype html>
+<html lang="pt-BR" data-lang="pt">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="Catálogo das imagens Docker da Tooark para CI/CD: Docker e Buildx, AWS CLI, Google Cloud SDK, OpenTofu, SonarScanner e scanners de segurança, com o conteúdo de cada imagem e exemplos de uso."
+    />
+
+    <!-- Externo, nao inline: o site e servido com uma Content Security Policy
+     de script-src 'self', que bloqueia <script> inline. Sem defer porque
+     tema, idioma e plataforma de CI precisam ser carimbados antes da primeira
+     pintura. -->
+    <script src="guide.js"></script>
+
+    <!-- Versoes: nenhuma e digitada neste arquivo. Os marcadores entre chaves
+     duplas sao preenchidos por script/render-docs.py a partir da ultima tag de
+     release de cada imagem ({{aws-cli}}, {{aws-cli:MINOR}},
+     {{aws-cli:KUBECTL_VERSION}}...), entao o site so mostra o que ja foi
+     publicado. Para ver a pagina renderizada: python3 script/render-docs.py e
+     abra _site/index.html.
+
+     Logos: servidos de logos/, porque a CSP de tooark.com so libera imagem da
+     propria origem. Origem de cada arquivo em logos/README.md. -->
+
+    <style>
+      /* Reset minimo. */
+      :root {
+        color-scheme: light dark;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
+      body {
+        margin: 0;
+      }
+      img {
+        max-width: 100%;
+      }
+      [hidden] {
+        display: none !important;
+      }
+
+      /* Alternadores de tema e idioma, e o link do GitHub. */
+      .masthead {
+        position: relative;
+      }
+
+      .toggles {
+        position: absolute;
+        top: 44px;
+        right: 0;
+        display: flex;
+        gap: 6px;
+      }
+
+      .toggle-btn {
+        font-family: var(--f-mono);
+        font-size: 10.5px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--ink-2);
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        padding: 8px 11px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .toggle-btn:hover {
+        color: var(--ink);
+        border-color: var(--rule-strong);
+      }
+
+      a.toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+      }
+
+      a.toggle-btn svg {
+        width: 12px;
+        height: 12px;
+        flex: none;
+      }
+
+      /* Idioma. So existem regras de OCULTAR: o elemento visivel mantem o
+         display que o proprio CSS lhe deu. Sem JS o HTML ja nasce com
+         data-lang="pt", entao quem esta sem JS ve a pagina em portugues. */
+      :root[data-lang="pt"] [lang="en"] {
+        display: none;
+      }
+      :root[data-lang="en"] [lang="pt-BR"] {
+        display: none;
+      }
+
+      @media (max-width: 900px) {
+        .toggles {
+          top: 30px;
+        }
+        .toggle-btn {
+          padding: 6px 9px;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .toggles {
+          position: static;
+          justify-content: flex-end;
+          flex-wrap: wrap;
+          margin-bottom: 22px;
+        }
+      }
+    </style>
+
+    <title>Tooark base-images — imagens para CI/CD</title>
+    <!-- Servido pelo proprio site: docs/ e a raiz publicada, entao ../ sairia
+     dela e cairia na raiz de tooark.com, que e outro repositorio. -->
+    <link rel="icon" href="favicon.png" type="image/png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
+    />
+
+    <style>
+      :root {
+        --ground: #f1f4f3;
+        --surface: #ffffff;
+        --surface-2: #e9eeec;
+        --ink: #141e1c;
+        --ink-2: #4c5a57;
+        --ink-3: #788784;
+        --rule: #d7dedb;
+        --rule-strong: #b9c4c1;
+        /* Cor de destaque: o azul de container. Os guias irmaos usam a cor da
+           plataforma (verde do GitHub, laranja do GitLab); aqui o produto sao
+           imagens, entao o tom vem do Docker. --accent pinta titulos e bordas;
+           --accent-ink e texto pequeno e link, e precisa de 4.5:1 sobre o
+           --ground; --accent-soft e o fundo das notas. */
+        --accent: #1d63ed;
+        --accent-ink: #1a4fb5;
+        --accent-soft: #e3ebfb;
+        /* Cores das plataformas de CI: abas de exemplo e cartoes dos guias
+           irmaos. */
+        --gh: #1a7f37;
+        --gl: #c2410c;
+        --warn: #a05a0a;
+        --warn-soft: #f7eddf;
+        /* Cor de cada scanner nos cartoes de gate, a mesma dos guias irmaos. */
+        --trivy: #00788a;
+        --hadolint: #3b72c6;
+        --betterleaks: #155a83;
+        /* Fundo dos logos. Claro nos dois temas: varios logos (AWS, Trivy,
+           Debian) sao escuros e somem sobre a superficie do tema escuro. */
+        --tile: #ffffff;
+        --code-bg: #edf1ef;
+        --shadow: 0 1px 2px rgba(20, 30, 28, 0.05);
+
+        --f-display: "Archivo", "Segoe UI", Helvetica, Arial, sans-serif;
+        --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+        --f-mono:
+          "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --ground: #0f1514;
+          --surface: #161f1d;
+          --surface-2: #1c2624;
+          --ink: #e7eeeb;
+          --ink-2: #a2b0ac;
+          --ink-3: #7b8a86;
+          --rule: #263230;
+          --rule-strong: #35433f;
+          --accent: #4f8cff;
+          --accent-ink: #8db4ff;
+          --accent-soft: #142039;
+          --gh: #4cc26b;
+          --gl: #fc6d26;
+          --warn: #dfa65f;
+          --warn-soft: #2c2418;
+          --trivy: #57f0fe;
+          --hadolint: #7aa2e3;
+          --betterleaks: #5aa9dc;
+          --tile: #eef2f1;
+          --code-bg: #131b19;
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+      }
+
+      :root[data-theme="dark"] {
+        --ground: #0f1514;
+        --surface: #161f1d;
+        --surface-2: #1c2624;
+        --ink: #e7eeeb;
+        --ink-2: #a2b0ac;
+        --ink-3: #7b8a86;
+        --rule: #263230;
+        --rule-strong: #35433f;
+        --accent: #4f8cff;
+        --accent-ink: #8db4ff;
+        --accent-soft: #142039;
+        --gh: #4cc26b;
+        --gl: #fc6d26;
+        --warn: #dfa65f;
+        --warn-soft: #2c2418;
+        --trivy: #57f0fe;
+        --hadolint: #7aa2e3;
+        --betterleaks: #5aa9dc;
+        --tile: #eef2f1;
+        --code-bg: #131b19;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background: var(--ground);
+        color: var(--ink);
+        font-family: var(--f-body);
+        font-size: 16.5px;
+        line-height: 1.62;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      ::selection {
+        background: var(--accent-soft);
+        color: var(--accent-ink);
+      }
+
+      a {
+        color: var(--accent-ink);
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 2px;
+      }
+
+      /* ---------- shell ---------- */
+
+      .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding-inline: 24px;
+        padding-block: 0 104px;
+        display: grid;
+        grid-template-columns: 218px minmax(0, 1fr);
+        gap: 0 56px;
+      }
+
+      .masthead {
+        grid-column: 1 / -1;
+        border-bottom: 1px solid var(--rule);
+        padding-block: 44px 34px;
+        margin-bottom: 40px;
+      }
+
+      /* ---------- masthead ---------- */
+
+      .eyebrow {
+        font-family: var(--f-mono);
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--accent-ink);
+        margin: 0 0 16px;
+      }
+
+      h1 {
+        font-family: var(--f-display);
+        font-weight: 700;
+        font-size: clamp(30px, 5.4vw, 47px);
+        line-height: 1.06;
+        letter-spacing: -0.021em;
+        margin: 0 0 18px;
+        text-wrap: balance;
+      }
+
+      h1 .accent {
+        color: var(--accent);
+      }
+
+      .thesis {
+        max-width: 62ch;
+        font-size: 18.5px;
+        line-height: 1.55;
+        color: var(--ink-2);
+        margin: 0 0 26px;
+      }
+
+      .thesis strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 10px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-width: none;
+      }
+
+      .facts li {
+        font-family: var(--f-mono);
+        font-size: 11.5px;
+        line-height: 1;
+        padding: 7px 10px;
+        margin: 0;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--ink-2);
+      }
+
+      .facts li b {
+        color: var(--ink);
+        font-weight: 500;
+      }
+
+      /* Pilula com link: o <a> cobre a pilula inteira. A seta marca que ela
+         leva para fora. */
+      .facts a {
+        display: block;
+        margin: -7px -10px;
+        padding: 7px 10px;
+        border-radius: 3px;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .facts a::after {
+        content: "↗";
+        content: "↗" / "";
+        margin-left: 5px;
+        color: var(--ink-3);
+      }
+
+      .facts a:hover b {
+        color: var(--accent-ink);
+      }
+
+      .facts li:has(> a:hover) {
+        border-color: var(--rule-strong);
+      }
+
+      /* Faixa de ferramentas do cabecalho: o que existe dentro das imagens,
+         reconhecivel de relance pelo logo. */
+      .toolbelt {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+        list-style: none;
+        margin: 28px 0 0;
+        padding: 0;
+        max-width: none;
+      }
+
+      .toolbelt li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        font-family: var(--f-display);
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ink-2);
+      }
+
+      /* ---------- logos ---------- */
+
+      /* Ladrilho de logo: fundo claro fixo nos dois temas, para que logos
+         escuros continuem legiveis no tema escuro. */
+      .lg {
+        --size: 34px;
+        width: var(--size);
+        height: var(--size);
+        flex: none;
+        display: inline-grid;
+        place-items: center;
+        background: var(--tile);
+        border: 1px solid var(--rule);
+        border-radius: 7px;
+        padding: calc(var(--size) * 0.17);
+        box-shadow: var(--shadow);
+        vertical-align: middle;
+      }
+
+      .lg img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      .lg.xs {
+        --size: 20px;
+        border-radius: 4px;
+        padding: 2px;
+        box-shadow: none;
+      }
+      .lg.sm {
+        --size: 26px;
+        border-radius: 5px;
+      }
+      .lg.md {
+        --size: 46px;
+        border-radius: 9px;
+      }
+
+      .logos {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      /* ---------- nav ---------- */
+
+      nav {
+        position: sticky;
+        top: calc(env(safe-area-inset-top, 0px) + 28px);
+        align-self: start;
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
+      }
+
+      .nav-title {
+        font-family: var(--f-mono);
+        font-size: 10.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        margin: 0 0 14px;
+        padding-left: 34px;
+      }
+
+      nav ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      nav li {
+        margin: 0;
+      }
+
+      nav a {
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        align-items: baseline;
+        gap: 0;
+        padding: 5px 0;
+        font-family: var(--f-display);
+        font-size: 13.5px;
+        font-weight: 500;
+        line-height: 1.3;
+        color: var(--ink-2);
+        text-decoration: none;
+        border-left: 2px solid transparent;
+        transition:
+          color 0.15s ease,
+          border-color 0.15s ease;
+      }
+
+      nav a .n {
+        font-family: var(--f-mono);
+        font-size: 10.5px;
+        font-weight: 400;
+        color: var(--ink-3);
+        padding-left: 10px;
+      }
+
+      nav a:hover {
+        color: var(--ink);
+      }
+      nav a.is-active {
+        color: var(--accent-ink);
+        border-left-color: var(--accent);
+      }
+      nav a.is-active .n {
+        color: var(--accent);
+      }
+
+      /* ---------- sections ---------- */
+
+      section {
+        scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 24px);
+        padding-bottom: 54px;
+      }
+
+      section + section {
+        border-top: 1px solid var(--rule);
+        padding-top: 46px;
+      }
+
+      h2 {
+        font-family: var(--f-display);
+        font-weight: 700;
+        font-size: clamp(23px, 3.4vw, 29px);
+        line-height: 1.16;
+        letter-spacing: -0.015em;
+        margin: 0 0 6px;
+        text-wrap: balance;
+      }
+
+      .h2-num {
+        font-family: var(--f-mono);
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        display: block;
+        margin-bottom: 9px;
+      }
+
+      .deck {
+        font-size: 17px;
+        color: var(--ink-2);
+        max-width: 66ch;
+        margin: 0 0 26px;
+        line-height: 1.5;
+      }
+
+      h3 {
+        font-family: var(--f-display);
+        font-weight: 600;
+        font-size: 17.5px;
+        letter-spacing: -0.005em;
+        margin: 34px 0 10px;
+        color: var(--ink);
+      }
+
+      h4 {
+        font-family: var(--f-display);
+        font-weight: 600;
+        font-size: 15px;
+        margin: 24px 0 8px;
+      }
+
+      p,
+      ul,
+      ol {
+        max-width: 68ch;
+      }
+      p {
+        margin: 0 0 16px;
+      }
+      ul,
+      ol {
+        margin: 0 0 16px;
+        padding-left: 22px;
+      }
+      li {
+        margin-bottom: 7px;
+      }
+      li::marker {
+        color: var(--ink-3);
+      }
+
+      strong {
+        font-weight: 600;
+      }
+
+      /* ---------- inline bits ---------- */
+
+      code {
+        font-family: var(--f-mono);
+        font-size: 0.845em;
+        background: var(--code-bg);
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        padding: 1px 5px;
+        color: var(--ink);
+        word-break: break-word;
+      }
+
+      code.path {
+        background: var(--accent-soft);
+        border-color: transparent;
+        color: var(--accent-ink);
+        font-weight: 500;
+      }
+
+      pre {
+        font-family: var(--f-mono);
+        font-size: 12.8px;
+        line-height: 1.65;
+        background: var(--code-bg);
+        border: 1px solid var(--rule);
+        border-left: 3px solid var(--rule-strong);
+        border-radius: 3px;
+        padding: 15px 17px;
+        margin: 0 0 20px;
+        overflow-x: auto;
+        max-width: 100%;
+      }
+
+      /* Sem ligaduras: a JetBrains Mono junta "--" e "==", e "--rm" vira um
+         travessao na tela. */
+      code,
+      pre {
+        font-variant-ligatures: none;
+      }
+
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: inherit;
+        color: var(--ink);
+        word-break: normal;
+      }
+
+      pre .c {
+        color: var(--ink-3);
+      }
+
+      /* Botao de copiar: criado pelo guide.js, que embrulha cada <pre> num
+         .code. Sem JS o bloco fica como esta. */
+      .code {
+        position: relative;
+        margin: 0 0 20px;
+      }
+
+      .code pre {
+        margin: 0;
+      }
+
+      .copy-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-family: var(--f-mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--ink-2);
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        padding: 5px 7px;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+      }
+
+      .code:hover .copy-btn,
+      .copy-btn:focus-visible,
+      .copy-btn.is-done {
+        opacity: 1;
+      }
+
+      .copy-btn.is-done {
+        color: var(--accent-ink);
+        border-color: var(--accent);
+      }
+
+      @media (hover: none) {
+        .copy-btn {
+          opacity: 1;
+        }
+      }
+
+      .caption {
+        font-family: var(--f-mono);
+        font-size: 11px;
+        color: var(--ink-3);
+        margin: -12px 0 24px;
+        max-width: 68ch;
+      }
+
+      /* ---------- callouts ---------- */
+
+      .note,
+      .warn {
+        max-width: 68ch;
+        margin: 0 0 22px;
+        padding: 15px 18px;
+        border-radius: 3px;
+        font-size: 15.5px;
+        line-height: 1.55;
+      }
+
+      .note {
+        background: var(--accent-soft);
+        border-left: 3px solid var(--accent);
+      }
+      .warn {
+        background: var(--warn-soft);
+        border-left: 3px solid var(--warn);
+      }
+
+      .note p,
+      .warn p {
+        margin: 0;
+        max-width: none;
+      }
+      .note p + p,
+      .warn p + p {
+        margin-top: 10px;
+      }
+
+      .note .label,
+      .warn .label {
+        display: block;
+        font-family: var(--f-mono);
+        font-size: 10.5px;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 7px;
+      }
+
+      .note .label {
+        color: var(--accent-ink);
+      }
+      .warn .label {
+        color: var(--warn);
+      }
+
+      /* ---------- tables ---------- */
+
+      .table-wrap {
+        overflow-x: auto;
+        margin: 0 0 24px;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--surface);
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 480px;
+        font-size: 14.5px;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--rule);
+        vertical-align: top;
+        line-height: 1.45;
+      }
+
+      thead th {
+        font-family: var(--f-display);
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        background: var(--surface-2);
+        white-space: nowrap;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      td code {
+        font-size: 12.3px;
+        white-space: nowrap;
+      }
+
+      td.term {
+        font-family: var(--f-display);
+        font-weight: 600;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      /* Celula com logo na frente do nome da ferramenta. */
+      td.tool {
+        font-family: var(--f-display);
+        font-weight: 600;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      td.tool .lg {
+        margin-right: 9px;
+      }
+
+      td.ver {
+        font-family: var(--f-mono);
+        font-size: 13px;
+        white-space: nowrap;
+        color: var(--accent-ink);
+      }
+
+      td.na {
+        color: var(--ink-3);
+      }
+
+      /* Matriz de ferramentas: logo no cabecalho de cada coluna. */
+      th .lg {
+        margin-right: 6px;
+      }
+
+      /* ---------- trait / gate cards ---------- */
+
+      .gates {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 14px;
+        margin: 0 0 24px;
+      }
+
+      .gate {
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-top: 3px solid var(--tone, var(--accent));
+        border-radius: 3px;
+        padding: 15px 16px;
+      }
+
+      .gate h4 {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 0 0 6px;
+        font-size: 15px;
+        color: var(--tone, var(--ink));
+      }
+      .gate p {
+        margin: 0;
+        font-size: 14.3px;
+        line-height: 1.45;
+        color: var(--ink-2);
+        max-width: none;
+      }
+      .gate .off {
+        display: block;
+        margin-top: 9px;
+        font-family: var(--f-mono);
+        font-size: 11.5px;
+        color: var(--ink-3);
+      }
+
+      /* Tom de cada cartao: plataforma de CI ou scanner. */
+      .tone-gh {
+        --tone: var(--gh);
+      }
+      .tone-gl {
+        --tone: var(--gl);
+      }
+      .tone-trivy {
+        --tone: var(--trivy);
+      }
+      .tone-hadolint {
+        --tone: var(--hadolint);
+      }
+      .tone-betterleaks {
+        --tone: var(--betterleaks);
+      }
+
+      /* ---------- catalog ---------- */
+
+      .catalog {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+        gap: 14px;
+        list-style: none;
+        margin: 0 0 26px;
+        padding: 0;
+        max-width: none;
+      }
+
+      .catalog li {
+        margin: 0;
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        height: 100%;
+        padding: 16px 16px 14px;
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: 4px;
+        color: inherit;
+        text-decoration: none;
+        transition: border-color 0.15s ease;
+      }
+
+      .card:hover {
+        border-color: var(--accent);
+      }
+
+      .card .top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .card .tag {
+        font-family: var(--f-mono);
+        font-size: 11px;
+        color: var(--accent-ink);
+        background: var(--accent-soft);
+        border-radius: 3px;
+        padding: 3px 6px;
+        white-space: nowrap;
+      }
+
+      .card .name {
+        font-family: var(--f-mono);
+        font-weight: 700;
+        font-size: 15px;
+        color: var(--ink);
+      }
+
+      .card p {
+        margin: 0;
+        font-size: 14.3px;
+        line-height: 1.45;
+        color: var(--ink-2);
+        max-width: none;
+      }
+
+      .card .tools {
+        margin-top: auto;
+        padding-top: 4px;
+        font-family: var(--f-mono);
+        font-size: 11px;
+        line-height: 1.5;
+        color: var(--ink-3);
+      }
+
+      /* ---------- release flow ---------- */
+
+      .flow {
+        list-style: none;
+        counter-reset: flow;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin: 0 0 24px;
+        padding: 0;
+        max-width: none;
+      }
+
+      .flow li {
+        counter-increment: flow;
+        margin: 0;
+        padding: 12px 13px;
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-top: 3px solid var(--accent);
+        border-radius: 3px;
+        font-size: 14px;
+        line-height: 1.45;
+        color: var(--ink-2);
+      }
+
+      .flow li::before {
+        content: counter(flow, decimal-leading-zero);
+        display: block;
+        font-family: var(--f-mono);
+        font-size: 10.5px;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        margin-bottom: 5px;
+      }
+
+      .flow li b {
+        display: block;
+        font-family: var(--f-display);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: 3px;
+      }
+
+      /* ---------- image article ---------- */
+
+      .img {
+        margin: 44px 0 0;
+        padding-top: 30px;
+        border-top: 1px dashed var(--rule-strong);
+        scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 24px);
+      }
+
+      .img-head {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px 16px;
+        margin-bottom: 16px;
+      }
+
+      .img-head h3 {
+        margin: 0;
+        font-family: var(--f-mono);
+        font-size: 21px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .img-ref {
+        margin: 3px 0 0;
+        font-family: var(--f-mono);
+        font-size: 12px;
+        color: var(--ink-3);
+        max-width: none;
+      }
+
+      .img-ref b {
+        color: var(--accent-ink);
+        font-weight: 500;
+      }
+
+      .img .facts {
+        margin-top: 4px;
+      }
+
+      /* ---------- CI tabs ---------- */
+
+      /* Sem JS o data-ci nunca e carimbado: a barra de abas some e os dois
+         paineis aparecem, cada um com o proprio rotulo. */
+      .tab-bar {
+        display: none;
+        gap: 4px;
+        margin-bottom: -1px;
+        position: relative;
+      }
+
+      :root[data-ci] .tab-bar {
+        display: flex;
+      }
+
+      .tab-bar button {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-family: var(--f-display);
+        font-size: 12.5px;
+        font-weight: 600;
+        line-height: 1;
+        color: var(--ink-2);
+        background: transparent;
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        padding: 7px 12px 8px;
+        cursor: pointer;
+      }
+
+      .tab-bar button:hover {
+        color: var(--ink);
+      }
+
+      .tab-bar button[aria-selected="true"] {
+        background: var(--code-bg);
+        border-color: var(--rule);
+        color: var(--ink);
+      }
+
+      :root[data-ci="gh"] [data-panel="gl"],
+      :root[data-ci="gl"] [data-panel="gh"],
+      :root[data-ci] .panel-label {
+        display: none;
+      }
+
+      .panel-label {
+        font-family: var(--f-mono);
+        font-size: 11px;
+        color: var(--ink-3);
+        margin: 0 0 6px;
+      }
+
+      :root[data-ci] .tab-panel pre {
+        border-top-left-radius: 0;
+      }
+
+      [data-panel="gh"] pre {
+        border-left-color: var(--gh);
+      }
+      [data-panel="gl"] pre {
+        border-left-color: var(--gl);
+      }
+
+      /* ---------- sibling guides ---------- */
+
+      .siblings {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 14px;
+        margin: 30px 0 8px;
+      }
+
+      .sibling {
+        padding: 16px 18px 18px;
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-top: 3px solid var(--tone);
+        border-radius: 3px;
+      }
+
+      .sibling .label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--f-mono);
+        font-size: 10.5px;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-2);
+        margin-bottom: 9px;
+      }
+
+      .sibling h4 {
+        margin: 0 0 6px;
+      }
+
+      .sibling p {
+        margin: 0 0 14px;
+        max-width: none;
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--ink-2);
+      }
+
+      /* ---------- closing ---------- */
+
+      .closer {
+        border-top: 1px solid var(--rule);
+        margin-top: 8px;
+        padding-top: 26px;
+        font-size: 13px;
+        color: var(--ink-3);
+        font-family: var(--f-mono);
+        line-height: 1.7;
+        max-width: none;
+      }
+
+      /* ---------- responsive ---------- */
+
+      @media (max-width: 900px) {
+        .shell {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0;
+        }
+
+        nav {
+          position: sticky;
+          top: env(safe-area-inset-top, 0px);
+          z-index: 10;
+          max-height: none;
+          overflow-x: auto;
+          overflow-y: hidden;
+          background: var(--ground);
+          border-bottom: 1px solid var(--rule);
+          margin-inline: -24px;
+          padding: 10px 24px;
+          margin-bottom: 28px;
+        }
+
+        .nav-title {
+          display: none;
+        }
+        nav ol {
+          display: flex;
+          gap: 6px;
+        }
+        nav li {
+          flex: 0 0 auto;
+        }
+
+        nav a {
+          display: flex;
+          gap: 6px;
+          white-space: nowrap;
+          border-left: none;
+          border-bottom: 2px solid transparent;
+          padding: 4px 2px;
+          font-size: 13px;
+        }
+
+        nav a .n {
+          padding-left: 0;
+        }
+        nav a.is-active {
+          border-bottom-color: var(--accent);
+        }
+
+        .masthead {
+          padding-block: 32px 26px;
+          margin-bottom: 0;
+        }
+        body {
+          font-size: 16px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .flow {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 560px) {
+        .shell {
+          padding-inline: 16px;
+        }
+        nav {
+          margin-inline: -16px;
+          padding-inline: 16px;
+        }
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        html {
+          scroll-behavior: smooth;
+        }
+      }
+    </style>
+  </head>
+  <body
+    data-copy-pt="copiar"
+    data-copy-en="copy"
+    data-copied-pt="copiado"
+    data-copied-en="copied"
+  >
+    <div class="shell">
+      <header class="masthead">
+        <div class="toggles">
+          <button
+            type="button"
+            id="lang-toggle"
+            class="toggle-btn"
+            aria-live="polite"
+            data-label-pt="English"
+            data-label-en="Português"
+            data-aria-pt="Switch to English"
+            data-aria-en="Mudar para português"
+          >
+            English
+          </button>
+          <button
+            type="button"
+            id="theme-toggle"
+            class="toggle-btn"
+            aria-live="polite"
+            data-pt-dark="modo escuro"
+            data-pt-light="modo claro"
+            data-en-dark="dark mode"
+            data-en-light="light mode"
+          >
+            modo escuro
+          </button>
+          <a
+            class="toggle-btn"
+            href="https://github.com/Tooark/base-images"
+            target="_blank"
+            rel="noopener"
+          >
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path
+                d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
+              ></path>
+            </svg>
+            GitHub
+          </a>
+        </div>
+
+        <p class="eyebrow" lang="pt-BR">Catálogo · Tooark</p>
+        <p class="eyebrow" lang="en">Catalog · Tooark</p>
+        <h1 lang="pt-BR">
+          base-images<br /><span class="accent">imagens prontas para CI/CD</span>
+        </h1>
+        <h1 lang="en">
+          base-images<br /><span class="accent">images built for CI/CD</span>
+        </h1>
+
+        <p class="thesis" lang="pt-BR">
+          Imagens Docker que reúnem as CLIs de um fluxo de pipeline — build de
+          containers, nuvem, infraestrutura como código, qualidade e segurança
+          — sobre a mesma base Debian e atrás do mesmo entrypoint não-root.
+          Toda release é <strong>escaneada antes de sair e assinada com
+          Cosign</strong>, e as ferramentas são atualizadas toda semana.
+        </p>
+        <p class="thesis" lang="en">
+          Docker images that bundle the CLIs of one pipeline flow — container
+          builds, cloud, infrastructure as code, quality and security — on the
+          same Debian base and behind the same non-root entrypoint. Every
+          release is <strong>scanned before it ships and signed with
+          Cosign</strong>, and the tools are refreshed every week.
+        </p>
+
+        <ul class="facts">
+          <li>
+            <a
+              href="https://github.com/Tooark/base-images"
+              target="_blank"
+              rel="noopener"
+              ><b>Tooark/base-images</b></a
+            >
+          </li>
+          <li>
+            <a
+              href="https://github.com/orgs/Tooark/packages?repo_name=base-images"
+              target="_blank"
+              rel="noopener"
+              ><b>ghcr.io/tooark</b></a
+            >
+          </li>
+          <li><b>{{BASE_IMAGE}}</b></li>
+          <li>linux/<b>amd64</b> · linux/<b>arm64</b></li>
+          <li lang="pt-BR">assinadas com <b>Cosign</b></li>
+          <li lang="en">signed with <b>Cosign</b></li>
+          <li>MIT</li>
+        </ul>
+
+        <ul class="toolbelt">
+          <li><span class="lg sm"><img src="logos/docker.svg" alt="" width="18" height="18" /></span>Docker</li>
+          <li><span class="lg sm"><img src="logos/aws.svg" alt="" width="18" height="18" /></span>AWS CLI</li>
+          <li><span class="lg sm"><img src="logos/gcloud.svg" alt="" width="18" height="18" /></span>Google Cloud SDK</li>
+          <li><span class="lg sm"><img src="logos/kubernetes.svg" alt="" width="18" height="18" /></span>kubectl</li>
+          <li><span class="lg sm"><img src="logos/opentofu.svg" alt="" width="18" height="18" /></span>OpenTofu</li>
+          <li><span class="lg sm"><img src="logos/sonarqube.svg" alt="" width="18" height="18" /></span>SonarScanner</li>
+          <li><span class="lg sm"><img src="logos/trivy.svg" alt="" width="18" height="18" /></span>Trivy</li>
+          <li><span class="lg sm"><img src="logos/hadolint.png" alt="" width="18" height="18" /></span>Hadolint</li>
+          <li><span class="lg sm"><img src="logos/betterleaks.png" alt="" width="18" height="18" /></span>Betterleaks</li>
+        </ul>
+      </header>
+
+      <nav aria-label="Seções · Sections">
+        <p class="nav-title" lang="pt-BR">Nesta página</p>
+        <p class="nav-title" lang="en">On this page</p>
+        <ol lang="pt-BR">
+          <li><a href="#visao"><span class="n">01</span><span>Visão geral</span></a></li>
+          <li><a href="#catalogo"><span class="n">02</span><span>Catálogo</span></a></li>
+          <li><a href="#tags"><span class="n">03</span><span>Tags e versões</span></a></li>
+          <li><a href="#runtime"><span class="n">04</span><span>Como as imagens rodam</span></a></li>
+          <li><a href="#docker"><span class="n">05</span><span>Docker e Buildx</span></a></li>
+          <li><a href="#nuvem"><span class="n">06</span><span>CLIs de nuvem</span></a></li>
+          <li><a href="#opentofu"><span class="n">07</span><span>OpenTofu</span></a></li>
+          <li><a href="#sonar"><span class="n">08</span><span>SonarScanner</span></a></li>
+          <li><a href="#seguranca"><span class="n">09</span><span>Scanner de segurança</span></a></li>
+          <li><a href="#assinatura"><span class="n">10</span><span>Verificar a assinatura</span></a></li>
+          <li><a href="#legado"><span class="n">11</span><span>Imagens legadas</span></a></li>
+          <li><a href="#contribuir"><span class="n">12</span><span>Build local</span></a></li>
+        </ol>
+        <ol lang="en">
+          <li><a href="#visao"><span class="n">01</span><span>Overview</span></a></li>
+          <li><a href="#catalogo"><span class="n">02</span><span>Catalog</span></a></li>
+          <li><a href="#tags"><span class="n">03</span><span>Tags and versions</span></a></li>
+          <li><a href="#runtime"><span class="n">04</span><span>How the images run</span></a></li>
+          <li><a href="#docker"><span class="n">05</span><span>Docker and Buildx</span></a></li>
+          <li><a href="#nuvem"><span class="n">06</span><span>Cloud CLIs</span></a></li>
+          <li><a href="#opentofu"><span class="n">07</span><span>OpenTofu</span></a></li>
+          <li><a href="#sonar"><span class="n">08</span><span>SonarScanner</span></a></li>
+          <li><a href="#seguranca"><span class="n">09</span><span>Security scanner</span></a></li>
+          <li><a href="#assinatura"><span class="n">10</span><span>Verify the signature</span></a></li>
+          <li><a href="#legado"><span class="n">11</span><span>Legacy images</span></a></li>
+          <li><a href="#contribuir"><span class="n">12</span><span>Local build</span></a></li>
+        </ol>
+      </nav>
+
+      <main>
+        <!-- ============ 01 ============ -->
+        <section id="visao">
+          <span class="h2-num">01</span>
+          <h2 lang="pt-BR">O job já nasce com as ferramentas</h2>
+          <h2 lang="en">The job starts with its tools in place</h2>
+          <p class="deck" lang="pt-BR">
+            Em vez de instalar AWS CLI, kubectl ou OpenTofu a cada execução, o
+            job roda dentro de um container que já tem tudo, na versão certa e
+            sem nada além do necessário.
+          </p>
+          <p class="deck" lang="en">
+            Instead of installing the AWS CLI, kubectl or OpenTofu on every run,
+            the job runs inside a container that already has them, at the right
+            version and with nothing it does not need.
+          </p>
+
+          <p lang="pt-BR">
+            Cada pasta da raiz do repositório é uma imagem, publicada como
+            <code>ghcr.io/tooark/&lt;imagem&gt;</code>. Elas se dividem por
+            fluxo, mas todas seguem o mesmo contrato:
+          </p>
+          <p lang="en">
+            Each folder at the repository root is one image, published as
+            <code>ghcr.io/tooark/&lt;image&gt;</code>. They split by flow, but
+            all of them follow the same contract:
+          </p>
+
+          <div class="gates">
+            <div class="gate">
+              <h4><span class="lg xs"><img src="logos/debian.svg" alt="" width="16" height="16" /></span><span lang="pt-BR">Uma base só</span><span lang="en">One base</span></h4>
+              <p lang="pt-BR">
+                Todas partem de <code>{{BASE_IMAGE}}</code>: uma correção de
+                pacote do SO chega a todas na mesma build.
+              </p>
+              <p lang="en">
+                All of them start from <code>{{BASE_IMAGE}}</code>: an OS
+                package fix reaches every image in the same build.
+              </p>
+            </div>
+            <div class="gate">
+              <h4><span class="lg xs"><img src="logos/docker.svg" alt="" width="16" height="16" /></span><span lang="pt-BR">Multi-arquitetura</span><span lang="en">Multi-architecture</span></h4>
+              <p lang="pt-BR">
+                <code>linux/amd64</code> e <code>linux/arm64</code> na mesma
+                tag: o mesmo nome roda em runner x86, Graviton ou Apple
+                Silicon.
+              </p>
+              <p lang="en">
+                <code>linux/amd64</code> and <code>linux/arm64</code> under the
+                same tag: one name runs on x86 runners, Graviton or Apple
+                Silicon.
+              </p>
+            </div>
+            <div class="gate">
+              <h4><span lang="pt-BR">Não-root em runtime</span><span lang="en">Non-root at runtime</span></h4>
+              <p lang="pt-BR">
+                O entrypoint troca para o usuário <code>app</code> com
+                <code>gosu</code> e ajusta o grupo do
+                <code>docker.sock</code> sozinho.
+              </p>
+              <p lang="en">
+                The entrypoint drops to the <code>app</code> user with
+                <code>gosu</code> and fixes the <code>docker.sock</code> group
+                on its own.
+              </p>
+            </div>
+            <div class="gate">
+              <h4><span class="lg xs"><img src="logos/trivy.svg" alt="" width="16" height="16" /></span><span lang="pt-BR">Escaneada antes de sair</span><span lang="en">Scanned before it ships</span></h4>
+              <p lang="pt-BR">
+                Cada build passa pelo <code>full-scan</code> do próprio
+                security-scanner. Uma CVE alta ou crítica com correção
+                disponível barra a release.
+              </p>
+              <p lang="en">
+                Every build goes through the repository's own security-scanner
+                <code>full-scan</code>. A high or critical CVE with a fix
+                available stops the release.
+              </p>
+            </div>
+            <div class="gate">
+              <h4><span class="lg xs"><img src="logos/cosign.svg" alt="" width="16" height="16" /></span><span lang="pt-BR">Assinada</span><span lang="en">Signed</span></h4>
+              <p lang="pt-BR">
+                Cosign keyless, via OIDC do GitHub Actions. A assinatura cobre
+                todas as tags e as duas arquiteturas.
+              </p>
+              <p lang="en">
+                Cosign keyless, through GitHub Actions OIDC. The signature
+                covers every tag and both architectures.
+              </p>
+            </div>
+            <div class="gate">
+              <h4><span lang="pt-BR">Atualizada toda semana</span><span lang="en">Refreshed every week</span></h4>
+              <p lang="pt-BR">
+                Aos sábados um workflow consulta as versões estáveis de cada
+                ferramenta e dispara a build do que mudou.
+              </p>
+              <p lang="en">
+                Every Saturday a workflow looks up each tool's latest stable
+                version and builds whatever changed.
+              </p>
+            </div>
+          </div>
+
+          <p lang="pt-BR">
+            As imagens servem tanto para o <code>image:</code> de um job quanto
+            para um <code>docker run</code> avulso na sua máquina. Os exemplos
+            de cada seção mostram os dois jeitos.
+          </p>
+          <p lang="en">
+            The images work as a job's <code>image:</code> and as a one-off
+            <code>docker run</code> on your machine. The examples in each
+            section show both.
+          </p>
+        </section>
+
+        <!-- ============ 02 ============ -->
+        <section id="catalogo">
+          <span class="h2-num">02</span>
+          <h2 lang="pt-BR">Catálogo</h2>
+          <h2 lang="en">Catalog</h2>
+          <p class="deck" lang="pt-BR">
+            As imagens ativas e a última versão publicada de cada uma. Cada
+            cartão leva ao conteúdo, aos exemplos e às variáveis da imagem.
+          </p>
+          <p class="deck" lang="en">
+            The active images and the latest published version of each. Every
+            card leads to the image's contents, examples and variables.
+          </p>
+
+          <ul class="catalog">
+            <li>
+              <a class="card" href="#img-dockerx">
+                <span class="top">
+                  <span class="logos"><span class="lg"><img src="logos/docker.svg" alt="" width="24" height="24" /></span></span>
+                  <span class="tag">:{{dockerx}}</span>
+                </span>
+                <span class="name">dockerx</span>
+                <p lang="pt-BR">Docker CLI e Buildx para build e push de imagens multi-arquitetura.</p>
+                <p lang="en">Docker CLI and Buildx to build and push multi-architecture images.</p>
+                <span class="tools">docker · buildx</span>
+              </a>
+            </li>
+            <li>
+              <a class="card" href="#img-aws-cli">
+                <span class="top">
+                  <span class="logos">
+                    <span class="lg"><img src="logos/aws.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/kubernetes.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/docker.svg" alt="" width="24" height="24" /></span>
+                  </span>
+                  <span class="tag">:{{aws-cli}}</span>
+                </span>
+                <span class="name">aws-cli</span>
+                <p lang="pt-BR">AWS CLI v2 com kubectl e Docker: deploy em S3, ECR, EKS e afins.</p>
+                <p lang="en">AWS CLI v2 with kubectl and Docker: deploys to S3, ECR, EKS and the like.</p>
+                <span class="tools">aws · kubectl · docker · buildx</span>
+              </a>
+            </li>
+            <li>
+              <a class="card" href="#img-gcloud-cli">
+                <span class="top">
+                  <span class="logos">
+                    <span class="lg"><img src="logos/gcloud.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/kubernetes.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/docker.svg" alt="" width="24" height="24" /></span>
+                  </span>
+                  <span class="tag">:{{gcloud-cli}}</span>
+                </span>
+                <span class="name">gcloud-cli</span>
+                <p lang="pt-BR">Google Cloud SDK (gcloud, gsutil, bq) com kubectl e Docker.</p>
+                <p lang="en">Google Cloud SDK (gcloud, gsutil, bq) with kubectl and Docker.</p>
+                <span class="tools">gcloud · gsutil · bq · kubectl · docker · buildx</span>
+              </a>
+            </li>
+            <li>
+              <a class="card" href="#img-tofu">
+                <span class="top">
+                  <span class="logos"><span class="lg"><img src="logos/opentofu.svg" alt="" width="24" height="24" /></span></span>
+                  <span class="tag">:{{tofu}}</span>
+                </span>
+                <span class="name">tofu</span>
+                <p lang="pt-BR">OpenTofu sozinho, para IaC que não precisa de CLI de nuvem.</p>
+                <p lang="en">OpenTofu alone, for IaC that needs no cloud CLI.</p>
+                <span class="tools">tofu</span>
+              </a>
+            </li>
+            <li>
+              <a class="card" href="#img-tofu-aws">
+                <span class="top">
+                  <span class="logos">
+                    <span class="lg"><img src="logos/opentofu.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/aws.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/kubernetes.svg" alt="" width="24" height="24" /></span>
+                  </span>
+                  <span class="tag">:{{tofu-aws}}</span>
+                </span>
+                <span class="name">tofu-aws</span>
+                <p lang="pt-BR">OpenTofu com AWS CLI v2 e kubectl.</p>
+                <p lang="en">OpenTofu with AWS CLI v2 and kubectl.</p>
+                <span class="tools">tofu · aws · kubectl</span>
+              </a>
+            </li>
+            <li>
+              <a class="card" href="#img-tofu-gcloud">
+                <span class="top">
+                  <span class="logos">
+                    <span class="lg"><img src="logos/opentofu.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/gcloud.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/kubernetes.svg" alt="" width="24" height="24" /></span>
+                  </span>
+                  <span class="tag">:{{tofu-gcloud}}</span>
+                </span>
+                <span class="name">tofu-gcloud</span>
+                <p lang="pt-BR">OpenTofu com Google Cloud SDK e kubectl.</p>
+                <p lang="en">OpenTofu with the Google Cloud SDK and kubectl.</p>
+                <span class="tools">tofu · gcloud · gsutil · bq · kubectl</span>
+              </a>
+            </li>
+            <li>
+              <a class="card" href="#img-tofu-aws-gcloud">
+                <span class="top">
+                  <span class="logos">
+                    <span class="lg"><img src="logos/opentofu.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/aws.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/gcloud.svg" alt="" width="24" height="24" /></span>
+                  </span>
+                  <span class="tag">:{{tofu-aws-gcloud}}</span>
+                </span>
+                <span class="name">tofu-aws-gcloud</span>
+                <p lang="pt-BR">OpenTofu multicloud: AWS CLI, Google Cloud SDK e kubectl juntos.</p>
+                <p lang="en">Multi-cloud OpenTofu: AWS CLI, Google Cloud SDK and kubectl together.</p>
+                <span class="tools">tofu · aws · gcloud · gsutil · bq · kubectl</span>
+              </a>
+            </li>
+            <li>
+              <a class="card" href="#img-sonar-scanner">
+                <span class="top">
+                  <span class="logos"><span class="lg"><img src="logos/sonarqube.svg" alt="" width="24" height="24" /></span></span>
+                  <span class="tag">:{{sonar-scanner}}</span>
+                </span>
+                <span class="name">sonar-scanner</span>
+                <p lang="pt-BR">SonarScanner CLI com Java 21 para análises no SonarQube.</p>
+                <p lang="en">SonarScanner CLI with Java 21 for SonarQube analyses.</p>
+                <span class="tools">sonar-scanner · java · git</span>
+              </a>
+            </li>
+            <li>
+              <a class="card" href="#img-security-scanner">
+                <span class="top">
+                  <span class="logos">
+                    <span class="lg"><img src="logos/trivy.svg" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/hadolint.png" alt="" width="24" height="24" /></span>
+                    <span class="lg"><img src="logos/betterleaks.png" alt="" width="24" height="24" /></span>
+                  </span>
+                  <span class="tag">:{{security-scanner}}</span>
+                </span>
+                <span class="name">security-scanner</span>
+                <p lang="pt-BR">Vulnerabilidades, lint de Dockerfile e segredos num só comando, com relatório JSON padronizado.</p>
+                <p lang="en">Vulnerabilities, Dockerfile lint and secrets in one command, with a standard JSON report.</p>
+                <span class="tools">ark-tools · trivy · hadolint · betterleaks</span>
+              </a>
+            </li>
+          </ul>
+
+          <p lang="pt-BR">
+            As imagens <code>terraform*</code> e <code>trivy-hadolint</code>
+            estão congeladas; as substitutas são a família <code>tofu*</code> e
+            o <code>security-scanner</code>. Veja
+            <a href="#legado">Imagens legadas</a>.
+          </p>
+          <p lang="en">
+            The <code>terraform*</code> and <code>trivy-hadolint</code> images
+            are frozen; their replacements are the <code>tofu*</code> family and
+            <code>security-scanner</code>. See
+            <a href="#legado">Legacy images</a>.
+          </p>
+        </section>
+
+        <!-- ============ 03 ============ -->
+        <section id="tags">
+          <span class="h2-num">03</span>
+          <h2 lang="pt-BR">Tags e versões</h2>
+          <h2 lang="en">Tags and versions</h2>
+          <p class="deck" lang="pt-BR">
+            Toda release publica a mesma imagem com quatro tags. Qual delas
+            usar depende de quanto você quer que o pipeline mude sozinho.
+          </p>
+          <p class="deck" lang="en">
+            Every release publishes the same image under four tags. Which one
+            to use depends on how much you want the pipeline to change on its
+            own.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tag</th>
+                  <th><span lang="pt-BR">Exemplo</span><span lang="en">Example</span></th>
+                  <th><span lang="pt-BR">Comportamento</span><span lang="en">Behaviour</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="term">MAJOR.MINOR.PATCH</td>
+                  <td><code>aws-cli:{{aws-cli}}</code></td>
+                  <td>
+                    <span lang="pt-BR">Nunca muda: a build pula versões que já têm release. É a forma de travar uma versão.</span>
+                    <span lang="en">Never changes: the build skips versions that already have a release. This is how you pin a version.</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="term">MAJOR.MINOR</td>
+                  <td><code>aws-cli:{{aws-cli:MINOR}}</code></td>
+                  <td>
+                    <span lang="pt-BR">Recebe os patches. <strong>Recomendada para pipelines.</strong></span>
+                    <span lang="en">Picks up patches. <strong>Recommended for pipelines.</strong></span>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="term">MAJOR</td>
+                  <td><code>aws-cli:{{aws-cli:MAJOR}}</code></td>
+                  <td>
+                    <span lang="pt-BR">Acompanha a linha major inteira, minors incluídas.</span>
+                    <span lang="en">Follows the whole major line, minors included.</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="term">latest</td>
+                  <td><code>aws-cli:latest</code></td>
+                  <td>
+                    <span lang="pt-BR">A última release, mesmo com quebra de compatibilidade. Bom para testar na máquina, ruim para CI.</span>
+                    <span lang="en">The latest release, breaking changes included. Fine on your machine, poor for CI.</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 lang="pt-BR">De onde vem o número da versão</h3>
+          <h3 lang="en">Where the version number comes from</h3>
+          <p lang="pt-BR">
+            Imagens de uma ferramenta só usam a versão dela:
+            <code>aws-cli:{{aws-cli}}</code> traz o AWS CLI {{aws-cli}}, e o
+            mesmo vale para <code>gcloud-cli</code>, <code>tofu</code> e
+            <code>sonar-scanner</code>. As imagens compostas (<code>dockerx</code>,
+            <code>tofu-aws</code>, <code>tofu-gcloud</code>,
+            <code>tofu-aws-gcloud</code> e <code>security-scanner</code>) têm
+            um contador próprio, que sobe no
+            mesmo nível — major, minor ou patch — da maior mudança entre as
+            ferramentas principais dela. Por isso
+            <code>tofu-gcloud:{{tofu-gcloud}}</code> traz OpenTofu
+            {{tofu-gcloud:OPENTOFU_VERSION}}, e não OpenTofu
+            {{tofu-gcloud}}.
+          </p>
+          <p lang="en">
+            Single-tool images use that tool's version:
+            <code>aws-cli:{{aws-cli}}</code> ships AWS CLI {{aws-cli}}, and the
+            same goes for <code>gcloud-cli</code>, <code>tofu</code> and
+            <code>sonar-scanner</code>. Composite images (<code>dockerx</code>,
+            <code>tofu-aws</code>, <code>tofu-gcloud</code>,
+            <code>tofu-aws-gcloud</code> and <code>security-scanner</code>)
+            carry their own counter, which moves at
+            the same level — major, minor or patch — as the largest change among
+            their main tools. That is why <code>tofu-gcloud:{{tofu-gcloud}}</code>
+            ships OpenTofu {{tofu-gcloud:OPENTOFU_VERSION}}, not OpenTofu
+            {{tofu-gcloud}}.
+          </p>
+
+          <h3 lang="pt-BR">O caminho de uma release</h3>
+          <h3 lang="en">The path of a release</h3>
+          <ol class="flow" lang="pt-BR">
+            <li><b>Sábado, 03:00 UTC</b>O <code>update-tool-versions</code> consulta as versões estáveis e grava o <code>versions.env</code>.</li>
+            <li><b>Build</b>amd64 e arm64 a partir do mesmo Dockerfile, com as versões como build args.</li>
+            <li><b>Scan</b><code>full-scan</code> sobre a imagem e o repositório; um gate que dispara barra a release.</li>
+            <li><b>Publicação</b>Push para <code>ghcr.io/tooark</code> com as quatro tags e labels OCI.</li>
+            <li><b>Assinatura</b><code>cosign sign --recursive</code> no digest do índice multi-arquitetura.</li>
+            <li><b>Release</b>Tag git <code>&lt;imagem&gt;-&lt;versão&gt;</code> e GitHub Release com a tabela de ferramentas.</li>
+          </ol>
+          <ol class="flow" lang="en">
+            <li><b>Saturday, 03:00 UTC</b><code>update-tool-versions</code> looks up the stable versions and writes <code>versions.env</code>.</li>
+            <li><b>Build</b>amd64 and arm64 from the same Dockerfile, with the versions as build args.</li>
+            <li><b>Scan</b><code>full-scan</code> over the image and the repository; a gate that trips stops the release.</li>
+            <li><b>Publish</b>Push to <code>ghcr.io/tooark</code> with the four tags and OCI labels.</li>
+            <li><b>Sign</b><code>cosign sign --recursive</code> on the digest of the multi-arch index.</li>
+            <li><b>Release</b>Git tag <code>&lt;image&gt;-&lt;version&gt;</code> and a GitHub Release with the tool table.</li>
+          </ol>
+
+          <div class="note">
+            <span class="label" lang="pt-BR">As versões desta página</span>
+            <span class="label" lang="en">The versions on this page</span>
+            <p lang="pt-BR">
+              Saem das tags de release, não do <code>versions.env</code>: uma
+              atualização só aparece aqui depois de buildada, escaneada e
+              publicada. Toda tag citada nesta página existe no registry. O
+              histórico completo está nos
+              <a href="https://github.com/Tooark/base-images/releases" target="_blank" rel="noopener">Releases</a>.
+            </p>
+            <p lang="en">
+              They come from the release tags, not from
+              <code>versions.env</code>: an update only shows up here after it
+              has been built, scanned and published. Every tag this page quotes
+              exists in the registry. The full history is under
+              <a href="https://github.com/Tooark/base-images/releases" target="_blank" rel="noopener">Releases</a>.
+            </p>
+          </div>
+        </section>
+
+        <!-- ============ 04 ============ -->
+        <section id="runtime">
+          <span class="h2-num">04</span>
+          <h2 lang="pt-BR">Como as imagens rodam</h2>
+          <h2 lang="en">How the images run</h2>
+          <p class="deck" lang="pt-BR">
+            Todas as imagens usam o mesmo <code>docker-entrypoint.sh</code>.
+            Entender o que ele faz explica por que a mesma imagem se comporta
+            diferente no <code>docker run</code>, no GitHub Actions e no GitLab
+            CI.
+          </p>
+          <p class="deck" lang="en">
+            Every image uses the same <code>docker-entrypoint.sh</code>.
+            Knowing what it does explains why the same image behaves
+            differently under <code>docker run</code>, GitHub Actions and
+            GitLab CI.
+          </p>
+
+          <ol lang="pt-BR">
+            <li>
+              <strong>Ajusta o docker.sock.</strong> Se o container sobe como
+              root e há um socket em <code>/var/run/docker.sock</code>, lê o GID
+              dele e coloca o usuário <code>app</code> num grupo com esse GID. O
+              Docker do host funciona sem <code>chmod 666</code>.
+            </li>
+            <li>
+              <strong>Prefixa um comando fixo</strong>, se
+              <code>ARK_ENTRYPOINT_CMD</code> estiver definido. É assim que
+              <code>docker run security-scanner full-scan …</code> vira
+              <code>ark-tools full-scan …</code>.
+            </li>
+            <li>
+              <strong>Troca de usuário</strong> para <code>app</code> com
+              <code>gosu</code> e faz <code>exec</code> do comando: sinais e
+              exit code passam direto.
+            </li>
+          </ol>
+          <ol lang="en">
+            <li>
+              <strong>Fixes docker.sock.</strong> If the container starts as root
+              and there is a socket at <code>/var/run/docker.sock</code>, it
+              reads the socket's GID and adds the <code>app</code> user to a
+              group with that GID. The host's Docker works without
+              <code>chmod 666</code>.
+            </li>
+            <li>
+              <strong>Prepends a fixed command</strong> when
+              <code>ARK_ENTRYPOINT_CMD</code> is set. That is how
+              <code>docker run security-scanner full-scan …</code> becomes
+              <code>ark-tools full-scan …</code>.
+            </li>
+            <li>
+              <strong>Switches user</strong> to <code>app</code> with
+              <code>gosu</code> and <code>exec</code>s the command: signals and
+              the exit code pass straight through.
+            </li>
+          </ol>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><span lang="pt-BR">Variável</span><span lang="en">Variable</span></th>
+                  <th>Default</th>
+                  <th><span lang="pt-BR">Para que serve</span><span lang="en">What it does</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>ARK_RUNTIME_USER</code></td>
+                  <td><code>app</code></td>
+                  <td><span lang="pt-BR">Usuário que executa o comando.</span><span lang="en">User the command runs as.</span></td>
+                </tr>
+                <tr>
+                  <td><code>ARK_DOCKER_SOCKET_PATH</code></td>
+                  <td><code>/var/run/docker.sock</code></td>
+                  <td><span lang="pt-BR">Socket cujo GID é sincronizado.</span><span lang="en">Socket whose GID gets synced.</span></td>
+                </tr>
+                <tr>
+                  <td><code>ARK_ENTRYPOINT_CMD</code></td>
+                  <td>
+                    <span lang="pt-BR">vazio; <code>ark-tools</code> no security-scanner</span>
+                    <span lang="en">empty; <code>ark-tools</code> in security-scanner</span>
+                  </td>
+                  <td><span lang="pt-BR">Comando colocado na frente dos argumentos.</span><span lang="en">Command placed in front of the arguments.</span></td>
+                </tr>
+                <tr>
+                  <td><code>ARK_IMAGE_FAMILY</code></td>
+                  <td><span lang="pt-BR">nome da imagem</span><span lang="en">image name</span></td>
+                  <td><span lang="pt-BR">Identifica a imagem em scripts e relatórios.</span><span lang="en">Identifies the image to scripts and reports.</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 lang="pt-BR">Onde montar credenciais e caches</h3>
+          <h3 lang="en">Where to mount credentials and caches</h3>
+          <p lang="pt-BR">
+            O home do usuário <code>app</code> é <code>/home/app</code>. Em
+            <code>docker run</code>, é ali que as ferramentas procuram as
+            configurações:
+          </p>
+          <p lang="en">
+            The <code>app</code> user's home is <code>/home/app</code>. Under
+            <code>docker run</code>, that is where the tools look for their
+            configuration:
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><span lang="pt-BR">Caminho no container</span><span lang="en">Path in the container</span></th>
+                  <th><span lang="pt-BR">Ferramenta</span><span lang="en">Tool</span></th>
+                  <th><span lang="pt-BR">Imagens</span><span lang="en">Images</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>/home/app/.aws</code></td>
+                  <td class="tool"><span class="lg xs"><img src="logos/aws.svg" alt="" width="16" height="16" /></span>AWS CLI</td>
+                  <td><code>aws-cli</code>, <code>tofu-aws</code>, <code>tofu-aws-gcloud</code></td>
+                </tr>
+                <tr>
+                  <td><code>/home/app/.config/gcloud</code></td>
+                  <td class="tool"><span class="lg xs"><img src="logos/gcloud.svg" alt="" width="16" height="16" /></span>gcloud</td>
+                  <td><code>gcloud-cli</code>, <code>tofu-gcloud</code>, <code>tofu-aws-gcloud</code></td>
+                </tr>
+                <tr>
+                  <td><code>/home/app/.kube/config</code></td>
+                  <td class="tool"><span class="lg xs"><img src="logos/kubernetes.svg" alt="" width="16" height="16" /></span>kubectl</td>
+                  <td><span lang="pt-BR">todas que trazem kubectl</span><span lang="en">every image with kubectl</span></td>
+                </tr>
+                <tr>
+                  <td><code>/home/app/.sonar</code></td>
+                  <td class="tool"><span class="lg xs"><img src="logos/sonarqube.svg" alt="" width="16" height="16" /></span>SonarScanner</td>
+                  <td><code>sonar-scanner</code> (<code>SONAR_USER_HOME</code>)</td>
+                </tr>
+                <tr>
+                  <td><code>/home/app/.cache/trivy</code></td>
+                  <td class="tool"><span class="lg xs"><img src="logos/trivy.svg" alt="" width="16" height="16" /></span>Trivy</td>
+                  <td><code>security-scanner</code> (<code>TRIVY_CACHE_DIR</code>)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 lang="pt-BR">O entrypoint dentro do CI</h3>
+          <h3 lang="en">The entrypoint inside CI</h3>
+          <div class="gates">
+            <div class="gate tone-gh">
+              <h4><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</h4>
+              <p lang="pt-BR">
+                Num job com <code>container:</code>, o runner troca o entrypoint
+                por um processo próprio e roda cada step com
+                <code>docker exec</code>. Os steps rodam como root e com
+                <code>HOME=/github/home</code>; credenciais por variável de
+                ambiente funcionam do mesmo jeito.
+              </p>
+              <p lang="en">
+                In a job with <code>container:</code>, the runner replaces the
+                entrypoint with its own process and runs each step through
+                <code>docker exec</code>. Steps run as root with
+                <code>HOME=/github/home</code>; credentials passed as
+                environment variables work the same.
+              </p>
+            </div>
+            <div class="gate tone-gl">
+              <h4><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</h4>
+              <p lang="pt-BR">
+                O runner mantém o entrypoint da imagem e entrega a ele o shell
+                do job, que roda como <code>app</code>. No security-scanner, que
+                prefixa <code>ark-tools</code>, limpe o entrypoint com
+                <code>entrypoint: [""]</code> e chame <code>ark-tools</code> no
+                <code>script</code>.
+              </p>
+              <p lang="en">
+                The runner keeps the image entrypoint and hands it the job's
+                shell, which runs as <code>app</code>. In security-scanner,
+                which prepends <code>ark-tools</code>, clear the entrypoint with
+                <code>entrypoint: [""]</code> and call <code>ark-tools</code> in
+                <code>script</code>.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ 05 ============ -->
+        <section id="docker">
+          <span class="h2-num">05</span>
+          <h2 lang="pt-BR">Docker e Buildx</h2>
+          <h2 lang="en">Docker and Buildx</h2>
+          <p class="deck" lang="pt-BR">
+            Para jobs que constroem e publicam imagens. O Docker CLI fala com o
+            daemon do host (pelo <code>docker.sock</code>) ou com um serviço
+            <code>docker:dind</code>.
+          </p>
+          <p class="deck" lang="en">
+            For jobs that build and publish images. The Docker CLI talks to the
+            host daemon (through <code>docker.sock</code>) or to a
+            <code>docker:dind</code> service.
+          </p>
+
+          <article class="img" id="img-dockerx">
+            <div class="img-head">
+              <div class="logos"><span class="lg md"><img src="logos/docker.svg" alt="Docker" width="32" height="32" /></span></div>
+              <div>
+                <h3>dockerx</h3>
+                <p class="img-ref">ghcr.io/tooark/dockerx:<b>{{dockerx}}</b> · release {{dockerx:DATE}}</p>
+              </div>
+            </div>
+
+            <p lang="pt-BR">
+              Docker CLI e o plugin Buildx, sem daemon: a imagem é o cliente, e
+              o build roda no Docker que você apontar para ela.
+            </p>
+            <p lang="en">
+              The Docker CLI and the Buildx plugin, with no daemon: the image is
+              the client, and the build runs on whichever Docker you point it
+              at.
+            </p>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Ferramenta</span><span lang="en">Tool</span></th>
+                    <th><span lang="pt-BR">Versão</span><span lang="en">Version</span></th>
+                    <th><span lang="pt-BR">Caminho</span><span lang="en">Path</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/docker.svg" alt="" width="16" height="16" /></span>Docker CLI</td>
+                    <td class="ver">{{dockerx:DOCKER_VERSION}}</td>
+                    <td><code>/usr/local/bin/docker</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/docker.svg" alt="" width="16" height="16" /></span>Docker Buildx</td>
+                    <td class="ver">{{dockerx:DOCKER_BUILDX_VERSION}}</td>
+                    <td><code>/usr/local/libexec/docker/cli-plugins/docker-buildx</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool">git</td>
+                    <td class="ver na">Debian</td>
+                    <td><code>/usr/bin/git</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h4 lang="pt-BR">Início rápido</h4>
+            <h4 lang="en">Quick start</h4>
+            <p lang="pt-BR">
+              Montando o <code>docker.sock</code>, o build acontece no Docker da
+              sua máquina e a imagem fica disponível nela:
+            </p>
+            <p lang="en">
+              With <code>docker.sock</code> mounted, the build runs on your
+              machine's Docker and the image stays available there:
+            </p>
+<pre><code>docker run --rm ghcr.io/tooark/dockerx:{{dockerx}} docker buildx version
+
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$PWD":/workspace -w /workspace \
+  ghcr.io/tooark/dockerx:{{dockerx}} \
+  docker buildx build -t myapp:dev --load .</code></pre>
+
+            <h4 lang="pt-BR">No CI: build multi-arquitetura com push</h4>
+            <h4 lang="en">In CI: multi-architecture build and push</h4>
+            <p lang="pt-BR">
+              O <code>tonistiigi/binfmt</code> registra o emulador de arm64 no
+              host; sem ele, os passos <code>RUN</code> da arquitetura que não é
+              a do runner falham. No GitLab, o <code>docker:dind</code> exige um
+              runner com <code>privileged = true</code>.
+            </p>
+            <p lang="en">
+              <code>tonistiigi/binfmt</code> registers the arm64 emulator on the
+              host; without it, <code>RUN</code> steps for the architecture the
+              runner is not fail. On GitLab, <code>docker:dind</code> needs a
+              runner with <code>privileged = true</code>.
+            </p>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>name: image
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    container:
+      image: ghcr.io/tooark/dockerx:{{dockerx:MINOR}}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push (amd64 + arm64)
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+          docker buildx create --name ci --driver docker-container --use --bootstrap
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            -t ghcr.io/acme/myapp:${{ github.sha }} --push .</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>build_image:
+  stage: build
+  image: ghcr.io/tooark/dockerx:{{dockerx:MINOR}}
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+    - docker run --privileged --rm tonistiigi/binfmt --install arm64
+    - docker buildx create --name ci --driver docker-container --use --bootstrap
+    - docker buildx build --platform linux/amd64,linux/arm64 -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" --push .</code></pre>
+              </div>
+            </div>
+
+            <ul class="facts">
+              <li><a href="https://github.com/Tooark/base-images/tree/main/dockerx" target="_blank" rel="noopener"><b>README</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/pkgs/container/dockerx" target="_blank" rel="noopener"><b>ghcr.io</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/releases?q=dockerx&amp;expanded=true" target="_blank" rel="noopener"><b>Releases</b></a></li>
+              <li><a href="https://docs.docker.com/reference/cli/docker/buildx/" target="_blank" rel="noopener"><b>Buildx docs</b></a></li>
+            </ul>
+          </article>
+        </section>
+
+        <!-- ============ 06 ============ -->
+        <section id="nuvem">
+          <span class="h2-num">06</span>
+          <h2 lang="pt-BR">CLIs de nuvem</h2>
+          <h2 lang="en">Cloud CLIs</h2>
+          <p class="deck" lang="pt-BR">
+            A CLI de cada nuvem com kubectl e Docker ao lado: autenticar, publicar
+            imagem no registry da nuvem e fazer deploy no cluster, tudo no mesmo
+            job.
+          </p>
+          <p class="deck" lang="en">
+            Each cloud's CLI with kubectl and Docker next to it: authenticate,
+            push an image to the cloud's registry and deploy to the cluster, all
+            in the same job.
+          </p>
+
+          <!-- aws-cli -->
+          <article class="img" id="img-aws-cli">
+            <div class="img-head">
+              <div class="logos">
+                <span class="lg md"><img src="logos/aws.svg" alt="AWS" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/kubernetes.svg" alt="Kubernetes" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/docker.svg" alt="Docker" width="32" height="32" /></span>
+              </div>
+              <div>
+                <h3>aws-cli</h3>
+                <p class="img-ref">ghcr.io/tooark/aws-cli:<b>{{aws-cli}}</b> · release {{aws-cli:DATE}}</p>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Ferramenta</span><span lang="en">Tool</span></th>
+                    <th><span lang="pt-BR">Versão</span><span lang="en">Version</span></th>
+                    <th><span lang="pt-BR">Caminho</span><span lang="en">Path</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/aws.svg" alt="" width="16" height="16" /></span>AWS CLI v2</td>
+                    <td class="ver">{{aws-cli}}</td>
+                    <td><code>/usr/local/bin/aws</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/kubernetes.svg" alt="" width="16" height="16" /></span>kubectl</td>
+                    <td class="ver">{{aws-cli:KUBECTL_VERSION}}</td>
+                    <td><code>/usr/local/bin/kubectl</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/docker.svg" alt="" width="16" height="16" /></span>Docker CLI</td>
+                    <td class="ver">{{aws-cli:DOCKER_VERSION}}</td>
+                    <td><code>/usr/local/bin/docker</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/docker.svg" alt="" width="16" height="16" /></span>Docker Buildx</td>
+                    <td class="ver">{{aws-cli:DOCKER_BUILDX_VERSION}}</td>
+                    <td><code>/usr/local/libexec/docker/cli-plugins/docker-buildx</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h4 lang="pt-BR">Início rápido</h4>
+            <h4 lang="en">Quick start</h4>
+            <p lang="pt-BR">
+              Credenciais por variável de ambiente ou montando o
+              <code>~/.aws</code> do host:
+            </p>
+            <p lang="en">
+              Credentials through environment variables, or by mounting the
+              host's <code>~/.aws</code>:
+            </p>
+<pre><code>docker run --rm \
+  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
+  -e AWS_REGION=us-east-1 \
+  ghcr.io/tooark/aws-cli:{{aws-cli}} aws sts get-caller-identity --no-cli-pager
+
+docker run --rm \
+  -v "$HOME/.aws:/home/app/.aws:ro" \
+  ghcr.io/tooark/aws-cli:{{aws-cli}} aws s3 ls</code></pre>
+
+            <h4 lang="pt-BR">No CI</h4>
+            <h4 lang="en">In CI</h4>
+            <p lang="pt-BR">
+              Deploy em EKS no GitHub e sincronização com S3 no GitLab. No
+              GitLab, cadastre <code>AWS_ACCESS_KEY_ID</code> e
+              <code>AWS_SECRET_ACCESS_KEY</code> como variáveis mascaradas do
+              projeto: o runner já as exporta para o job.
+            </p>
+            <p lang="en">
+              An EKS deploy on GitHub and an S3 sync on GitLab. On GitLab, set
+              <code>AWS_ACCESS_KEY_ID</code> and
+              <code>AWS_SECRET_ACCESS_KEY</code> as masked project variables:
+              the runner exports them to the job already.
+            </p>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>name: deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/aws-cli:{{aws-cli:MINOR}}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Point kubectl at the EKS cluster
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER }}"
+
+      - name: Deploy
+        run: |
+          kubectl apply -f k8s/
+          kubectl rollout status "deployment/${{ vars.APP_NAME }}" --timeout=120s</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>deploy_s3:
+  stage: deploy
+  image: ghcr.io/tooark/aws-cli:{{aws-cli:MINOR}}
+  variables:
+    AWS_REGION: us-east-1
+  script:
+    - aws sts get-caller-identity --no-cli-pager
+    - aws s3 sync ./dist "s3://$BUCKET_NAME" --delete
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH</code></pre>
+              </div>
+            </div>
+
+            <h4 lang="pt-BR">Variáveis</h4>
+            <h4 lang="en">Variables</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Variável</span><span lang="en">Variable</span></th>
+                    <th><span lang="pt-BR">Descrição</span><span lang="en">Description</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>AWS_ACCESS_KEY_ID</code></td>
+                    <td><span lang="pt-BR">Chave de acesso</span><span lang="en">Access key</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>AWS_SECRET_ACCESS_KEY</code></td>
+                    <td><span lang="pt-BR">Chave secreta</span><span lang="en">Secret key</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>AWS_SESSION_TOKEN</code></td>
+                    <td><span lang="pt-BR">Token de sessão, para credenciais temporárias</span><span lang="en">Session token, for temporary credentials</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>AWS_REGION</code></td>
+                    <td><span lang="pt-BR">Região padrão. A imagem não define uma; os exemplos usam <code>us-east-1</code></span><span lang="en">Default region. The image sets none; the examples use <code>us-east-1</code></span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <ul class="facts">
+              <li><a href="https://github.com/Tooark/base-images/tree/main/aws-cli" target="_blank" rel="noopener"><b>README</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/pkgs/container/aws-cli" target="_blank" rel="noopener"><b>ghcr.io</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/releases?q=aws-cli&amp;expanded=true" target="_blank" rel="noopener"><b>Releases</b></a></li>
+              <li><a href="https://docs.aws.amazon.com/cli/latest/userguide/" target="_blank" rel="noopener"><b>AWS CLI docs</b></a></li>
+            </ul>
+          </article>
+
+          <!-- gcloud-cli -->
+          <article class="img" id="img-gcloud-cli">
+            <div class="img-head">
+              <div class="logos">
+                <span class="lg md"><img src="logos/gcloud.svg" alt="Google Cloud" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/kubernetes.svg" alt="Kubernetes" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/docker.svg" alt="Docker" width="32" height="32" /></span>
+              </div>
+              <div>
+                <h3>gcloud-cli</h3>
+                <p class="img-ref">ghcr.io/tooark/gcloud-cli:<b>{{gcloud-cli}}</b> · release {{gcloud-cli:DATE}}</p>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Ferramenta</span><span lang="en">Tool</span></th>
+                    <th><span lang="pt-BR">Versão</span><span lang="en">Version</span></th>
+                    <th><span lang="pt-BR">Caminho</span><span lang="en">Path</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/gcloud.svg" alt="" width="16" height="16" /></span>Google Cloud SDK</td>
+                    <td class="ver">{{gcloud-cli}}</td>
+                    <td><code>/opt/google-cloud-sdk</code> · <code>gcloud</code>, <code>gsutil</code>, <code>bq</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/kubernetes.svg" alt="" width="16" height="16" /></span>kubectl</td>
+                    <td class="ver">{{gcloud-cli:KUBECTL_VERSION}}</td>
+                    <td><code>/usr/local/bin/kubectl</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/docker.svg" alt="" width="16" height="16" /></span>Docker CLI</td>
+                    <td class="ver">{{gcloud-cli:DOCKER_VERSION}}</td>
+                    <td><code>/usr/local/bin/docker</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/docker.svg" alt="" width="16" height="16" /></span>Docker Buildx</td>
+                    <td class="ver">{{gcloud-cli:DOCKER_BUILDX_VERSION}}</td>
+                    <td><code>/usr/local/libexec/docker/cli-plugins/docker-buildx</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool">Python 3</td>
+                    <td class="ver na">Debian</td>
+                    <td><code>/usr/bin/python3</code> (<code>CLOUDSDK_PYTHON</code>)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h4 lang="pt-BR">Início rápido</h4>
+            <h4 lang="en">Quick start</h4>
+            <p lang="pt-BR">
+              Com uma chave de conta de serviço. A imagem já define
+              <code>CLOUDSDK_CORE_DISABLE_PROMPTS=1</code>, então nenhum comando
+              fica esperando confirmação.
+            </p>
+            <p lang="en">
+              With a service account key. The image already sets
+              <code>CLOUDSDK_CORE_DISABLE_PROMPTS=1</code>, so no command waits
+              for confirmation.
+            </p>
+<pre><code>docker run --rm \
+  -v "$PWD/sa.json:/home/app/sa.json:ro" \
+  -e CLOUDSDK_CORE_PROJECT=my-project \
+  ghcr.io/tooark/gcloud-cli:{{gcloud-cli}} \
+  sh -c 'gcloud auth activate-service-account --key-file=/home/app/sa.json &amp;&amp; gcloud storage ls'</code></pre>
+
+            <div class="warn">
+              <span class="label" lang="pt-BR">GKE</span>
+              <span class="label" lang="en">GKE</span>
+              <p lang="pt-BR">
+                A imagem não traz o <code>gke-gcloud-auth-plugin</code>. Depois
+                de <code>gcloud container clusters get-credentials</code>, o
+                <code>kubectl</code> não consegue se autenticar no GKE; use um
+                kubeconfig com token próprio.
+              </p>
+              <p lang="en">
+                The image does not ship <code>gke-gcloud-auth-plugin</code>.
+                After <code>gcloud container clusters get-credentials</code>,
+                <code>kubectl</code> cannot authenticate against GKE; use a
+                kubeconfig that carries its own token.
+              </p>
+            </div>
+
+            <h4 lang="pt-BR">No CI</h4>
+            <h4 lang="en">In CI</h4>
+            <p lang="pt-BR">
+              Publicação de arquivos estáticos no Cloud Storage. No GitLab,
+              cadastre <code>GCP_SA_KEY</code> como variável do tipo
+              <em>File</em>: o valor que chega ao job é o caminho do arquivo.
+            </p>
+            <p lang="en">
+              Publishing static files to Cloud Storage. On GitLab, set
+              <code>GCP_SA_KEY</code> as a <em>File</em> variable: what reaches
+              the job is the path to the file.
+            </p>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>name: publish
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/gcloud-cli:{{gcloud-cli:MINOR}}
+    env:
+      CLOUDSDK_CORE_PROJECT: ${{ vars.GCP_PROJECT }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Authenticate
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          printf '%s' "$GCP_SA_KEY" &gt; "$RUNNER_TEMP/sa.json"
+          gcloud auth activate-service-account --key-file="$RUNNER_TEMP/sa.json"
+
+      - name: Publish
+        run: |
+          gcloud storage rsync ./dist "gs://${{ vars.GCS_BUCKET }}"             --recursive --delete-unmatched-destination-objects</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>publish_gcs:
+  stage: deploy
+  image: ghcr.io/tooark/gcloud-cli:{{gcloud-cli:MINOR}}
+  variables:
+    CLOUDSDK_CORE_PROJECT: $GCP_PROJECT
+  script:
+    - gcloud auth activate-service-account --key-file="$GCP_SA_KEY"
+    - gcloud storage rsync ./dist "gs://$GCS_BUCKET" --recursive --delete-unmatched-destination-objects
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH</code></pre>
+              </div>
+            </div>
+
+            <h4 lang="pt-BR">Variáveis</h4>
+            <h4 lang="en">Variables</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Variável</span><span lang="en">Variable</span></th>
+                    <th><span lang="pt-BR">Descrição</span><span lang="en">Description</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>GOOGLE_APPLICATION_CREDENTIALS</code></td>
+                    <td><span lang="pt-BR">Caminho do JSON da conta de serviço, para bibliotecas e providers que usam ADC</span><span lang="en">Path to the service account JSON, for libraries and providers that use ADC</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>CLOUDSDK_CORE_PROJECT</code></td>
+                    <td><span lang="pt-BR">Projeto padrão</span><span lang="en">Default project</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>CLOUDSDK_COMPUTE_REGION</code></td>
+                    <td><span lang="pt-BR">Região padrão</span><span lang="en">Default region</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>CLOUDSDK_COMPUTE_ZONE</code></td>
+                    <td><span lang="pt-BR">Zona padrão</span><span lang="en">Default zone</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <ul class="facts">
+              <li><a href="https://github.com/Tooark/base-images/tree/main/gcloud-cli" target="_blank" rel="noopener"><b>README</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/pkgs/container/gcloud-cli" target="_blank" rel="noopener"><b>ghcr.io</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/releases?q=gcloud-cli&amp;expanded=true" target="_blank" rel="noopener"><b>Releases</b></a></li>
+              <li><a href="https://cloud.google.com/sdk/docs" target="_blank" rel="noopener"><b>Google Cloud SDK docs</b></a></li>
+            </ul>
+          </article>
+        </section>
+
+        <!-- ============ 07 ============ -->
+        <section id="opentofu">
+          <span class="h2-num">07</span>
+          <h2>OpenTofu</h2>
+          <p class="deck" lang="pt-BR">
+            A família recomendada para infraestrutura como código: OpenTofu
+            sozinho ou com as CLIs da nuvem onde ele vai aplicar. Substitui a
+            família <code>terraform*</code>, que ficou congelada.
+          </p>
+          <p class="deck" lang="en">
+            The recommended family for infrastructure as code: OpenTofu alone or
+            with the CLIs of the cloud it applies to. It replaces the
+            <code>terraform*</code> family, which is now frozen.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><span lang="pt-BR">Imagem</span><span lang="en">Image</span></th>
+                  <th>Tag</th>
+                  <th><span class="lg xs"><img src="logos/opentofu.svg" alt="" width="16" height="16" /></span>OpenTofu</th>
+                  <th><span class="lg xs"><img src="logos/aws.svg" alt="" width="16" height="16" /></span>AWS CLI</th>
+                  <th><span class="lg xs"><img src="logos/gcloud.svg" alt="" width="16" height="16" /></span>Cloud SDK</th>
+                  <th><span class="lg xs"><img src="logos/kubernetes.svg" alt="" width="16" height="16" /></span>kubectl</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><a href="#img-tofu"><code>tofu</code></a></td>
+                  <td class="ver">{{tofu}}</td>
+                  <td class="ver">{{tofu}}</td>
+                  <td class="na">—</td>
+                  <td class="na">—</td>
+                  <td class="na">—</td>
+                </tr>
+                <tr>
+                  <td><a href="#img-tofu-aws"><code>tofu-aws</code></a></td>
+                  <td class="ver">{{tofu-aws}}</td>
+                  <td class="ver">{{tofu-aws:OPENTOFU_VERSION}}</td>
+                  <td class="ver">{{tofu-aws:AWSCLI_VERSION}}</td>
+                  <td class="na">—</td>
+                  <td class="ver">{{tofu-aws:KUBECTL_VERSION}}</td>
+                </tr>
+                <tr>
+                  <td><a href="#img-tofu-gcloud"><code>tofu-gcloud</code></a></td>
+                  <td class="ver">{{tofu-gcloud}}</td>
+                  <td class="ver">{{tofu-gcloud:OPENTOFU_VERSION}}</td>
+                  <td class="na">—</td>
+                  <td class="ver">{{tofu-gcloud:GCLOUD_VERSION}}</td>
+                  <td class="ver">{{tofu-gcloud:KUBECTL_VERSION}}</td>
+                </tr>
+                <tr>
+                  <td><a href="#img-tofu-aws-gcloud"><code>tofu-aws-gcloud</code></a></td>
+                  <td class="ver">{{tofu-aws-gcloud}}</td>
+                  <td class="ver">{{tofu-aws-gcloud:OPENTOFU_VERSION}}</td>
+                  <td class="ver">{{tofu-aws-gcloud:AWSCLI_VERSION}}</td>
+                  <td class="ver">{{tofu-aws-gcloud:GCLOUD_VERSION}}</td>
+                  <td class="ver">{{tofu-aws-gcloud:KUBECTL_VERSION}}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 lang="pt-BR">Ajustes de automação</h3>
+          <h3 lang="en">Automation presets</h3>
+          <p lang="pt-BR">
+            As quatro imagens definem as mesmas variáveis, para que nenhum
+            comando pare esperando uma resposta:
+          </p>
+          <p lang="en">
+            All four images set the same variables, so no command stops to wait
+            for an answer:
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><span lang="pt-BR">Variável</span><span lang="en">Variable</span></th>
+                  <th><span lang="pt-BR">Valor</span><span lang="en">Value</span></th>
+                  <th><span lang="pt-BR">Efeito</span><span lang="en">Effect</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>TF_IN_AUTOMATION</code></td>
+                  <td><code>1</code></td>
+                  <td><span lang="pt-BR">Tira das saídas as dicas de "próximo comando"</span><span lang="en">Drops the "next command" hints from the output</span></td>
+                </tr>
+                <tr>
+                  <td><code>TF_INPUT</code></td>
+                  <td><code>0</code></td>
+                  <td><span lang="pt-BR">Nunca pede valor interativo; variável faltando vira erro</span><span lang="en">Never prompts; a missing variable becomes an error</span></td>
+                </tr>
+                <tr>
+                  <td><code>TF_CLI_ARGS</code></td>
+                  <td><code>-input=false -no-color</code></td>
+                  <td><span lang="pt-BR">Entra em todo subcomando</span><span lang="en">Added to every subcommand</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="warn">
+            <span class="label" lang="pt-BR">version, validate e fmt</span>
+            <span class="label" lang="en">version, validate and fmt</span>
+            <p lang="pt-BR">
+              O <code>-input=false</code> do <code>TF_CLI_ARGS</code> só é
+              aceito por <code>init</code>, <code>plan</code>,
+              <code>apply</code> e afins. Subcomandos sem essa flag, como
+              <code>version</code>, <code>validate</code> e <code>fmt</code>,
+              falham com <em>Failed to parse command-line flags</em>. Zere a
+              variável nesses passos:
+              <code>TF_CLI_ARGS= tofu validate</code>.
+            </p>
+            <p lang="en">
+              The <code>-input=false</code> in <code>TF_CLI_ARGS</code> is only
+              accepted by <code>init</code>, <code>plan</code>,
+              <code>apply</code> and the like. Subcommands without that flag,
+              such as <code>version</code>, <code>validate</code> and
+              <code>fmt</code>, fail with <em>Failed to parse command-line
+              flags</em>. Clear the variable for those steps:
+              <code>TF_CLI_ARGS= tofu validate</code>.
+            </p>
+          </div>
+
+          <!-- tofu -->
+          <article class="img" id="img-tofu">
+            <div class="img-head">
+              <div class="logos"><span class="lg md"><img src="logos/opentofu.svg" alt="OpenTofu" width="32" height="32" /></span></div>
+              <div>
+                <h3>tofu</h3>
+                <p class="img-ref">ghcr.io/tooark/tofu:<b>{{tofu}}</b> · release {{tofu:DATE}}</p>
+              </div>
+            </div>
+
+            <p lang="pt-BR">
+              Só o OpenTofu (<code>/usr/local/bin/tofu</code>). Serve para
+              providers que se autenticam por variável de ambiente, sem precisar
+              de CLI de nuvem: Cloudflare, GitHub, Datadog, Kubernetes.
+            </p>
+            <p lang="en">
+              OpenTofu alone (<code>/usr/local/bin/tofu</code>). It fits
+              providers that authenticate through environment variables and
+              need no cloud CLI: Cloudflare, GitHub, Datadog, Kubernetes.
+            </p>
+
+            <h4 lang="pt-BR">Início rápido</h4>
+            <h4 lang="en">Quick start</h4>
+<pre><code>docker run --rm -e TF_CLI_ARGS= ghcr.io/tooark/tofu:{{tofu}} tofu version
+
+docker run --rm \
+  -v "$PWD":/workspace -w /workspace \
+  ghcr.io/tooark/tofu:{{tofu}} \
+  sh -c 'tofu init &amp;&amp; tofu plan'</code></pre>
+
+            <h4 lang="pt-BR">No CI: plan no PR, apply na main</h4>
+            <h4 lang="en">In CI: plan on the PR, apply on main</h4>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>name: tofu
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tofu:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/tofu:{{tofu:MINOR}}
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: tofu init
+      - run: TF_CLI_ARGS= tofu validate
+      - run: tofu plan -out=tfplan
+
+      - if: github.ref == 'refs/heads/main'
+        run: tofu apply tfplan</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>stages: [plan, apply]
+
+tofu_plan:
+  stage: plan
+  image: ghcr.io/tooark/tofu:{{tofu:MINOR}}
+  script:
+    - tofu init
+    - TF_CLI_ARGS= tofu validate
+    - tofu plan -out=tfplan
+  artifacts:
+    paths: [tfplan]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+tofu_apply:
+  stage: apply
+  image: ghcr.io/tooark/tofu:{{tofu:MINOR}}
+  script:
+    - tofu init
+    - tofu apply tfplan
+  needs: [tofu_plan]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual</code></pre>
+              </div>
+            </div>
+
+            <ul class="facts">
+              <li><a href="https://github.com/Tooark/base-images/tree/main/tofu" target="_blank" rel="noopener"><b>README</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/pkgs/container/tofu" target="_blank" rel="noopener"><b>ghcr.io</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/releases?q=tofu&amp;expanded=true" target="_blank" rel="noopener"><b>Releases</b></a></li>
+              <li><a href="https://opentofu.org/docs/" target="_blank" rel="noopener"><b>OpenTofu docs</b></a></li>
+            </ul>
+          </article>
+
+          <!-- tofu-aws -->
+          <article class="img" id="img-tofu-aws">
+            <div class="img-head">
+              <div class="logos">
+                <span class="lg md"><img src="logos/opentofu.svg" alt="OpenTofu" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/aws.svg" alt="AWS" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/kubernetes.svg" alt="Kubernetes" width="32" height="32" /></span>
+              </div>
+              <div>
+                <h3>tofu-aws</h3>
+                <p class="img-ref">ghcr.io/tooark/tofu-aws:<b>{{tofu-aws}}</b> · release {{tofu-aws:DATE}}</p>
+              </div>
+            </div>
+
+            <p lang="pt-BR">
+              OpenTofu com AWS CLI v2 e kubectl. O provider da AWS lê as mesmas
+              variáveis da CLI (<code>AWS_ACCESS_KEY_ID</code>,
+              <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code>,
+              <code>AWS_REGION</code>), então uma credencial serve aos dois.
+            </p>
+            <p lang="en">
+              OpenTofu with AWS CLI v2 and kubectl. The AWS provider reads the
+              same variables as the CLI (<code>AWS_ACCESS_KEY_ID</code>,
+              <code>AWS_SECRET_ACCESS_KEY</code>, <code>AWS_SESSION_TOKEN</code>,
+              <code>AWS_REGION</code>), so one credential serves both.
+            </p>
+
+            <h4 lang="pt-BR">Início rápido</h4>
+            <h4 lang="en">Quick start</h4>
+<pre><code>docker run --rm \
+  -v "$PWD":/workspace -w /workspace \
+  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN \
+  -e AWS_REGION=us-east-1 \
+  ghcr.io/tooark/tofu-aws:{{tofu-aws}} \
+  sh -c 'tofu init &amp;&amp; tofu plan'</code></pre>
+
+            <h4 lang="pt-BR">No CI</h4>
+            <h4 lang="en">In CI</h4>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>jobs:
+  tofu:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/tofu-aws:{{tofu-aws:MINOR}}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: tofu init
+      - run: tofu plan -out=tfplan
+
+      - if: github.ref == 'refs/heads/main'
+        run: tofu apply tfplan</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>tofu_plan:
+  stage: plan
+  image: ghcr.io/tooark/tofu-aws:{{tofu-aws:MINOR}}
+  variables:
+    AWS_REGION: us-east-1
+  script:
+    - tofu init
+    - tofu plan -out=tfplan
+  artifacts:
+    paths: [tfplan]</code></pre>
+              </div>
+            </div>
+
+            <ul class="facts">
+              <li><a href="https://github.com/Tooark/base-images/tree/main/tofu-aws" target="_blank" rel="noopener"><b>README</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/pkgs/container/tofu-aws" target="_blank" rel="noopener"><b>ghcr.io</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/releases?q=tofu-aws&amp;expanded=true" target="_blank" rel="noopener"><b>Releases</b></a></li>
+            </ul>
+          </article>
+
+          <!-- tofu-gcloud -->
+          <article class="img" id="img-tofu-gcloud">
+            <div class="img-head">
+              <div class="logos">
+                <span class="lg md"><img src="logos/opentofu.svg" alt="OpenTofu" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/gcloud.svg" alt="Google Cloud" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/kubernetes.svg" alt="Kubernetes" width="32" height="32" /></span>
+              </div>
+              <div>
+                <h3>tofu-gcloud</h3>
+                <p class="img-ref">ghcr.io/tooark/tofu-gcloud:<b>{{tofu-gcloud}}</b> · release {{tofu-gcloud:DATE}}</p>
+              </div>
+            </div>
+
+            <p lang="pt-BR">
+              OpenTofu com Google Cloud SDK e kubectl, sem Docker CLI. O
+              provider do Google e o backend <code>gcs</code> aceitam o JSON da
+              conta de serviço direto em <code>GOOGLE_CREDENTIALS</code>; o
+              <code>gcloud</code> só precisa de login para os passos de script.
+            </p>
+            <p lang="en">
+              OpenTofu with the Google Cloud SDK and kubectl, without the Docker
+              CLI. The Google provider and the <code>gcs</code> backend take the
+              service account JSON straight from <code>GOOGLE_CREDENTIALS</code>;
+              <code>gcloud</code> only needs a login for script steps.
+            </p>
+
+            <h4 lang="pt-BR">Início rápido</h4>
+            <h4 lang="en">Quick start</h4>
+<pre><code>docker run --rm \
+  -v "$PWD":/workspace -w /workspace \
+  -v "$PWD/sa.json:/home/app/sa.json:ro" \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/home/app/sa.json \
+  -e GOOGLE_PROJECT=my-project \
+  ghcr.io/tooark/tofu-gcloud:{{tofu-gcloud}} \
+  sh -c 'tofu init &amp;&amp; tofu plan'</code></pre>
+
+            <h4 lang="pt-BR">No CI</h4>
+            <h4 lang="en">In CI</h4>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>jobs:
+  tofu:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/tofu-gcloud:{{tofu-gcloud:MINOR}}
+    env:
+      GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+      GOOGLE_PROJECT: ${{ vars.GCP_PROJECT }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: tofu init
+      - run: tofu plan -out=tfplan
+
+      - if: github.ref == 'refs/heads/main'
+        run: tofu apply tfplan</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>tofu_plan:
+  stage: plan
+  image: ghcr.io/tooark/tofu-gcloud:{{tofu-gcloud:MINOR}}
+  variables:
+    GOOGLE_PROJECT: $GCP_PROJECT
+  script:
+    - export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_KEY"
+    - tofu init
+    - tofu plan -out=tfplan
+  artifacts:
+    paths: [tfplan]</code></pre>
+              </div>
+            </div>
+
+            <ul class="facts">
+              <li><a href="https://github.com/Tooark/base-images/tree/main/tofu-gcloud" target="_blank" rel="noopener"><b>README</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/pkgs/container/tofu-gcloud" target="_blank" rel="noopener"><b>ghcr.io</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/releases?q=tofu-gcloud&amp;expanded=true" target="_blank" rel="noopener"><b>Releases</b></a></li>
+            </ul>
+          </article>
+
+          <!-- tofu-aws-gcloud -->
+          <article class="img" id="img-tofu-aws-gcloud">
+            <div class="img-head">
+              <div class="logos">
+                <span class="lg md"><img src="logos/opentofu.svg" alt="OpenTofu" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/aws.svg" alt="AWS" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/gcloud.svg" alt="Google Cloud" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/kubernetes.svg" alt="Kubernetes" width="32" height="32" /></span>
+              </div>
+              <div>
+                <h3>tofu-aws-gcloud</h3>
+                <p class="img-ref">ghcr.io/tooark/tofu-aws-gcloud:<b>{{tofu-aws-gcloud}}</b> · release {{tofu-aws-gcloud:DATE}}</p>
+              </div>
+            </div>
+
+            <p lang="pt-BR">
+              As duas nuvens no mesmo job: para stacks que cruzam AWS e Google
+              Cloud, como DNS numa e cluster na outra. As credenciais são as das
+              imagens anteriores, juntas.
+            </p>
+            <p lang="en">
+              Both clouds in the same job: for stacks that span AWS and Google
+              Cloud, such as DNS in one and the cluster in the other. The
+              credentials are those of the two previous images, combined.
+            </p>
+
+            <h4 lang="pt-BR">No CI</h4>
+            <h4 lang="en">In CI</h4>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>jobs:
+  tofu:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/tofu-aws-gcloud:{{tofu-aws-gcloud:MINOR}}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+      GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+      GOOGLE_PROJECT: ${{ vars.GCP_PROJECT }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - run: tofu init
+      - run: tofu plan -out=tfplan
+
+      - if: github.ref == 'refs/heads/main'
+        run: tofu apply tfplan</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>tofu_plan:
+  stage: plan
+  image: ghcr.io/tooark/tofu-aws-gcloud:{{tofu-aws-gcloud:MINOR}}
+  variables:
+    AWS_REGION: us-east-1
+    GOOGLE_PROJECT: $GCP_PROJECT
+  script:
+    - export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_KEY"
+    - tofu init
+    - tofu plan -out=tfplan
+  artifacts:
+    paths: [tfplan]</code></pre>
+              </div>
+            </div>
+
+            <ul class="facts">
+              <li><a href="https://github.com/Tooark/base-images/tree/main/tofu-aws-gcloud" target="_blank" rel="noopener"><b>README</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/pkgs/container/tofu-aws-gcloud" target="_blank" rel="noopener"><b>ghcr.io</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/releases?q=tofu-aws-gcloud&amp;expanded=true" target="_blank" rel="noopener"><b>Releases</b></a></li>
+            </ul>
+          </article>
+        </section>
+
+        <!-- ============ 08 ============ -->
+        <section id="sonar">
+          <span class="h2-num">08</span>
+          <h2>SonarScanner</h2>
+          <p class="deck" lang="pt-BR">
+            Análise de código no SonarQube (Server ou Cloud) para linguagens que
+            usam o scanner CLI direto, como Go e PHP. Projetos Maven, Gradle e
+            .NET têm scanners próprios.
+          </p>
+          <p class="deck" lang="en">
+            Code analysis on SonarQube (Server or Cloud) for languages that use
+            the CLI scanner directly, such as Go and PHP. Maven, Gradle and .NET
+            projects have scanners of their own.
+          </p>
+
+          <article class="img" id="img-sonar-scanner">
+            <div class="img-head">
+              <div class="logos"><span class="lg md"><img src="logos/sonarqube.svg" alt="SonarQube" width="32" height="32" /></span></div>
+              <div>
+                <h3>sonar-scanner</h3>
+                <p class="img-ref">ghcr.io/tooark/sonar-scanner:<b>{{sonar-scanner}}</b> · release {{sonar-scanner:DATE}}</p>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Ferramenta</span><span lang="en">Tool</span></th>
+                    <th><span lang="pt-BR">Versão</span><span lang="en">Version</span></th>
+                    <th><span lang="pt-BR">Caminho</span><span lang="en">Path</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/sonarqube.svg" alt="" width="16" height="16" /></span>SonarScanner CLI</td>
+                    <td class="ver">{{sonar-scanner}}</td>
+                    <td><code>/opt/sonar-scanner</code></td>
+                  </tr>
+                  <tr>
+                    <td class="tool">OpenJDK JRE</td>
+                    <td class="ver">21</td>
+                    <td><span lang="pt-BR">pacote Debian</span><span lang="en">Debian package</span></td>
+                  </tr>
+                  <tr>
+                    <td class="tool">git</td>
+                    <td class="ver na">Debian</td>
+                    <td><code>/usr/bin/git</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p lang="pt-BR">
+              O git está lá para o blame: com o histórico completo
+              (<code>fetch-depth: 0</code> / <code>GIT_DEPTH: "0"</code>), o
+              SonarQube sabe quem introduziu cada problema e separa código novo
+              de código antigo. A imagem também define
+              <code>LANG=C.UTF-8</code>; sem isso, a JVM cai em ASCII e o
+              scanner quebra em arquivos com acento no nome.
+            </p>
+            <p lang="en">
+              git is there for blame: with the full history
+              (<code>fetch-depth: 0</code> / <code>GIT_DEPTH: "0"</code>),
+              SonarQube knows who introduced each issue and tells new code from
+              old. The image also sets <code>LANG=C.UTF-8</code>; without it the
+              JVM falls back to ASCII and the scanner breaks on file names with
+              accents.
+            </p>
+
+            <h4 lang="pt-BR">Início rápido</h4>
+            <h4 lang="en">Quick start</h4>
+<pre><code>docker run --rm \
+  -e SONAR_HOST_URL="https://sonarqube.example.com" \
+  -e SONAR_TOKEN \
+  -v "$PWD":/usr/src -w /usr/src \
+  ghcr.io/tooark/sonar-scanner:{{sonar-scanner}} \
+  sonar-scanner -Dsonar.projectKey=my-project</code></pre>
+
+            <h4 lang="pt-BR">No CI</h4>
+            <h4 lang="en">In CI</h4>
+            <p lang="pt-BR">
+              <code>sonar.qualitygate.wait=true</code> faz o job esperar o
+              resultado e falhar quando o quality gate reprova.
+            </p>
+            <p lang="en">
+              <code>sonar.qualitygate.wait=true</code> makes the job wait for
+              the result and fail when the quality gate does.
+            </p>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>name: sonar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  sonar:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tooark/sonar-scanner:{{sonar-scanner:MINOR}}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Analyse
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }} \
+            -Dsonar.sources=. \
+            -Dsonar.qualitygate.wait=true</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>sonarqube:
+  stage: test
+  image: ghcr.io/tooark/sonar-scanner:{{sonar-scanner:MINOR}}
+  variables:
+    GIT_DEPTH: "0"
+  script:
+    - sonar-scanner -Dsonar.projectKey="$SONAR_PROJECT_KEY" -Dsonar.sources=. -Dsonar.qualitygate.wait=true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH</code></pre>
+              </div>
+            </div>
+
+            <h4 lang="pt-BR">Variáveis</h4>
+            <h4 lang="en">Variables</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Variável</span><span lang="en">Variable</span></th>
+                    <th>Default</th>
+                    <th><span lang="pt-BR">Descrição</span><span lang="en">Description</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>SONAR_HOST_URL</code></td>
+                    <td class="na">—</td>
+                    <td><span lang="pt-BR">URL do SonarQube</span><span lang="en">SonarQube URL</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>SONAR_TOKEN</code></td>
+                    <td class="na">—</td>
+                    <td><span lang="pt-BR">Token de análise</span><span lang="en">Analysis token</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>SONAR_USER_HOME</code></td>
+                    <td><code>/home/app/.sonar</code></td>
+                    <td><span lang="pt-BR">Cache dos plugins do scanner; vale persistir entre execuções</span><span lang="en">Scanner plugin cache; worth persisting between runs</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <ul class="facts">
+              <li><a href="https://github.com/Tooark/base-images/tree/main/sonar-scanner" target="_blank" rel="noopener"><b>README</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/pkgs/container/sonar-scanner" target="_blank" rel="noopener"><b>ghcr.io</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/releases?q=sonar-scanner&amp;expanded=true" target="_blank" rel="noopener"><b>Releases</b></a></li>
+              <li><a href="https://docs.sonarsource.com/sonarqube-server/analyzing-source-code/scanners/sonarscanner" target="_blank" rel="noopener"><b>SonarScanner docs</b></a></li>
+            </ul>
+          </article>
+        </section>
+
+        <!-- ============ 09 ============ -->
+        <section id="seguranca">
+          <span class="h2-num">09</span>
+          <h2 lang="pt-BR">Scanner de segurança</h2>
+          <h2 lang="en">Security scanner</h2>
+          <p class="deck" lang="pt-BR">
+            Três ferramentas de escopos que não se sobrepõem atrás de um CLI só,
+            o <code>ark-tools</code>, que padroniza gates, relatórios e
+            metadados de CI. É a mesma imagem que escaneia as releases deste
+            repositório, e substitui a
+            <a href="#img-trivy-hadolint">trivy-hadolint</a>, que ficou
+            legada.
+          </p>
+          <p class="deck" lang="en">
+            Three tools with non-overlapping scopes behind a single CLI,
+            <code>ark-tools</code>, which standardises gates, reports and CI
+            metadata. It is the same image that scans this repository's
+            releases, and it replaces
+            <a href="#img-trivy-hadolint">trivy-hadolint</a>, now legacy.
+          </p>
+
+          <!-- security-scanner -->
+          <article class="img" id="img-security-scanner">
+            <div class="img-head">
+              <div class="logos">
+                <span class="lg md"><img src="logos/trivy.svg" alt="Trivy" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/hadolint.png" alt="Hadolint" width="32" height="32" /></span>
+                <span class="lg md"><img src="logos/betterleaks.png" alt="Betterleaks" width="32" height="32" /></span>
+              </div>
+              <div>
+                <h3>security-scanner</h3>
+                <p class="img-ref">ghcr.io/tooark/security-scanner:<b>{{security-scanner}}</b> · release {{security-scanner:DATE}}</p>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Ferramenta</span><span lang="en">Tool</span></th>
+                    <th><span lang="pt-BR">Versão</span><span lang="en">Version</span></th>
+                    <th><span lang="pt-BR">Procura</span><span lang="en">Looks for</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/trivy.svg" alt="" width="16" height="16" /></span>Trivy</td>
+                    <td class="ver">{{security-scanner:TRIVY_VERSION}}</td>
+                    <td><span lang="pt-BR">CVEs em imagens e dependências, misconfiguração de IaC, licenças</span><span lang="en">CVEs in images and dependencies, IaC misconfiguration, licences</span></td>
+                  </tr>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/hadolint.png" alt="" width="16" height="16" /></span>Hadolint</td>
+                    <td class="ver">{{security-scanner:HADOLINT_VERSION}}</td>
+                    <td><span lang="pt-BR">Más práticas em Dockerfile</span><span lang="en">Dockerfile bad practices</span></td>
+                  </tr>
+                  <tr>
+                    <td class="tool"><span class="lg xs"><img src="logos/betterleaks.png" alt="" width="16" height="16" /></span>Betterleaks</td>
+                    <td class="ver">{{security-scanner:BETTERLEAKS_VERSION}}</td>
+                    <td><span lang="pt-BR">Segredos no código e no histórico do git</span><span lang="en">Secrets in the code and in the git history</span></td>
+                  </tr>
+                  <tr>
+                    <td class="tool">ark-tools</td>
+                    <td class="ver">{{security-scanner}}</td>
+                    <td><span lang="pt-BR">Entrypoint: orquestra os três e grava os relatórios</span><span lang="en">Entrypoint: drives the three and writes the reports</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h4 lang="pt-BR">Comandos</h4>
+            <h4 lang="en">Commands</h4>
+            <p lang="pt-BR">
+              O entrypoint já é o <code>ark-tools</code>: o primeiro argumento
+              do <code>docker run</code> é o comando. Os relatórios vão para
+              <code>/reports</code>.
+            </p>
+            <p lang="en">
+              The entrypoint is already <code>ark-tools</code>: the first
+              argument to <code>docker run</code> is the command. Reports go to
+              <code>/reports</code>.
+            </p>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Comando</span><span lang="en">Command</span></th>
+                    <th>Alias</th>
+                    <th><span lang="pt-BR">Escaneia</span><span lang="en">Scans</span></th>
+                    <th><span lang="pt-BR">Relatório</span><span lang="en">Report</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>full-scan</code></td>
+                    <td><code>all</code></td>
+                    <td><span lang="pt-BR">Imagem, código, segredos e Dockerfiles, num relatório só</span><span lang="en">Image, code, secrets and Dockerfiles, in one report</span></td>
+                    <td><code>full-scan-report.json</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>image-scan</code></td>
+                    <td><code>is</code></td>
+                    <td><span lang="pt-BR">Uma imagem (registry ou local)</span><span lang="en">An image (registry or local)</span></td>
+                    <td><code>trivy-image.json</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>filesystem-scan</code></td>
+                    <td><code>fs</code></td>
+                    <td><span lang="pt-BR">Dependências do código-fonte</span><span lang="en">Source-code dependencies</span></td>
+                    <td><code>trivy-filesystem.json</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>config-scan</code></td>
+                    <td><code>cs</code></td>
+                    <td><span lang="pt-BR">IaC: Terraform, Kubernetes, Dockerfile</span><span lang="en">IaC: Terraform, Kubernetes, Dockerfile</span></td>
+                    <td><code>trivy-config.json</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>repo-scan</code></td>
+                    <td><code>rs</code></td>
+                    <td><span lang="pt-BR">Um repositório, local ou por URL</span><span lang="en">A repository, local or by URL</span></td>
+                    <td><code>trivy-repo.json</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>dockerfile-lint</code></td>
+                    <td><code>dl</code></td>
+                    <td>Dockerfile</td>
+                    <td><code>hadolint.json</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>secret-scan</code></td>
+                    <td><code>ss</code></td>
+                    <td><span lang="pt-BR">Árvore de trabalho e histórico do git</span><span lang="en">Working tree and git history</span></td>
+                    <td><code>betterleaks.json</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>send-report</code></td>
+                    <td><code>send</code></td>
+                    <td><span lang="pt-BR">Envia um relatório ao webhook</span><span lang="en">Sends a report to the webhook</span></td>
+                    <td class="na">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p lang="pt-BR">
+              Os comandos avulsos gravam também um envelope
+              <code>ark-report-&lt;comando&gt;.json</code>; no
+              <code>full-scan</code>, o envelope é o próprio
+              <code>full-scan-report.json</code>. O formato é o
+              <code>ark-report-tools</code> v1.3, com metadados de branch,
+              commit e pipeline detectados do GitHub Actions, GitLab CI, Azure
+              DevOps, Bitbucket ou Jenkins.
+            </p>
+            <p lang="en">
+              Single commands also write an
+              <code>ark-report-&lt;command&gt;.json</code> envelope; for
+              <code>full-scan</code>, the envelope is
+              <code>full-scan-report.json</code> itself. The format is
+              <code>ark-report-tools</code> v1.3, with branch, commit and
+              pipeline metadata detected from GitHub Actions, GitLab CI, Azure
+              DevOps, Bitbucket or Jenkins.
+            </p>
+
+            <h4 lang="pt-BR">Os gates</h4>
+            <h4 lang="en">The gates</h4>
+            <div class="gates">
+              <div class="gate tone-trivy">
+                <h4><span class="lg xs"><img src="logos/trivy.svg" alt="" width="16" height="16" /></span>Trivy</h4>
+                <p lang="pt-BR">Falha quando uma severidade de <code>TRIVY_SEVERITY_FAIL</code> (<code>HIGH,CRITICAL</code>) tem correção disponível.</p>
+                <p lang="en">Fails when a severity in <code>TRIVY_SEVERITY_FAIL</code> (<code>HIGH,CRITICAL</code>) has a fix available.</p>
+                <span class="off" lang="pt-BR">desligar → TRIVY_EXIT_CODE=0</span>
+                <span class="off" lang="en">turn off → TRIVY_EXIT_CODE=0</span>
+              </div>
+              <div class="gate tone-hadolint">
+                <h4><span class="lg xs"><img src="logos/hadolint.png" alt="" width="16" height="16" /></span>Hadolint</h4>
+                <p lang="pt-BR">Falha a partir do nível de <code>HADOLINT_FAILURE_LEVEL</code> (<code>error</code>).</p>
+                <p lang="en">Fails at or above the level in <code>HADOLINT_FAILURE_LEVEL</code> (<code>error</code>).</p>
+                <span class="off" lang="pt-BR">desligar → HADOLINT_FAILURE_LEVEL=none</span>
+                <span class="off" lang="en">turn off → HADOLINT_FAILURE_LEVEL=none</span>
+              </div>
+              <div class="gate tone-betterleaks">
+                <h4><span class="lg xs"><img src="logos/betterleaks.png" alt="" width="16" height="16" /></span>Betterleaks</h4>
+                <p lang="pt-BR">Falha quando qualquer segredo é encontrado. O log mostra regra, arquivo e linha, nunca o segredo.</p>
+                <p lang="en">Fails when any secret is found. The log shows rule, file and line, never the secret.</p>
+                <span class="off" lang="pt-BR">desligar → BETTERLEAKS_FAIL_ON_FINDINGS=false</span>
+                <span class="off" lang="en">turn off → BETTERLEAKS_FAIL_ON_FINDINGS=false</span>
+              </div>
+            </div>
+            <p lang="pt-BR">
+              O relatório sempre traz tudo; o gate só decide o exit code. Exit
+              <code>1</code> é gate disparado, <code>2</code> é erro de uso
+              (argumento ou caminho inválido).
+            </p>
+            <p lang="en">
+              The report always carries everything; the gate only decides the
+              exit code. Exit <code>1</code> means a gate tripped,
+              <code>2</code> is a usage error (bad argument or path).
+            </p>
+
+            <h4 lang="pt-BR">Início rápido</h4>
+            <h4 lang="en">Quick start</h4>
+            <p lang="pt-BR">
+              Código, segredos e Dockerfile do diretório atual. Para incluir uma
+              imagem local, monte o <code>docker.sock</code> e troque
+              <code>--skip-image</code> pelo nome dela.
+            </p>
+            <p lang="en">
+              Code, secrets and Dockerfile of the current directory. To include
+              a local image, mount <code>docker.sock</code> and replace
+              <code>--skip-image</code> with its name.
+            </p>
+<pre><code>mkdir -p scan-reports
+
+docker run --rm \
+  -v "$PWD":/workspace \
+  -v "$PWD/scan-reports":/reports \
+  ghcr.io/tooark/security-scanner:{{security-scanner}} \
+  full-scan --skip-image --path /workspace
+
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$PWD/scan-reports":/reports \
+  ghcr.io/tooark/security-scanner:{{security-scanner}} \
+  image-scan myapp:dev</code></pre>
+
+            <h4 lang="pt-BR">No CI: pela Action ou pelo template</h4>
+            <h4 lang="en">In CI: through the Action or the template</h4>
+            <p lang="pt-BR">
+              O jeito mais curto de usar o scanner é pelos dois projetos que o
+              empacotam: uma GitHub Action e templates de CI/CD do GitLab, com
+              os mesmos inputs, cache do banco do Trivy e upload dos relatórios.
+            </p>
+            <p lang="en">
+              The shortest way to use the scanner is through the two projects
+              that package it: a GitHub Action and GitLab CI/CD templates, with
+              the same inputs, Trivy database caching and report upload.
+            </p>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>name: security
+
+on: [push, pull_request]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: Tooark/action-security-scanner@v1</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>include:
+  - remote: "https://raw.githubusercontent.com/Tooark/template-security-scanner/v1/templates/full-scan.yml"</code></pre>
+              </div>
+            </div>
+
+            <h4 lang="pt-BR">No CI: direto na imagem</h4>
+            <h4 lang="en">In CI: straight from the image</h4>
+            <p lang="pt-BR">
+              Sem a Action, o GitHub roda a imagem com <code>docker run</code>
+              e repassa as variáveis <code>GITHUB_*</code> para os metadados. O
+              diretório de relatórios precisa aceitar escrita do usuário
+              <code>app</code>. No GitLab, o entrypoint é limpo e o
+              <code>ark-tools</code> é chamado no script.
+            </p>
+            <p lang="en">
+              Without the Action, GitHub runs the image with
+              <code>docker run</code> and forwards the <code>GITHUB_*</code>
+              variables for the metadata. The reports directory has to be
+              writable by the <code>app</code> user. On GitLab, the entrypoint
+              is cleared and <code>ark-tools</code> is called from the script.
+            </p>
+            <div class="tabs">
+              <div class="tab-bar" role="tablist">
+                <button type="button" role="tab" data-tab="gh"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span>GitHub Actions</button>
+                <button type="button" role="tab" data-tab="gl"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span>GitLab CI</button>
+              </div>
+              <div class="tab-panel" data-panel="gh">
+                <p class="panel-label">GitHub Actions</p>
+<pre><code>- name: Full scan
+  run: |
+    mkdir -p scan-reports &amp;&amp; chmod 777 scan-reports
+    docker run --rm \
+      -v "$GITHUB_WORKSPACE:/workspace" \
+      -v "$GITHUB_WORKSPACE/scan-reports:/reports" \
+      -e GITHUB_ACTIONS -e GITHUB_REF_NAME -e GITHUB_SHA \
+      -e GITHUB_REPOSITORY -e GITHUB_ACTOR \
+      -e GITHUB_RUN_ID -e GITHUB_JOB -e GITHUB_SERVER_URL \
+      ghcr.io/tooark/security-scanner:{{security-scanner:MINOR}} \
+      full-scan --skip-image --path /workspace</code></pre>
+              </div>
+              <div class="tab-panel" data-panel="gl">
+                <p class="panel-label">GitLab CI</p>
+<pre><code>security_scan:
+  stage: test
+  image:
+    name: ghcr.io/tooark/security-scanner:{{security-scanner:MINOR}}
+    entrypoint: [""]
+  variables:
+    GIT_DEPTH: "0"
+    TRIVY_CACHE_DIR: "$CI_PROJECT_DIR/.cache/trivy"
+    REPORT_DIR: "$CI_PROJECT_DIR/scan-reports"
+  cache:
+    key: trivy-db
+    paths: [.cache/trivy]
+  script:
+    - ark-tools full-scan --skip-image --path "$CI_PROJECT_DIR"
+  artifacts:
+    when: always
+    paths: [scan-reports/]</code></pre>
+              </div>
+            </div>
+
+            <h4 lang="pt-BR">Variáveis mais usadas</h4>
+            <h4 lang="en">Most used variables</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th><span lang="pt-BR">Variável</span><span lang="en">Variable</span></th>
+                    <th>Default</th>
+                    <th><span lang="pt-BR">Descrição</span><span lang="en">Description</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>TRIVY_SEVERITY</code></td>
+                    <td><code>UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL</code></td>
+                    <td><span lang="pt-BR">Severidades que entram no relatório</span><span lang="en">Severities included in the report</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>TRIVY_SEVERITY_FAIL</code></td>
+                    <td><code>HIGH,CRITICAL</code></td>
+                    <td><span lang="pt-BR">Severidades que disparam o gate</span><span lang="en">Severities that trip the gate</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>TRIVY_IGNORE_UNFIXED_FAIL</code></td>
+                    <td><code>true</code></td>
+                    <td><span lang="pt-BR">O gate só considera vulnerabilidades com correção</span><span lang="en">The gate only counts vulnerabilities with a fix</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>TRIVY_IGNOREFILE</code></td>
+                    <td><span lang="pt-BR">auto</span><span lang="en">auto</span></td>
+                    <td><span lang="pt-BR">Caminho do <code>.trivyignore</code>; sem ela, procura em <code>/.trivyignore</code> e no diretório atual</span><span lang="en">Path to <code>.trivyignore</code>; without it, looks in <code>/.trivyignore</code> and the current directory</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>HADOLINT_FAILURE_LEVEL</code></td>
+                    <td><code>error</code></td>
+                    <td><code>error</code>, <code>warning</code>, <code>info</code>, <code>style</code>, <code>none</code></td>
+                  </tr>
+                  <tr>
+                    <td><code>BETTERLEAKS_FAIL_ON_FINDINGS</code></td>
+                    <td><code>true</code></td>
+                    <td><span lang="pt-BR">Segredo encontrado falha o job</span><span lang="en">A secret found fails the job</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>BETTERLEAKS_REDACT</code></td>
+                    <td><code>100</code></td>
+                    <td><span lang="pt-BR">Percentual do segredo mascarado no relatório</span><span lang="en">Share of the secret masked in the report</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>FULL_SCAN_DOCKERFILES</code></td>
+                    <td><code>Dockerfile</code></td>
+                    <td><span lang="pt-BR">Dockerfiles do <code>full-scan</code>, separados por vírgula</span><span lang="en">Dockerfiles for <code>full-scan</code>, comma separated</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>REPORT_URL</code></td>
+                    <td class="na">—</td>
+                    <td><span lang="pt-BR">Webhook(s) que recebem o relatório; com <code>REPORT_TOKEN</code> como Bearer</span><span lang="en">Webhook(s) that receive the report; with <code>REPORT_TOKEN</code> as Bearer</span></td>
+                  </tr>
+                  <tr>
+                    <td><code>REPORT_DIR</code></td>
+                    <td><code>/reports</code></td>
+                    <td><span lang="pt-BR">Onde os relatórios são gravados</span><span lang="en">Where reports are written</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p lang="pt-BR">
+              A referência completa — Trivy Server, SBOM, webhooks separados
+              para SBOM, todas as flags — está no README da imagem.
+            </p>
+            <p lang="en">
+              The full reference — Trivy Server, SBOM, separate SBOM webhooks,
+              every flag — is in the image's README.
+            </p>
+
+            <ul class="facts">
+              <li><a href="https://github.com/Tooark/base-images/tree/main/security-scanner" target="_blank" rel="noopener"><b>README</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/pkgs/container/security-scanner" target="_blank" rel="noopener"><b>ghcr.io</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/releases?q=security-scanner&amp;expanded=true" target="_blank" rel="noopener"><b>Releases</b></a></li>
+              <li><a href="https://github.com/Tooark/base-images/blob/main/security-scanner/schemas/ark-report-tools.schema.v1.3.json" target="_blank" rel="noopener"><b>JSON Schema v1.3</b></a></li>
+            </ul>
+
+            <div class="siblings">
+              <div class="sibling tone-gh">
+                <span class="label"><span class="lg xs"><img src="logos/githubactions.svg" alt="" width="16" height="16" /></span><span lang="pt-BR">Guia irmão · GitHub Actions</span><span lang="en">Sibling guide · GitHub Actions</span></span>
+                <h4>action-security-scanner</h4>
+                <p lang="pt-BR">A Action que roda esta imagem: inputs, cache, relatórios e o porquê de cada decisão.</p>
+                <p lang="en">The Action that runs this image: inputs, caching, reports and the reasoning behind each decision.</p>
+                <ul class="facts">
+                  <li><a href="https://tooark.com/action-security-scanner/"><b><span lang="pt-BR">Guia</span><span lang="en">Guide</span></b></a></li>
+                  <li><a href="https://github.com/Tooark/action-security-scanner" target="_blank" rel="noopener"><b>GitHub</b></a></li>
+                </ul>
+              </div>
+              <div class="sibling tone-gl">
+                <span class="label"><span class="lg xs"><img src="logos/gitlab.svg" alt="" width="16" height="16" /></span><span lang="pt-BR">Guia irmão · GitLab CI</span><span lang="en">Sibling guide · GitLab CI</span></span>
+                <h4>template-security-scanner</h4>
+                <p lang="pt-BR">Os templates de CI/CD do GitLab, um por scan, que um projeto inclui com uma linha.</p>
+                <p lang="en">The GitLab CI/CD templates, one per scan, that a project includes with one line.</p>
+                <ul class="facts">
+                  <li><a href="https://tooark.com/template-security-scanner/"><b><span lang="pt-BR">Guia</span><span lang="en">Guide</span></b></a></li>
+                  <li><a href="https://github.com/Tooark/template-security-scanner" target="_blank" rel="noopener"><b>GitHub</b></a></li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+        </section>
+
+        <!-- ============ 10 ============ -->
+        <section id="assinatura">
+          <span class="h2-num">10</span>
+          <h2 lang="pt-BR">Verificar a assinatura</h2>
+          <h2 lang="en">Verify the signature</h2>
+          <p class="deck" lang="pt-BR">
+            Antes de confiar uma credencial de produção a uma imagem, dá para
+            provar que ela saiu do workflow de build deste repositório, e não
+            de outro lugar.
+          </p>
+          <p class="deck" lang="en">
+            Before trusting an image with a production credential, you can
+            prove it came out of this repository's build workflow and nowhere
+            else.
+          </p>
+
+<pre><code>cosign verify ghcr.io/tooark/aws-cli:{{aws-cli}} \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity \
+    https://github.com/Tooark/base-images/.github/workflows/image-build.yml@refs/heads/main</code></pre>
+
+          <p lang="pt-BR">
+            A assinatura é <em>keyless</em>: não existe chave privada guardada
+            em lugar nenhum. Na build, o GitHub Actions emite um token OIDC que
+            identifica o workflow, o Sigstore troca esse token por um
+            certificado de vida curta e o registro da assinatura fica no log
+            público de transparência. A verificação confere duas coisas:
+          </p>
+          <p lang="en">
+            The signature is <em>keyless</em>: no private key is stored
+            anywhere. During the build, GitHub Actions issues an OIDC token that
+            identifies the workflow, Sigstore exchanges it for a short-lived
+            certificate, and the signature record lands in the public
+            transparency log. Verification checks two things:
+          </p>
+          <ul lang="pt-BR">
+            <li><code>--certificate-identity</code>: o certificado foi emitido para o <code>image-build.yml</code> deste repositório, rodando na <code>main</code>.</li>
+            <li><code>--certificate-oidc-issuer</code>: quem atestou essa identidade foi o GitHub Actions.</li>
+          </ul>
+          <ul lang="en">
+            <li><code>--certificate-identity</code>: the certificate was issued to this repository's <code>image-build.yml</code>, running on <code>main</code>.</li>
+            <li><code>--certificate-oidc-issuer</code>: the identity was vouched for by GitHub Actions.</li>
+          </ul>
+          <p lang="pt-BR">
+            A assinatura é feita sobre o digest do índice multi-arquitetura com
+            <code>--recursive</code>, então qualquer tag de qualquer imagem e as
+            duas arquiteturas verificam com o mesmo comando. Para travar de vez,
+            use o digest que o <code>cosign verify</code> imprime no lugar da
+            tag.
+          </p>
+          <p lang="en">
+            The signature is made over the digest of the multi-arch index with
+            <code>--recursive</code>, so any tag of any image and both
+            architectures verify with the same command. To pin for good, use
+            the digest <code>cosign verify</code> prints instead of the tag.
+          </p>
+        </section>
+
+        <!-- ============ 11 ============ -->
+        <section id="legado">
+          <span class="h2-num">11</span>
+          <h2 lang="pt-BR">Imagens legadas</h2>
+          <h2 lang="en">Legacy images</h2>
+          <p class="deck" lang="pt-BR">
+            Imagens congeladas: continuam no registry, mas não recebem mais
+            build nem atualização. Cada uma tem uma substituta ativa.
+          </p>
+          <p class="deck" lang="en">
+            Frozen images: they stay in the registry, but they no longer get
+            builds or updates. Each one has an active replacement.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><span lang="pt-BR">Imagem legada</span><span lang="en">Legacy image</span></th>
+                  <th><span lang="pt-BR">Última release</span><span lang="en">Last release</span></th>
+                  <th><span lang="pt-BR">Ferramentas</span><span lang="en">Tools</span></th>
+                  <th><span lang="pt-BR">Substituta</span><span lang="en">Replacement</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr id="img-terraform">
+                  <td class="tool"><span class="lg xs"><img src="logos/terraform.svg" alt="" width="16" height="16" /></span>terraform</td>
+                  <td><code>{{terraform}}</code> · {{terraform:DATE}}</td>
+                  <td class="ver">Terraform {{terraform}}</td>
+                  <td><a href="#img-tofu"><code>tofu</code></a></td>
+                </tr>
+                <tr id="img-terraform-aws">
+                  <td class="tool"><span class="lg xs"><img src="logos/terraform.svg" alt="" width="16" height="16" /></span>terraform-aws</td>
+                  <td><code>{{terraform-aws}}</code> · {{terraform-aws:DATE}}</td>
+                  <td class="ver">Terraform {{terraform-aws:TERRAFORM_VERSION}}</td>
+                  <td><a href="#img-tofu-aws"><code>tofu-aws</code></a></td>
+                </tr>
+                <tr id="img-terraform-gcloud">
+                  <td class="tool"><span class="lg xs"><img src="logos/terraform.svg" alt="" width="16" height="16" /></span>terraform-gcloud</td>
+                  <td><code>{{terraform-gcloud}}</code> · {{terraform-gcloud:DATE}}</td>
+                  <td class="ver">Terraform {{terraform-gcloud:TERRAFORM_VERSION}}</td>
+                  <td><a href="#img-tofu-gcloud"><code>tofu-gcloud</code></a></td>
+                </tr>
+                <tr id="img-terraform-aws-gcloud">
+                  <td class="tool"><span class="lg xs"><img src="logos/terraform.svg" alt="" width="16" height="16" /></span>terraform-aws-gcloud</td>
+                  <td><code>{{terraform-aws-gcloud}}</code> · {{terraform-aws-gcloud:DATE}}</td>
+                  <td class="ver">Terraform {{terraform-aws-gcloud:TERRAFORM_VERSION}}</td>
+                  <td><a href="#img-tofu-aws-gcloud"><code>tofu-aws-gcloud</code></a></td>
+                </tr>
+                <tr id="img-trivy-hadolint">
+                  <td class="tool"><span class="lg xs"><img src="logos/trivy.svg" alt="" width="16" height="16" /></span>trivy-hadolint</td>
+                  <td><code>{{trivy-hadolint}}</code> · {{trivy-hadolint:DATE}}</td>
+                  <td class="ver">Trivy {{trivy-hadolint:TRIVY_VERSION}} · Hadolint {{trivy-hadolint:HADOLINT_VERSION}}</td>
+                  <td><a href="#img-security-scanner"><code>security-scanner</code></a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="warn">
+            <span class="label" lang="pt-BR">Por que migrar</span>
+            <span class="label" lang="en">Why migrate</span>
+            <p lang="pt-BR">
+              Sem build semanal, as CVEs do SO e das ferramentas se acumulam
+              nessas imagens, e as ferramentas param na versão da última
+              release.
+            </p>
+            <p lang="en">
+              With no weekly build, OS and tool CVEs pile up in these images,
+              and the tools stay at the version of the last release.
+            </p>
+          </div>
+
+          <h3 lang="pt-BR">De terraform* para tofu*</h3>
+          <h3 lang="en">From terraform* to tofu*</h3>
+          <p lang="pt-BR">
+            Na maioria dos pipelines basta trocar a imagem e substituir
+            <code>terraform</code> por <code>tofu</code> nos comandos; o
+            <a href="https://opentofu.org/docs/intro/migration/" target="_blank" rel="noopener">guia de migração do OpenTofu</a>
+            cobre os casos de state e de versão.
+          </p>
+          <p lang="en">
+            In most pipelines it is enough to change the image and replace
+            <code>terraform</code> with <code>tofu</code> in the commands; the
+            <a href="https://opentofu.org/docs/intro/migration/" target="_blank" rel="noopener">OpenTofu migration guide</a>
+            covers state and version cases.
+          </p>
+
+          <h3 lang="pt-BR">De trivy-hadolint para security-scanner</h3>
+          <h3 lang="en">From trivy-hadolint to security-scanner</h3>
+          <p lang="pt-BR">
+            O <a href="#img-security-scanner">security-scanner</a> é o mesmo
+            <code>ark-tools</code>, com as mesmas variáveis de Trivy, Hadolint,
+            SBOM e webhook, e com o Betterleaks a mais. O que muda:
+          </p>
+          <p lang="en">
+            <a href="#img-security-scanner">security-scanner</a> is the same
+            <code>ark-tools</code>, with the same Trivy, Hadolint, SBOM and
+            webhook variables, plus Betterleaks. What changes:
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>trivy-hadolint</th>
+                  <th>security-scanner</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="term"><span lang="pt-BR">Imagem</span><span lang="en">Image</span></td>
+                  <td><code>trivy-hadolint:{{trivy-hadolint:MINOR}}</code></td>
+                  <td><code>security-scanner:{{security-scanner:MINOR}}</code></td>
+                </tr>
+                <tr>
+                  <td class="term"><span lang="pt-BR">Comando combinado</span><span lang="en">Combined command</span></td>
+                  <td><code>container</code></td>
+                  <td>
+                    <code>full-scan</code>
+                    <span lang="pt-BR">— mesmas opções, mais <code>--skip-secrets</code></span>
+                    <span lang="en">— same options, plus <code>--skip-secrets</code></span>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="term"><span lang="pt-BR">Variáveis do combinado</span><span lang="en">Combined-command variables</span></td>
+                  <td><code>CONTAINER_PATH</code><br /><code>CONTAINER_DOCKERFILES</code><br /><code>CONTAINER_SCAN_MODE</code><br /><code>CONTAINER_SKIP_IMAGE</code><br /><code>CONTAINER_SKIP_LINT</code></td>
+                  <td><code>FULL_SCAN_PATH</code><br /><code>FULL_SCAN_DOCKERFILES</code><br /><code>FULL_SCAN_MODE</code><br /><code>FULL_SCAN_SKIP_IMAGE</code><br /><code>FULL_SCAN_SKIP_LINT</code></td>
+                </tr>
+                <tr>
+                  <td class="term"><span lang="pt-BR">Relatório consolidado</span><span lang="en">Consolidated report</span></td>
+                  <td><code>container-report.json</code></td>
+                  <td><code>full-scan-report.json</code></td>
+                </tr>
+                <tr>
+                  <td class="term">Envelope</td>
+                  <td><code>ark-report-tools</code> v1.1</td>
+                  <td>
+                    <code>ark-report-tools</code> v1.3
+                    <span lang="pt-BR">— ganha <code>image_family</code> e <code>image</code></span>
+                    <span lang="en">— adds <code>image_family</code> and <code>image</code></span>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="term"><span lang="pt-BR">Gate do Hadolint</span><span lang="en">Hadolint gate</span></td>
+                  <td><span lang="pt-BR">desligado até definir <code>HADOLINT_FAILURE_LEVEL</code></span><span lang="en">off until <code>HADOLINT_FAILURE_LEVEL</code> is set</span></td>
+                  <td><span lang="pt-BR">ligado, a partir de <code>error</code></span><span lang="en">on, from <code>error</code> up</span></td>
+                </tr>
+                <tr>
+                  <td class="term"><span lang="pt-BR">Segredos</span><span lang="en">Secrets</span></td>
+                  <td class="na">—</td>
+                  <td><span lang="pt-BR">Betterleaks, com gate ligado</span><span lang="en">Betterleaks, gate on</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="note">
+            <span class="label" lang="pt-BR">Na primeira execução</span>
+            <span class="label" lang="en">On the first run</span>
+            <p lang="pt-BR">
+              Dois gates passam a valer sem configuração nenhuma: o do Hadolint
+              e o do Betterleaks, que olha também o histórico do git. Para
+              trocar a imagem sem travar o pipeline, comece com
+              <code>HADOLINT_FAILURE_LEVEL=none</code> e
+              <code>--skip-secrets</code>, e ligue um gate de cada vez. Para o
+              Betterleaks ver o histórico, faça o checkout completo
+              (<code>fetch-depth: 0</code> / <code>GIT_DEPTH: "0"</code>). Quem
+              consome o webhook precisa aceitar o envelope v1.3.
+            </p>
+            <p lang="en">
+              Two gates take effect with no configuration at all: Hadolint's,
+              and Betterleaks', which also reads the git history. To switch
+              images without blocking the pipeline, start with
+              <code>HADOLINT_FAILURE_LEVEL=none</code> and
+              <code>--skip-secrets</code>, then turn one gate on at a time. For
+              Betterleaks to see the history, do a full checkout
+              (<code>fetch-depth: 0</code> / <code>GIT_DEPTH: "0"</code>).
+              Whoever consumes the webhook has to accept the v1.3 envelope.
+            </p>
+          </div>
+        </section>
+
+        <!-- ============ 12 ============ -->
+        <section id="contribuir">
+          <span class="h2-num">12</span>
+          <h2 lang="pt-BR">Build local e contribuição</h2>
+          <h2 lang="en">Local build and contributing</h2>
+          <p class="deck" lang="pt-BR">
+            Cada pasta da raiz tem <code>Dockerfile</code>,
+            <code>VERSION</code>, <code>DESCRIPTION</code>, README nos dois
+            idiomas e o <code>.trivyignore</code> com as CVEs aceitas. As
+            versões de todas as ferramentas ficam num arquivo só, o
+            <code>versions.env</code>.
+          </p>
+          <p class="deck" lang="en">
+            Each root folder holds a <code>Dockerfile</code>,
+            <code>VERSION</code>, <code>DESCRIPTION</code>, a README in both
+            languages and the <code>.trivyignore</code> with the accepted CVEs.
+            Every tool version lives in one file, <code>versions.env</code>.
+          </p>
+
+          <p lang="pt-BR">
+            O script de build local lê o <code>versions.env</code>, monta a
+            imagem e roda o mesmo scan da release:
+          </p>
+          <p lang="en">
+            The local build script reads <code>versions.env</code>, builds the
+            image and runs the same scan as the release:
+          </p>
+<pre><code>./script/build-and-run-local.sh build aws-cli
+./script/build-and-run-local.sh scan aws-cli
+./script/build-and-run-local.sh all all</code></pre>
+
+          <p lang="pt-BR">
+            Este site sai de <code>docs/</code>. Para vê-lo como será publicado,
+            com as versões preenchidas:
+          </p>
+          <p lang="en">
+            This site comes from <code>docs/</code>. To see it as it will be
+            published, with the versions filled in:
+          </p>
+<pre><code>python3 script/render-docs.py
+# _site/index.html</code></pre>
+
+          <ul class="facts">
+            <li><a href="https://github.com/Tooark/base-images/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener"><b>CONTRIBUTING</b></a></li>
+            <li><a href="https://github.com/Tooark/base-images/tree/main/samples" target="_blank" rel="noopener"><b>samples/</b></a></li>
+            <li><a href="https://github.com/Tooark/base-images/blob/main/SECURITY.md" target="_blank" rel="noopener"><b>SECURITY</b></a></li>
+            <li><a href="https://github.com/Tooark/base-images/issues" target="_blank" rel="noopener"><b>Issues</b></a></li>
+          </ul>
+
+          <p class="closer" lang="pt-BR">
+            Catálogo · Tooark/base-images · versões lidas das tags de release no
+            momento da publicação<br />
+            Logos são marcas de seus respectivos donos e aparecem só para
+            identificar cada ferramenta.
+          </p>
+          <p class="closer" lang="en">
+            Catalog · Tooark/base-images · versions read from the release tags
+            at publish time<br />
+            Logos are trademarks of their respective owners, shown only to
+            identify each tool.
+          </p>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

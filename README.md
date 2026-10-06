@@ -4,6 +4,8 @@ Repository of base images for CI/CD and infrastructure automation.
 
 Each subproject has its own Dockerfile, versioning, and documentation.
 
+📖 **Catalog:** [tooark.com/base-images](https://tooark.com/base-images/) brings every image together, with its tools, the latest published version and usage examples for `docker run`, GitHub Actions and GitLab CI.
+
 🌍 **Languages:** ![USA Flag](https://flagcdn.com/w20/us.png) **English (this file)** · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/README.pt-BR.md)
 
 ---
@@ -53,7 +55,7 @@ All images share the same base (`debian:13-slim`), run as the non-root user (`ap
 | `terraform-aws`        | Terraform + AWS CLI v2 + kubectl (deprecated)                               | [terraform-aws/README.md](terraform-aws/README.md)               |
 | `terraform-gcloud`     | Terraform + Google Cloud SDK + kubectl (deprecated)                         | [terraform-gcloud/README.md](terraform-gcloud/README.md)         |
 | `terraform-aws-gcloud` | Terraform + AWS CLI v2 + Google Cloud SDK + kubectl (deprecated)            | [terraform-aws-gcloud/README.md](terraform-aws-gcloud/README.md) |
-| `trivy-hadolint`       | Trivy + Hadolint + `ark-tools` wrapper for scans and reports                | [trivy-hadolint/README.md](trivy-hadolint/README.md)             |
+| `trivy-hadolint`       | Trivy + Hadolint + `ark-tools` wrapper for scans and reports (deprecated)   | [trivy-hadolint/README.md](trivy-hadolint/README.md)             |
 
 ---
 

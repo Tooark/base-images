@@ -47,5 +47,8 @@ Thumbs.db
 # Report files
 scan-reports/
 
+# Rendered GitHub Pages site (script/render-docs.py)
+_site/
+
 # Config AI files
 .claude/
