@@ -14,7 +14,7 @@ Example: "Closes #42 — bump AWS CLI to 2.37.0 and refresh the aws-cli .trivyig
 - [ ] `sonar-scanner`
 - [ ] `tofu` / `tofu-aws` / `tofu-gcloud` / `tofu-aws-gcloud`
 - [ ] `terraform*` (deprecated images)
-- [ ] `trivy-hadolint`
+- [ ] `trivy-hadolint` (deprecated image)
 - [ ] Versioning (`versions.env`, `VERSION` files, `script/`)
 - [ ] CI/CD (`.github/workflows/`)
 - [ ] Samples / docs

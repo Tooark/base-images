@@ -8,6 +8,9 @@ cenários de análise (imagem, filesystem, IaC, repositório e Dockerfile) e
 consolida os resultados em um envelope JSON padronizado: o
 [**ark-report-tools**](#json-schema-ark-report-tools).
 
+> Esta imagem ficou legada e não recebe mais atualizações. Para novos fluxos, use
+> [security-scanner/README.pt-BR.md](../security-scanner/README.pt-BR.md), que também detecta segredos (Betterleaks).
+
 🌍 **Idiomas:** [![USA Flag](https://flagcdn.com/w20/us.png) English](https://github.com/Tooark/base-images/blob/main/trivy-hadolint/README.md) · [![Brazil Flag](https://flagcdn.com/w20/br.png) Português](https://github.com/Tooark/base-images/blob/main/trivy-hadolint/README.pt-BR.md)
 
 ---
@@ -696,9 +699,7 @@ import fs from "node:fs";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
-const schema = JSON.parse(
-  fs.readFileSync("ark-report-tools.schema.v1.1.json", "utf8"),
-);
+const schema = JSON.parse(fs.readFileSync("ark-report-tools.schema.v1.1.json", "utf8"));
 const report = JSON.parse(fs.readFileSync("ark-report.json", "utf8"));
 
 const ajv = new Ajv({ allErrors: true, strict: false });

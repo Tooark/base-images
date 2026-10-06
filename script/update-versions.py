@@ -135,11 +135,11 @@ def max_change_level(levels):
 
 # Mapeamento de chaves de versão composta para suas chaves de dependência.
 # Imagens terraform* foram descontinuadas e não recebem mais bump automático.
+# A imagem trivy-hadolint foi descontinuada (substituída pelo security-scanner) e também não recebe.
 COMPOSITE_VERSION_RULES = {
     "TOFU_AWS_VERSION": ["OPENTOFU_VERSION", "AWSCLI_VERSION"],
     "TOFU_GCLOUD_VERSION": ["OPENTOFU_VERSION", "GCLOUD_VERSION"],
     "TOFU_AWS_GCLOUD_VERSION": ["OPENTOFU_VERSION", "AWSCLI_VERSION", "GCLOUD_VERSION"],
-    "TRIVY_HADOLINT_VERSION": ["TRIVY_VERSION", "HADOLINT_VERSION"],
     "DOCKERX_VERSION": ["DOCKER_VERSION", "DOCKER_BUILDX_VERSION"],
     "SECURITY_SCANNER_VERSION": ["TRIVY_VERSION", "HADOLINT_VERSION", "BETTERLEAKS_VERSION"],
 }
@@ -151,8 +151,8 @@ VERSION_KEY_TO_DIRS = {
     "GCLOUD_VERSION": ["gcloud-cli", "tofu-gcloud", "tofu-aws-gcloud"],
     "KUBECTL_VERSION": ["aws-cli", "gcloud-cli", "tofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud"],
     "OPENTOFU_VERSION": ["tofu", "tofu-aws", "tofu-gcloud", "tofu-aws-gcloud"],
-    "TRIVY_VERSION": ["trivy-hadolint", "security-scanner"],
-    "HADOLINT_VERSION": ["trivy-hadolint", "security-scanner"],
+    "TRIVY_VERSION": ["security-scanner"],
+    "HADOLINT_VERSION": ["security-scanner"],
     "BETTERLEAKS_VERSION": ["security-scanner"],
     "DOCKER_VERSION": ["dockerx", "aws-cli", "gcloud-cli"],
     "DOCKER_BUILDX_VERSION": ["dockerx", "aws-cli", "gcloud-cli"],
@@ -164,7 +164,6 @@ COMPOSITE_KEY_TO_DIRS = {
     "TOFU_AWS_VERSION": ["tofu-aws"],
     "TOFU_GCLOUD_VERSION": ["tofu-gcloud"],
     "TOFU_AWS_GCLOUD_VERSION": ["tofu-aws-gcloud"],
-    "TRIVY_HADOLINT_VERSION": ["trivy-hadolint"],
     "DOCKERX_VERSION": ["dockerx"],
     "SECURITY_SCANNER_VERSION": ["security-scanner"],
 }

@@ -27,7 +27,6 @@ body:
         - security-scanner
         - sonar-scanner
         - tofu / tofu-aws / tofu-gcloud / tofu-aws-gcloud
-        - trivy-hadolint
         - New image / cross-cutting
         - Repo tooling (scripts, workflows, samples)
     validations:

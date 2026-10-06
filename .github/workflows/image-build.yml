@@ -101,7 +101,6 @@ jobs:
           - tofu-gcloud
           - tofu-aws-gcloud
           - sonar-scanner
-          - trivy-hadolint
           - dockerx
           - security-scanner
     steps:

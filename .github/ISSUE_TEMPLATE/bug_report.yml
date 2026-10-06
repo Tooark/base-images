@@ -39,7 +39,7 @@ body:
         - terraform-aws (deprecated)
         - terraform-gcloud (deprecated)
         - terraform-aws-gcloud (deprecated)
-        - trivy-hadolint
+        - trivy-hadolint (deprecated)
         - Repo tooling (scripts, workflows, samples)
         - Not sure
     validations:
