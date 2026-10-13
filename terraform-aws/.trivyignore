@@ -25,6 +25,14 @@ CVE-2026-57432
 CVE-2026-57433
 CVE-2026-8376
 
+# usr/local/bin/kubectl (gobinary) - golang.org/x/net
+CVE-2026-78669
+
+# usr/local/bin/kubectl (gobinary) - stdlib
+CVE-2026-78667
+CVE-2026-78669
+CVE-2026-97031
+
 # usr/local/bin/terraform (gobinary) - golang.org/x/crypto
 CVE-2026-56854
 
@@ -34,6 +42,7 @@ CVE-2026-56865
 
 # usr/local/bin/terraform (gobinary) - golang.org/x/net
 CVE-2026-46600
+CVE-2026-78669
 
 # usr/local/bin/terraform (gobinary) - golang.org/x/text
 CVE-2026-56852
@@ -54,3 +63,6 @@ CVE-2026-56858
 CVE-2026-56859
 CVE-2026-56860
 CVE-2026-56862
+CVE-2026-78667
+CVE-2026-78669
+CVE-2026-97031
