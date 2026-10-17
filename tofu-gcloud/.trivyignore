@@ -3,37 +3,5 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-11-06 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-11-17 (ou antes, ao atualizar base/pacotes da imagem).
 
-# opt/google-cloud-sdk/bin/gcloud-crc32c (gobinary) - stdlib
-CVE-2026-78667
-CVE-2026-78669
-CVE-2026-97031
-
-# Python (python-pkg) - cryptography
-CVE-2026-69247
-CVE-2026-69249
-GHSA-537c-gmf6-5ccf
-
-# usr/local/bin/kubectl (gobinary) - golang.org/x/net
-CVE-2026-78669
-
-# usr/local/bin/kubectl (gobinary) - stdlib
-CVE-2026-78667
-CVE-2026-78669
-CVE-2026-97031
-
-# usr/local/bin/tofu (gobinary) - golang.org/x/mod
-CVE-2026-56864
-CVE-2026-56865
-
-# usr/local/bin/tofu (gobinary) - golang.org/x/net
-CVE-2026-78669
-
-# usr/local/bin/tofu (gobinary) - google.golang.org/grpc
-CVE-2026-84445
-
-# usr/local/bin/tofu (gobinary) - stdlib
-CVE-2026-78667
-CVE-2026-78669
-CVE-2026-97031
