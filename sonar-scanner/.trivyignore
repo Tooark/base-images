@@ -5,61 +5,14 @@
 # Revisão:
 # 2026-10-13 (ou antes, ao atualizar base/pacotes da imagem).
 
-# sonar-scanner:latest (debian 13.6) (debian) - gzip
-CVE-2026-41992
+# sonar-scanner:latest (debian 13.7) (debian) - libcurl3t64-gnutls
+CVE-2026-8286
+CVE-2026-8927
+CVE-2026-92392
 
-# sonar-scanner:latest (debian 13.6) (debian) - libglib2.0-0t64
-CVE-2026-58010
-CVE-2026-58011
-CVE-2026-58012
-CVE-2026-58013
-CVE-2026-58014
-CVE-2026-58015
-CVE-2026-58016
-
-# sonar-scanner:latest (debian 13.6) (debian) - libpcre2-8-0
-CVE-2026-86145
-CVE-2026-89161
-
-# sonar-scanner:latest (debian 13.6) (debian) - libperl5.40
-CVE-2026-13221
-CVE-2026-42496
-CVE-2026-42497
-CVE-2026-48962
-CVE-2026-57432
-CVE-2026-57433
-CVE-2026-8376
-
-# sonar-scanner:latest (debian 13.6) (debian) - libsqlite3-0
-CVE-2026-11822
-CVE-2026-11824
-
-# sonar-scanner:latest (debian 13.6) (debian) - libssh2-1t64
-CVE-2026-58050
-
-# sonar-scanner:latest (debian 13.6) (debian) - perl
-CVE-2026-13221
-CVE-2026-42496
-CVE-2026-42497
-CVE-2026-48962
-CVE-2026-57432
-CVE-2026-57433
-CVE-2026-8376
-
-# sonar-scanner:latest (debian 13.6) (debian) - perl-base
-CVE-2026-13221
-CVE-2026-42496
-CVE-2026-42497
-CVE-2026-48962
-CVE-2026-57432
-CVE-2026-57433
-CVE-2026-8376
-
-# sonar-scanner:latest (debian 13.6) (debian) - perl-modules-5.40
-CVE-2026-13221
-CVE-2026-42496
-CVE-2026-42497
-CVE-2026-48962
-CVE-2026-57432
-CVE-2026-57433
-CVE-2026-8376
+# sonar-scanner:latest (debian 13.7) (debian) - libexpat1
+CVE-2026-66046
+CVE-2026-76956
+CVE-2026-76957
+CVE-2026-77214
+CVE-2026-93990

@@ -4,11 +4,3 @@
 #
 # Revisão:
 # 2026-11-03 (ou antes, ao atualizar base/pacotes da imagem).
-
-# usr/local/bin/trivy (gobinary) - golang.org/x/net
-CVE-2026-78669
-
-# usr/local/bin/trivy (gobinary) - stdlib
-CVE-2026-78667
-CVE-2026-78669
-CVE-2026-97031
