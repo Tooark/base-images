@@ -3,16 +3,5 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-10-13 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-11-24 (ou antes, ao atualizar base/pacotes da imagem).
 
-# sonar-scanner:latest (debian 13.7) (debian) - libcurl3t64-gnutls
-CVE-2026-8286
-CVE-2026-8927
-CVE-2026-92392
-
-# sonar-scanner:latest (debian 13.7) (debian) - libexpat1
-CVE-2026-66046
-CVE-2026-76956
-CVE-2026-76957
-CVE-2026-77214
-CVE-2026-93990
