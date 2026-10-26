@@ -5,15 +5,16 @@
 # Revisão:
 # 2026-10-13 (ou antes, ao atualizar base/pacotes da imagem).
 
-# Python (python-pkg) - cryptography
-CVE-2026-69247
-CVE-2026-69249
-GHSA-537c-gmf6-5ccf
-
 # opt/google-cloud-sdk/bin/gcloud-crc32c (gobinary) - stdlib
 CVE-2026-78667
 CVE-2026-78669
 CVE-2026-97031
+CVE-2026-111943
+
+# Python (python-pkg) - cryptography
+CVE-2026-69247
+CVE-2026-69249
+GHSA-537c-gmf6-5ccf
 
 # usr/local/bin/kubectl (gobinary) - golang.org/x/net
 CVE-2026-78669
@@ -25,6 +26,10 @@ CVE-2026-56851
 CVE-2026-78667
 CVE-2026-78669
 CVE-2026-97031
+CVE-2026-111943
+
+# usr/local/bin/terraform (gobinary) - github.com/klauspost/compress
+CVE-2026-63209
 
 # usr/local/bin/terraform (gobinary) - golang.org/x/crypto
 CVE-2026-56854
@@ -60,3 +65,4 @@ CVE-2026-56862
 CVE-2026-78667
 CVE-2026-78669
 CVE-2026-97031
+CVE-2026-111943

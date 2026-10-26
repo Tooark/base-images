@@ -15,6 +15,10 @@ CVE-2026-56851
 CVE-2026-78667
 CVE-2026-78669
 CVE-2026-97031
+CVE-2026-111943
+
+# usr/local/bin/terraform (gobinary) - github.com/klauspost/compress
+CVE-2026-63209
 
 # usr/local/bin/terraform (gobinary) - golang.org/x/crypto
 CVE-2026-56854
@@ -50,3 +54,4 @@ CVE-2026-56862
 CVE-2026-78667
 CVE-2026-78669
 CVE-2026-97031
+CVE-2026-111943
