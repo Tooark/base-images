@@ -4,3 +4,6 @@
 #
 # Revisão:
 # 2026-11-03 (ou antes, ao atualizar base/pacotes da imagem).
+
+# usr/local/bin/trivy (gobinary) - github.com/go-jose/go-jose/v4
+CVE-2026-116587
