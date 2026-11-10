@@ -5,10 +5,15 @@
 # Revisão:
 # 2026-10-13 (ou antes, ao atualizar base/pacotes da imagem).
 
+# terraform-gcloud:latest (debian 13.7) (debian) - zlib1g
+CVE-2026-76844
+CVE-2026-85091
+
 # opt/google-cloud-sdk/bin/gcloud-crc32c (gobinary) - stdlib
 CVE-2026-111943
 
 # usr/local/bin/kubectl (gobinary) - golang.org/x/net
+CVE-2026-78661
 CVE-2026-78669
 
 # usr/local/bin/kubectl (gobinary) - golang.org/x/text
@@ -29,6 +34,7 @@ CVE-2026-56865
 
 # usr/local/bin/terraform (gobinary) - golang.org/x/net
 CVE-2026-46600
+CVE-2026-78661
 CVE-2026-78669
 
 # usr/local/bin/terraform (gobinary) - golang.org/x/text

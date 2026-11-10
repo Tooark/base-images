@@ -5,3 +5,15 @@
 # Revisão:
 # 2026-12-07 (ou antes, ao atualizar base/pacotes da imagem).
 
+# security-scanner:latest (debian 13.7) (debian) - zlib1g
+CVE-2026-76844
+CVE-2026-85091
+
+# usr/local/bin/betterleaks (gobinary) - github.com/klauspost/compress
+CVE-2026-63209
+
+# usr/local/bin/betterleaks (gobinary) - golang.org/x/crypto
+CVE-2026-56854
+
+# usr/local/bin/betterleaks (gobinary) - golang.org/x/text
+CVE-2026-56851

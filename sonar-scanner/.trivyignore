@@ -3,5 +3,8 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-12-03 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-12-10 (ou antes, ao atualizar base/pacotes da imagem).
 
+# sonar-scanner:latest (debian 13.7) (debian) - zlib1g
+CVE-2026-76844
+CVE-2026-85091
