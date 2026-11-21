@@ -7,7 +7,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io/tooark
-  SECURITY_SCANNER_IMAGE: ghcr.io/tooark/security-scanner:1.10
+  SECURITY_SCANNER_IMAGE: ghcr.io/tooark/security-scanner:1
 
 on:
   push:
