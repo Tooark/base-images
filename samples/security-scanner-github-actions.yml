@@ -23,7 +23,11 @@ jobs:
           REPORT_HEADERS: "X-Org: tooark"
           REPORT_METHOD: "POST"
           REPORT_FAIL_ON_ERROR: "false"
-          REPORT_SEND_EACH_SCAN: "false"
+          # Default "true": every scan command sends its report when REPORT_URL is set.
+          REPORT_SEND_EACH_SCAN: "true"
+          # With REPORT_SBOM_URL the SBOM upload uses ONLY REPORT_SBOM_TOKEN/REPORT_SBOM_HEADERS;
+          # REPORT_TOKEN/REPORT_HEADERS are never forwarded to it. Without it, the SBOM goes
+          # to REPORT_URL with the report credentials (header X-Ark-Payload: sbom).
           REPORT_SBOM_URL: ${{ secrets.REPORT_SBOM_URL }}
           REPORT_SBOM_TOKEN: ${{ secrets.REPORT_SBOM_TOKEN }}
           REPORT_SBOM_HEADERS: "X-Report-Type: sbom"

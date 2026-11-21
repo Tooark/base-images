@@ -121,7 +121,7 @@
     "sbom_enabled": {
       "type": "boolean",
       "default": false,
-      "description": "Indica se SBOM foi gerado."
+      "description": "Indica se a geração de SBOM foi solicitada (--sbom). O SBOM é um arquivo separado, não embutido no envelope."
     },
     "list_all_pkgs": {
       "type": "boolean",

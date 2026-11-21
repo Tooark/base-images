@@ -687,13 +687,14 @@ _post_scan_artifacts() {
   local wrapped_report="$REPORT_DIR/ark-report-${label}.json"
   wrap_ark_report "$label" "$target" "$tool" "$json_output" "$wrapped_report" "$sbom_enabled" "$list_all" "$metadata_json"
 
-  ## Envio do relatório para destino configurado, se aplicável
-  if is_true "${REPORT_SEND_EACH_SCAN:-false}"; then
-    send_report "$wrapped_report"
+  ## Envio do relatório para o destino configurado (default: envia sempre que
+  ## houver REPORT_URL; REPORT_SEND_EACH_SCAN=false desliga)
+  if should_send_each_scan; then
+    auto_send_report "$wrapped_report"
 
     ## Envio do SBOM se a geração foi habilitada e o arquivo foi criado com conteúdo
     if [[ "$sbom_enabled" == "true" && -n "$sbom_output" && -s "$sbom_output" ]]; then
-      send_sbom_report "$sbom_output"
+      auto_send_sbom_report "$sbom_output"
     fi
   fi
 }
@@ -1193,14 +1194,20 @@ convert_report_if_needed() {
 ## $3 token (token de autenticação, se necessário)
 ## $4 headers (headers adicionais, uma linha por header: "Key: Value")
 ## $5 method (HTTP method, default: POST)
+## $6 payload (tipo do corpo enviado: report|sbom, default: report)
 _send_to_url() {
   local file="${1:-}"
   local url="${2:-}"
   local token="${3:-}"
   local headers="${4:-}"
   local method="${5:-POST}"
+  local payload="${6:-report}"
 
   local curl_args=( -s -S -w "\n%{http_code}" -X "$method" -H "Content-Type: application/json" )
+
+  ## Identifica o tipo do corpo: relatório e SBOM podem chegar no mesmo
+  ## endpoint (fallback de REPORT_SBOM_URL para REPORT_URL) e ambos são JSON.
+  curl_args+=( -H "X-Ark-Payload: $payload" )
 
   ## Token de autenticação
   [[ -n "$token" ]] && curl_args+=( -H "Authorization: Bearer $token" )
@@ -1214,7 +1221,7 @@ _send_to_url() {
 
   curl_args+=( -d @"$file" )
 
-  log "Sending report to $url ..."
+  log "Sending $payload to $url ..."
   local response
   local http_code
   local body
@@ -1225,11 +1232,11 @@ _send_to_url() {
 
   ## Verifica código HTTP
   if [[ "$http_code" =~ ^2[0-9][0-9]$ ]]; then
-    log_ok "Report uploaded (HTTP $http_code)"
+    log_ok "Upload of $payload succeeded (HTTP $http_code)"
     return 0
   fi
 
-  log_err "Failed upload (HTTP $http_code): $body"
+  log_err "Failed upload of $payload (HTTP $http_code): $body"
 
   return 1
 }
@@ -1242,6 +1249,7 @@ _send_to_url() {
 ## $4 headers (headers adicionais, uma linha por header: "Key: Value")
 ## $5 method (HTTP method, default: POST)
 ## $6 fail_on_error (se deve falhar em caso de erro, default: false)
+## $7 payload (tipo do corpo enviado: report|sbom, default: report)
 _send_report_generic() {
   local file="${1:-}"
   local urls="${2:-}"
@@ -1249,6 +1257,7 @@ _send_report_generic() {
   local headers="${4:-}"
   local method="${5:-POST}"
   local fail_on_error="${6:-false}"
+  local payload="${7:-report}"
 
   ## Verifica se url está definida
   if [[ -z "$urls" ]]; then
@@ -1271,7 +1280,7 @@ _send_report_generic() {
     url="${url#"${url%%[![:space:]]*}"}"
     url="${url%"${url##*[![:space:]]}"}"
     [[ -z "$url" ]] && continue
-    _send_to_url "$file" "$url" "$token" "$headers" "$method" || has_failure=1
+    _send_to_url "$file" "$url" "$token" "$headers" "$method" "$payload" || has_failure=1
   done <<< "${urls//,/$'\n'}"
 
   ## Verifica se houve falha em algum envio
@@ -1291,19 +1300,87 @@ send_report() {
     "${REPORT_TOKEN:-}" \
     "${REPORT_HEADERS:-}" \
     "${REPORT_METHOD:-POST}" \
-    "${REPORT_FAIL_ON_ERROR:-false}"
+    "${REPORT_FAIL_ON_ERROR:-false}" \
+    "report"
 }
 
-## Envia o relatório SBOM. Usa REPORT_SBOM_* se configurado, caso contrario utiliza REPORT_*
+## Envia o SBOM. O destino decide de onde vêm as credenciais:
+## - Sem REPORT_SBOM_URL: vai para REPORT_URL, com as credenciais do relatório
+##   (REPORT_TOKEN/REPORT_HEADERS; REPORT_SBOM_TOKEN/REPORT_SBOM_HEADERS, se
+##   definidos, têm precedência).
+## - Com REPORT_SBOM_URL: usa apenas REPORT_SBOM_TOKEN/REPORT_SBOM_HEADERS. As
+##   credenciais do relatório NÃO são herdadas, para nunca seguirem para um
+##   destino diferente daquele para o qual foram emitidas.
+## REPORT_SBOM_METHOD e REPORT_SBOM_FAIL_ON_ERROR não são credenciais e sempre
+## herdam de REPORT_METHOD/REPORT_FAIL_ON_ERROR.
 ## Argumentos:
 ## $1 file (path do arquivo a ser enviado)
 send_sbom_report() {
+  local url
+  local token
+  local headers
+
+  if [[ -n "${REPORT_SBOM_URL:-}" ]]; then
+    url="$REPORT_SBOM_URL"
+    token="${REPORT_SBOM_TOKEN:-}"
+    headers="${REPORT_SBOM_HEADERS:-}"
+
+    ## Avisa (só os nomes das variáveis, nunca os valores) quando o envio fica
+    ## sem uma credencial que existe apenas para o relatório.
+    local not_inherited=()
+    if [[ -z "$token" && -n "${REPORT_TOKEN:-}" ]]; then
+      not_inherited+=( "REPORT_TOKEN (set REPORT_SBOM_TOKEN)" )
+    fi
+    if [[ -z "$headers" && -n "${REPORT_HEADERS:-}" ]]; then
+      not_inherited+=( "REPORT_HEADERS (set REPORT_SBOM_HEADERS)" )
+    fi
+    if (( ${#not_inherited[@]} > 0 )); then
+      local joined
+      joined="$(printf '%s, ' "${not_inherited[@]}")"
+      log_warn "REPORT_SBOM_URL is set: SBOM upload does not inherit ${joined%, }."
+    fi
+  else
+    url="${REPORT_URL:-}"
+    token="${REPORT_SBOM_TOKEN:-${REPORT_TOKEN:-}}"
+    headers="${REPORT_SBOM_HEADERS:-${REPORT_HEADERS:-}}"
+    if [[ -n "$url" ]]; then
+      log "REPORT_SBOM_URL not set: SBOM goes to REPORT_URL (header X-Ark-Payload: sbom)."
+    fi
+  fi
+
   _send_report_generic "${1:-}" \
-    "${REPORT_SBOM_URL:-${REPORT_URL:-}}" \
-    "${REPORT_SBOM_TOKEN:-${REPORT_TOKEN:-}}" \
-    "${REPORT_SBOM_HEADERS:-${REPORT_HEADERS:-}}" \
+    "$url" \
+    "$token" \
+    "$headers" \
     "${REPORT_SBOM_METHOD:-${REPORT_METHOD:-POST}}" \
-    "${REPORT_SBOM_FAIL_ON_ERROR:-${REPORT_FAIL_ON_ERROR:-false}}"
+    "${REPORT_SBOM_FAIL_ON_ERROR:-${REPORT_FAIL_ON_ERROR:-false}}" \
+    "sbom"
+}
+
+## --- Envio automático --------------------------------------------------------
+## Verifica se os comandos de scan individuais devem enviar o relatório.
+## Ativo por default; REPORT_SEND_EACH_SCAN=false (ou 0/no/off) desliga.
+## Não afeta o full-scan, que envia apenas o relatório consolidado.
+should_send_each_scan() {
+  is_true "${REPORT_SEND_EACH_SCAN:-true}"
+}
+
+## Envia o relatório ao final de um scan, apenas quando há REPORT_URL.
+## Sem destino configurado não faz nada (e não loga aviso).
+## Argumentos:
+## $1 file (path do arquivo a ser enviado)
+auto_send_report() {
+  [[ -z "${REPORT_URL:-}" ]] && return 0
+  send_report "${1:-}"
+}
+
+## Envia o SBOM ao final de um scan, apenas quando há destino configurado
+## (REPORT_SBOM_URL ou, na falta dele, REPORT_URL).
+## Argumentos:
+## $1 file (path do arquivo a ser enviado)
+auto_send_sbom_report() {
+  [[ -z "${REPORT_SBOM_URL:-}" && -z "${REPORT_URL:-}" ]] && return 0
+  send_sbom_report "${1:-}"
 }
 
 ## --- Ajuda -------------------------------------------------------------------
@@ -1404,15 +1481,25 @@ Webhook (report send):
   REPORT_HEADERS         extra headers (one per line)
   REPORT_METHOD          (default: "POST")
   REPORT_FAIL_ON_ERROR   (default: "false")
-  REPORT_SEND_EACH_SCAN  (default: "false")
+  REPORT_SEND_EACH_SCAN  (default: "true") "false" stops individual scan
+                         commands from sending; full-scan is not affected
   REPORT_DIR             (default: "/reports"; fallback: "/tmp/ark-reports")
 
-Webhook (SBOM-specific overrides):
-  REPORT_SBOM_URL           (optional) if not defined, uses REPORT_URL
-  REPORT_SBOM_TOKEN         (optional) if not defined, uses REPORT_TOKEN
-  REPORT_SBOM_HEADERS       (optional) if not defined, uses REPORT_HEADERS
+  Every scan command sends its report when REPORT_URL is set. Each request
+  carries the header "X-Ark-Payload: report" or "X-Ark-Payload: sbom".
+
+Webhook (SBOM destination):
+  REPORT_SBOM_URL           (optional) if not defined, the SBOM goes to REPORT_URL
+  REPORT_SBOM_TOKEN         (optional) Bearer token for the SBOM upload
+  REPORT_SBOM_HEADERS       (optional) extra headers for the SBOM upload
   REPORT_SBOM_METHOD        (optional) if not defined, uses REPORT_METHOD
   REPORT_SBOM_FAIL_ON_ERROR (optional) if not defined, uses REPORT_FAIL_ON_ERROR
+
+  Credentials follow the destination:
+    - without REPORT_SBOM_URL the SBOM goes to REPORT_URL with REPORT_TOKEN and
+      REPORT_HEADERS (REPORT_SBOM_TOKEN/REPORT_SBOM_HEADERS win when set);
+    - with REPORT_SBOM_URL only REPORT_SBOM_TOKEN and REPORT_SBOM_HEADERS are
+      sent. REPORT_TOKEN and REPORT_HEADERS are never forwarded to it.
 
 Pass-through flags:
   Use "--" to pass extra flags to Trivy/Hadolint.
@@ -1574,7 +1661,8 @@ Options:
   --scan-mode fs|repo   Source scan mode (default: "fs")
   --skip-image          Skip the image scan step
   --skip-lint           Skip the Dockerfile lint step
-  --sbom[=format]       Generate SBOM alongside image scan
+  --sbom[=format]       Generate SBOM of the image (or of the source code
+                        when the image scan is skipped)
   --sbom-format <fmt>   SBOM format (default: "cyclonedx")
 
 Examples:
@@ -1603,7 +1691,11 @@ Notes:
   - Consolidates all results into $REPORT_DIR/full-scan-report.json using the
     ark-report-tools schema.
   - When --sbom is active, an additional SBOM report is generated and can be
-    sent to a separate endpoint via REPORT_SBOM_* variables.
+    sent to a separate endpoint via REPORT_SBOM_* variables. The SBOM describes
+    the image ($REPORT_DIR/trivy-image.sbom.json); when the image scan is
+    skipped it describes the source code instead
+    ($REPORT_DIR/trivy-filesystem.sbom.json, or trivy-repo.sbom.json with
+    --scan-mode repo).
   - Failure is evaluated at the end using TRIVY_SEVERITY_FAIL for Trivy reports
     and HADOLINT_FAILURE_LEVEL for Dockerfile lint.
 EOF
@@ -1950,8 +2042,11 @@ do_secret_scan() {
     "false" \
     "$metadata_json"
 
-  ## Envia o relatório do secret scan se a configuração REPORT_SEND_EACH_SCAN estiver ativa.
-  is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "$wrapped_report"
+  ## Envia o relatório do secret scan (default: sempre que houver REPORT_URL;
+  ## REPORT_SEND_EACH_SCAN=false desliga).
+  if should_send_each_scan; then
+    auto_send_report "$wrapped_report"
+  fi
   echo "$output"
   return $gate_rc
 }
@@ -2072,8 +2167,11 @@ do_dockerfile_lint() {
     "false" \
     "$metadata_json"
 
-  ## Envia o relatório do Dockerfile lint se a configuração REPORT_SEND_EACH_SCAN estiver ativa.
-  is_true "${REPORT_SEND_EACH_SCAN:-false}" && send_report "$wrapped_report"
+  ## Envia o relatório do Dockerfile lint (default: sempre que houver REPORT_URL;
+  ## REPORT_SEND_EACH_SCAN=false desliga).
+  if should_send_each_scan; then
+    auto_send_report "$wrapped_report"
+  fi
   echo "$output"
 
   return $rc
@@ -2226,7 +2324,14 @@ do_full_scan() {
   log "Path: $scan_path"
   log "Scan mode: $scan_mode"
   log "Dockerfiles: $dockerfiles"
-  [[ "$sbom_enabled" == "true" ]] && log "SBOM: $sbom_format"
+  if [[ "$sbom_enabled" == "true" ]]; then
+    ## Sem scan de imagem, o SBOM é gerado a partir do código-fonte
+    if is_true "$skip_image"; then
+      log "SBOM: $sbom_format (source: $scan_mode)"
+    else
+      log "SBOM: $sbom_format (image)"
+    fi
+  fi
   log ""
 
   ## Step: Image scan
@@ -2267,6 +2372,15 @@ do_full_scan() {
     ## Executa o scan de repositório e captura erros.
     run_trivy_scan "repo" "$scan_path" "$source_output" "${trivy_extras[@]}" || errors=$((errors + 1))
     convert_trivy_output_if_needed "$source_output" "trivy-repo.${TRIVY_FORMAT:-json}"
+  fi
+
+  ## Sem scan de imagem não há imagem para inventariar: o SBOM solicitado é
+  ## gerado a partir do código-fonte, no mesmo modo (fs|repo) do source scan.
+  if [[ "$sbom_enabled" == "true" ]] && is_true "$skip_image"; then
+    local sbom_cmd="filesystem"
+    [[ "$scan_mode" == "repo" ]] && sbom_cmd="repo"
+    sbom_output="${SBOM_OUTPUT:-$REPORT_DIR/trivy-${sbom_cmd}.sbom.json}"
+    generate_sbom "$sbom_cmd" "$scan_path" "$sbom_format" "$sbom_output" "${trivy_extras[@]}" || true
   fi
 
   ## Step: Secret scan (Betterleaks)
@@ -2438,11 +2552,11 @@ do_full_scan() {
     }' > "$consolidated"
 
   log "Consolidated report saved to: $consolidated"
-  send_report "$consolidated"
+  auto_send_report "$consolidated"
 
-  ## Envia o relatório de SBOM para um endpoint separado se a opção estiver ativa e o relatório foi gerado com sucesso.
+  ## Envia o SBOM (da imagem ou do código-fonte) se a opção estiver ativa e o arquivo foi gerado com sucesso.
   if [[ "$sbom_enabled" == "true" && -n "$sbom_output" && -s "$sbom_output" ]]; then
-    send_sbom_report "$sbom_output"
+    auto_send_sbom_report "$sbom_output"
   fi
 
   ## Gates finais

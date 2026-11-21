@@ -255,25 +255,28 @@ docker run --rm \
 
 ### Webhook
 
-| Variable                | Default    | Description                        |
-| ----------------------- | ---------- | ---------------------------------- |
-| `REPORT_URL`            | empty      | Comma-separated URLs               |
-| `REPORT_TOKEN`          | empty      | Bearer                             |
-| `REPORT_HEADERS`        | empty      | Extra headers (line by line)       |
-| `REPORT_METHOD`         | `POST`     | HTTP method                        |
-| `REPORT_FAIL_ON_ERROR`  | `false`    | Fails the pipeline if upload fails |
-| `REPORT_SEND_EACH_SCAN` | `false`    | Sends after each individual scan   |
-| `REPORT_DIR`            | `/reports` | Reports directory                  |
+| Variable                | Default    | Description                                                                       |
+| ----------------------- | ---------- | --------------------------------------------------------------------------------- |
+| `REPORT_URL`            | empty      | Comma-separated URLs; without it no report is sent                                |
+| `REPORT_TOKEN`          | empty      | Bearer                                                                            |
+| `REPORT_HEADERS`        | empty      | Extra headers (line by line)                                                      |
+| `REPORT_METHOD`         | `POST`     | HTTP method                                                                       |
+| `REPORT_FAIL_ON_ERROR`  | `false`    | Fails the pipeline if upload fails                                                |
+| `REPORT_SEND_EACH_SCAN` | `true`     | `false` stops individual scan commands from sending (`full-scan` is not affected) |
+| `REPORT_DIR`            | `/reports` | Reports directory                                                                 |
 
-### Webhook SBOM (override)
+### Webhook SBOM (destination and credentials)
 
-| Variable                    | Fallback               |
-| --------------------------- | ---------------------- |
-| `REPORT_SBOM_URL`           | `REPORT_URL`           |
-| `REPORT_SBOM_TOKEN`         | `REPORT_TOKEN`         |
-| `REPORT_SBOM_HEADERS`       | `REPORT_HEADERS`       |
-| `REPORT_SBOM_METHOD`        | `REPORT_METHOD`        |
-| `REPORT_SBOM_FAIL_ON_ERROR` | `REPORT_FAIL_ON_ERROR` |
+`REPORT_SBOM_URL` is what separates the SBOM upload from the report upload. Credentials
+follow the destination — see [SBOM destination and credentials](#sbom-destination-and-credentials).
+
+| Variable                    | Without `REPORT_SBOM_URL`            | With `REPORT_SBOM_URL`                 |
+| --------------------------- | ------------------------------------ | -------------------------------------- |
+| `REPORT_SBOM_URL`           | SBOM goes to `REPORT_URL`            | SBOM goes to this destination          |
+| `REPORT_SBOM_TOKEN`         | falls back to `REPORT_TOKEN`         | used alone; empty = no `Authorization` |
+| `REPORT_SBOM_HEADERS`       | falls back to `REPORT_HEADERS`       | used alone; empty = no extra headers   |
+| `REPORT_SBOM_METHOD`        | falls back to `REPORT_METHOD`        | falls back to `REPORT_METHOD`          |
+| `REPORT_SBOM_FAIL_ON_ERROR` | falls back to `REPORT_FAIL_ON_ERROR` | falls back to `REPORT_FAIL_ON_ERROR`   |
 
 ---
 
@@ -347,9 +350,30 @@ ark-tools image-scan --sbom nginx:latest
 # SPDX-JSON
 ark-tools image-scan --sbom-format spdx-json nginx:latest
 
-# Full-scan + SBOM
+# Full-scan + image SBOM
 ark-tools full-scan --sbom myapp:latest --path /workspace
+
+# Full-scan without an image: the SBOM is generated from the source code
+ark-tools full-scan --skip-image --sbom --path /workspace
 ```
+
+What the SBOM describes depends on the command:
+
+| Command                                          | SBOM of     | File (default)               |
+| ------------------------------------------------ | ----------- | ---------------------------- |
+| `image-scan --sbom <image>`                      | image       | `trivy-image.sbom.json`      |
+| `filesystem-scan --sbom [path]`                  | source code | `trivy-filesystem.sbom.json` |
+| `full-scan --sbom <image>`                       | image       | `trivy-image.sbom.json`      |
+| `full-scan --sbom --skip-image`                  | source code | `trivy-filesystem.sbom.json` |
+| `full-scan --sbom --skip-image --scan-mode repo` | source code | `trivy-repo.sbom.json`       |
+
+When `full-scan` runs without the image scan (`--skip-image` or `FULL_SCAN_SKIP_IMAGE=true`)
+there is no image to inventory, so the requested SBOM is generated from the source code, in the
+same mode (`fs` or `repo`) as the source scan. `SBOM_OUTPUT` overrides the file in every case.
+
+The envelope field `sbom_enabled` means the SBOM was **requested** (`--sbom`); the SBOM itself is
+not embedded in the envelope — it is a separate file, sent in its own request (see
+[Webhook](#report-delivery-webhook)).
 
 > For a full inventory without an extra SBOM, prefer `TRIVY_ALL_PACKAGES=true`
 > (default). It is cheaper.
@@ -379,13 +403,89 @@ Hadolint, and per finding (rule, file, line, commit — never the secret content
 
 ## Report delivery webhook
 
-When `REPORT_URL` is set, `ark-tools` sends the envelope automatically:
+When `REPORT_URL` is set, **every scan command** sends its envelope automatically
+when it finishes:
 
 ```bash
 -e REPORT_URL="https://hook1/api,https://hook2/api"
 ```
 
-The SBOM can go to a separate endpoint via `REPORT_SBOM_*`.
+Without `REPORT_URL` no report is sent (and no warning is logged).
+
+### What is sent
+
+| Command                                                      | Report sent                                         | SBOM sent     |
+| ------------------------------------------------------------ | --------------------------------------------------- | ------------- |
+| `full-scan`                                                  | one consolidated envelope (`full-scan-report.json`) | with `--sbom` |
+| `image-scan`, `filesystem-scan`                              | the command envelope (`ark-report-<command>.json`)  | with `--sbom` |
+| `config-scan`, `repo-scan`, `secret-scan`, `dockerfile-lint` | the command envelope (`ark-report-<command>.json`)  | —             |
+| `send-report <file>`                                         | the given file                                      | —             |
+
+- The report is sent **even when the failure gate trips** — that is exactly when it matters most.
+- `REPORT_SEND_EACH_SCAN=false` stops the individual commands from sending. It does not affect
+  `full-scan`, which always sends only the consolidated report (never one report per step).
+- An upload failure only fails the pipeline with `REPORT_FAIL_ON_ERROR=true`.
+- Envelopes from individual commands carry the result in `report`; the `full-scan` one, in `results`.
+  A collector that receives both should route on the `command` field.
+
+### `X-Ark-Payload` header
+
+Report and SBOM are both JSON (`Content-Type: application/json`) and may arrive at the same
+endpoint. Every request carries a header that identifies the body, so the collector can route
+without inspecting the JSON:
+
+| Header                  | Body                                                              |
+| ----------------------- | ----------------------------------------------------------------- |
+| `X-Ark-Payload: report` | `ark-report-tools` envelope                                       |
+| `X-Ark-Payload: sbom`   | bare SBOM (CycloneDX or SPDX), **without** the envelope around it |
+
+### SBOM destination and credentials
+
+The SBOM is sent in a request separate from the report. **What decides where it goes, and with
+which credentials, is whether `REPORT_SBOM_URL` is set:**
+
+- **Without `REPORT_SBOM_URL`** — the SBOM goes to the **same `REPORT_URL`** as the report, with
+  the same credentials (`REPORT_TOKEN` and `REPORT_HEADERS`). The reports endpoint then receives
+  two kinds of body; use the `X-Ark-Payload` header to tell them apart.
+- **With `REPORT_SBOM_URL`** — the SBOM goes only to that destination, using **only**
+  `REPORT_SBOM_TOKEN` and `REPORT_SBOM_HEADERS`. `REPORT_TOKEN` and `REPORT_HEADERS` are **never
+  forwarded** to it; if the SBOM variables are empty, the request goes out without
+  `Authorization` and without extra headers.
+
+> ⚠️ **Report credentials are not inherited by a `REPORT_SBOM_URL`.** This keeps the report token
+> from leaking to a destination other than the one it was issued for. If both endpoints accept
+> the same token, repeat it explicitly in `REPORT_SBOM_TOKEN`.
+
+When `REPORT_SBOM_URL` is set and there is a `REPORT_TOKEN`/`REPORT_HEADERS` without the SBOM
+equivalent, the log warns — naming only the variables, never the values:
+
+```text
+[ark-tools] REPORT_SBOM_URL is set: SBOM upload does not inherit REPORT_TOKEN (set REPORT_SBOM_TOKEN).
+```
+
+```bash
+# Single endpoint: report and SBOM both arrive at REPORT_URL, with the same token
+-e REPORT_URL="https://hub/api/reports" \
+-e REPORT_TOKEN="$TOKEN"
+
+# Separate endpoints: the SBOM carries its OWN credentials (even if the token is the same)
+-e REPORT_URL="https://hub/api/reports" \
+-e REPORT_TOKEN="$TOKEN" \
+-e REPORT_SBOM_URL="https://hub/api/sboms" \
+-e REPORT_SBOM_TOKEN="$TOKEN"
+```
+
+`REPORT_SBOM_METHOD` and `REPORT_SBOM_FAIL_ON_ERROR` are not credentials and keep falling back
+to `REPORT_METHOD` and `REPORT_FAIL_ON_ERROR` in both cases.
+
+### Behaviour changes in 1.14.0
+
+| Change                                                                               | Who is affected                                                          | What to do                                                               |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Individual commands now send by default (`REPORT_SEND_EACH_SCAN` is now `true`)      | Anyone running individual scans with `REPORT_URL` set                    | Nothing if the upload is wanted; otherwise `REPORT_SEND_EACH_SCAN=false` |
+| **Breaking:** `REPORT_SBOM_URL` no longer inherits `REPORT_TOKEN`/`REPORT_HEADERS`   | Anyone setting `REPORT_SBOM_URL` and relying on the report credentials   | Set `REPORT_SBOM_TOKEN` (and `REPORT_SBOM_HEADERS`, if used)             |
+| `full-scan --sbom` without the image scan generates (and sends) the source-code SBOM | Anyone using `--skip-image` with `--sbom` (no SBOM was generated before) | Nothing                                                                  |
+| Every request carries the `X-Ark-Payload` header                                     | Nobody — additional header                                               | Optional: use it to route `report` vs `sbom`                             |
 
 ---
 
@@ -667,6 +767,10 @@ The suite covers:
 - `trivy_failure_gate()`
 - `betterleaks_failure_gate()` (including the safe summary that never leaks the secret)
 - `hadolint_failure_gate()` (report/gate split per level)
+- `should_send_each_scan()`, `auto_send_report()` and `_post_scan_artifacts()` (send by default, opt-out and missing destination)
+- `send_sbom_report()` (SBOM destination and report credentials not inherited, without leaking values in the log)
+- `_send_to_url()` (`X-Ark-Payload` header)
+- `do_full_scan()` (image SBOM or, without the image scan, source-code SBOM)
 
 ---
 

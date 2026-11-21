@@ -433,6 +433,182 @@ assert_ok "per-level summary logged" grep -q "error: 1, warning: 1" "$hl_log"
 assert_ok "itemized finding logged"  grep -q "DL3000 \[error\] Dockerfile:2" "$hl_log"
 rm -f "$hl_empty" "$hl_warn" "$hl_err" "$hl_tty" "$hl_log"
 
+# ===========================================================
+# Report / SBOM upload
+# ===========================================================
+
+reset_report_envs() {
+  unset REPORT_URL REPORT_TOKEN REPORT_HEADERS REPORT_METHOD REPORT_FAIL_ON_ERROR REPORT_SEND_EACH_SCAN
+  unset REPORT_SBOM_URL REPORT_SBOM_TOKEN REPORT_SBOM_HEADERS REPORT_SBOM_METHOD REPORT_SBOM_FAIL_ON_ERROR
+  unset SBOM_OUTPUT SBOM_FORMAT
+}
+
+## Conta as linhas de um arquivo (sem espaços, portável entre wc do GNU/BSD)
+count_lines() { wc -l < "$1" | tr -d '[:space:]'; }
+
+## Guarda as funções reais que os testes abaixo substituem por mocks
+orig_send_report="$(declare -f send_report)"
+orig_send_sbom_report="$(declare -f send_sbom_report)"
+orig_send_report_generic="$(declare -f _send_report_generic)"
+orig_generate_sbom="$(declare -f generate_sbom)"
+
+section "should_send_each_scan() - on by default"
+reset_report_envs
+assert_ok   "unset -> sends" should_send_each_scan
+REPORT_SEND_EACH_SCAN=""
+assert_ok   "empty -> sends" should_send_each_scan
+REPORT_SEND_EACH_SCAN="true"
+assert_ok   "true -> sends" should_send_each_scan
+REPORT_SEND_EACH_SCAN="false"
+assert_fail "false -> opt-out" should_send_each_scan
+REPORT_SEND_EACH_SCAN="0"
+assert_fail "0 -> opt-out" should_send_each_scan
+reset_report_envs
+
+section "send_report() - payload type"
+generic_args="$(mktemp)"
+_send_report_generic() {
+  printf '%s\n' "url=${2:-}" "token=${3:-}" "headers=${4:-}" "method=${5:-}" "fail=${6:-}" "payload=${7:-}" > "$generic_args"
+}
+reset_report_envs
+REPORT_URL="https://hub.example/reports"
+REPORT_TOKEN="report-secret-123"
+send_report "/x/report.json" 2>/dev/null
+assert_ok "report url"     grep -qx "url=https://hub.example/reports" "$generic_args"
+assert_ok "report token"   grep -qx "token=report-secret-123" "$generic_args"
+assert_ok "report payload" grep -qx "payload=report" "$generic_args"
+
+section "send_sbom_report() - without REPORT_SBOM_URL uses the report destination"
+reset_report_envs
+REPORT_URL="https://hub.example/reports"
+REPORT_TOKEN="report-secret-123"
+REPORT_HEADERS="X-Api-Key: hdr-secret-456"
+REPORT_METHOD="PUT"
+REPORT_FAIL_ON_ERROR="true"
+send_sbom_report "/x/sbom.json" 2>/dev/null
+assert_ok "falls back to REPORT_URL"       grep -qx "url=https://hub.example/reports" "$generic_args"
+assert_ok "uses REPORT_TOKEN"              grep -qx "token=report-secret-123" "$generic_args"
+assert_ok "uses REPORT_HEADERS"            grep -qx "headers=X-Api-Key: hdr-secret-456" "$generic_args"
+assert_ok "inherits REPORT_METHOD"         grep -qx "method=PUT" "$generic_args"
+assert_ok "inherits REPORT_FAIL_ON_ERROR"  grep -qx "fail=true" "$generic_args"
+assert_ok "sbom payload"                   grep -qx "payload=sbom" "$generic_args"
+
+REPORT_SBOM_TOKEN="sbom-secret-789"
+REPORT_SBOM_HEADERS="X-Report-Type: sbom"
+send_sbom_report "/x/sbom.json" 2>/dev/null
+assert_ok "REPORT_SBOM_TOKEN overrides"    grep -qx "token=sbom-secret-789" "$generic_args"
+assert_ok "REPORT_SBOM_HEADERS overrides"  grep -qx "headers=X-Report-Type: sbom" "$generic_args"
+
+section "send_sbom_report() - with REPORT_SBOM_URL report credentials are NOT inherited"
+reset_report_envs
+REPORT_URL="https://hub.example/reports"
+REPORT_TOKEN="report-secret-123"
+REPORT_HEADERS="X-Api-Key: hdr-secret-456"
+REPORT_METHOD="PUT"
+REPORT_FAIL_ON_ERROR="true"
+REPORT_SBOM_URL="https://other.example/sboms"
+sbom_log="$(mktemp)"
+send_sbom_report "/x/sbom.json" 2> "$sbom_log"
+assert_ok   "uses REPORT_SBOM_URL"               grep -qx "url=https://other.example/sboms" "$generic_args"
+assert_ok   "REPORT_TOKEN not forwarded"         grep -qx "token=" "$generic_args"
+assert_ok   "REPORT_HEADERS not forwarded"       grep -qx "headers=" "$generic_args"
+assert_ok   "method still inherited"             grep -qx "method=PUT" "$generic_args"
+assert_ok   "fail-on-error still inherited"      grep -qx "fail=true" "$generic_args"
+assert_ok   "warns about REPORT_TOKEN"           grep -q "does not inherit.*REPORT_TOKEN" "$sbom_log"
+assert_ok   "warns about REPORT_HEADERS"         grep -q "does not inherit.*REPORT_HEADERS" "$sbom_log"
+assert_fail "token value never logged"           grep -q "report-secret-123" "$sbom_log"
+assert_fail "header value never logged"          grep -q "hdr-secret-456" "$sbom_log"
+
+REPORT_SBOM_TOKEN="sbom-secret-789"
+REPORT_SBOM_HEADERS="X-Report-Type: sbom"
+send_sbom_report "/x/sbom.json" 2> "$sbom_log"
+assert_ok   "uses REPORT_SBOM_TOKEN"             grep -qx "token=sbom-secret-789" "$generic_args"
+assert_ok   "uses REPORT_SBOM_HEADERS"           grep -qx "headers=X-Report-Type: sbom" "$generic_args"
+assert_fail "no warning when SBOM creds are set" grep -q "does not inherit" "$sbom_log"
+
+## Sem credenciais do relatório não há o que avisar
+reset_report_envs
+REPORT_SBOM_URL="https://other.example/sboms"
+send_sbom_report "/x/sbom.json" 2> "$sbom_log"
+assert_fail "no warning without report creds"    grep -q "does not inherit" "$sbom_log"
+rm -f "$generic_args" "$sbom_log"
+eval "$orig_send_report_generic"
+reset_report_envs
+
+section "_send_to_url() - X-Ark-Payload header"
+curl_args_file="$(mktemp)"
+curl() { printf '%s\n' "$@" > "$curl_args_file"; printf '\n200'; }
+payload_file="$(mktemp)"; echo '{}' > "$payload_file"
+
+assert_ok   "report upload succeeds"        _send_to_url "$payload_file" "https://hub.example/x" "tok-abc" "" "POST"
+assert_ok   "default payload is report"     grep -qx "X-Ark-Payload: report" "$curl_args_file"
+assert_ok   "bearer token sent"             grep -qx "Authorization: Bearer tok-abc" "$curl_args_file"
+
+assert_ok   "sbom upload succeeds"          _send_to_url "$payload_file" "https://hub.example/x" "" "X-Extra: 1" "POST" "sbom"
+assert_ok   "sbom payload header"           grep -qx "X-Ark-Payload: sbom" "$curl_args_file"
+assert_ok   "extra headers still sent"      grep -qx "X-Extra: 1" "$curl_args_file"
+assert_fail "no Authorization without token" grep -q "^Authorization:" "$curl_args_file"
+
+curl() { printf '%s\n' "$@" > "$curl_args_file"; printf 'denied\n401'; }
+assert_fail "non-2xx fails" _send_to_url "$payload_file" "https://hub.example/x" "" "" "POST" "sbom"
+unset -f curl
+rm -f "$curl_args_file" "$payload_file"
+
+section "auto_send_report() / auto_send_sbom_report() - only with a destination"
+send_calls="$(mktemp)"
+send_report() { echo "report|$1" >> "$send_calls"; }
+send_sbom_report() { echo "sbom|$1" >> "$send_calls"; }
+
+reset_report_envs
+auto_send_report "/x/report.json"
+auto_send_sbom_report "/x/sbom.json"
+assert_eq "$(count_lines "$send_calls")" "0" "no URL -> nothing sent"
+
+REPORT_URL="https://hub.example/reports"
+auto_send_report "/x/report.json"
+auto_send_sbom_report "/x/sbom.json"
+assert_ok "REPORT_URL -> report sent"          grep -qx "report|/x/report.json" "$send_calls"
+assert_ok "REPORT_URL -> sbom sent (fallback)" grep -qx "sbom|/x/sbom.json" "$send_calls"
+
+: > "$send_calls"
+reset_report_envs
+REPORT_SBOM_URL="https://other.example/sboms"
+auto_send_report "/x/report.json"
+auto_send_sbom_report "/x/sbom.json"
+assert_eq "$(cat "$send_calls")" "sbom|/x/sbom.json" "only REPORT_SBOM_URL -> only sbom sent"
+
+section "_post_scan_artifacts() - individual scans send by default"
+generate_sbom() { echo '{"bomFormat":"CycloneDX"}' > "$4"; }
+psa_raw="$(mktemp)"; echo '{"Results":[]}' > "$psa_raw"
+psa_report="$TEST_REPORT_DIR/ark-report-image-scan.json"
+psa_sbom="$TEST_REPORT_DIR/trivy-image.sbom.json"
+reset_envs
+
+: > "$send_calls"
+reset_report_envs
+_post_scan_artifacts "image-scan" "trivy" "nginx:latest" "$psa_raw" "true" "cyclonedx" "/tmp" "image" >/dev/null 2>&1
+assert_eq "$(count_lines "$send_calls")" "0" "no REPORT_URL -> nothing sent"
+
+REPORT_URL="https://hub.example/reports"
+_post_scan_artifacts "image-scan" "trivy" "nginx:latest" "$psa_raw" "true" "cyclonedx" "/tmp" "image" >/dev/null 2>&1
+assert_ok "REPORT_URL -> envelope sent" grep -qx "report|$psa_report" "$send_calls"
+assert_ok "REPORT_URL -> sbom sent"     grep -qx "sbom|$psa_sbom" "$send_calls"
+
+: > "$send_calls"
+_post_scan_artifacts "image-scan" "trivy" "nginx:latest" "$psa_raw" "false" "cyclonedx" "/tmp" "image" >/dev/null 2>&1
+assert_eq "$(cat "$send_calls")" "report|$psa_report" "no --sbom -> only envelope sent"
+
+: > "$send_calls"
+REPORT_SEND_EACH_SCAN="false"
+_post_scan_artifacts "image-scan" "trivy" "nginx:latest" "$psa_raw" "true" "cyclonedx" "/tmp" "image" >/dev/null 2>&1
+assert_eq "$(count_lines "$send_calls")" "0" "REPORT_SEND_EACH_SCAN=false -> nothing sent"
+
+rm -f "$psa_raw" "$psa_report" "$psa_sbom" "$send_calls"
+reset_report_envs
+eval "$orig_send_report"
+eval "$orig_send_sbom_report"
+eval "$orig_generate_sbom"
+
 section "do_full_scan() - converts non-json trivy outputs"
 full_scan_dir="$(mktemp -d)"
 printf 'FROM scratch\n' > "$full_scan_dir/Dockerfile"
@@ -515,6 +691,61 @@ assert_fail "warning fails with level=warning" do_full_scan "example:latest" --p
 unset HADOLINT_FAILURE_LEVEL TRIVY_EXIT_CODE FULL_SCAN_SKIP_SECRETS
 unset -f hadolint
 rm -rf "$fs_gate_dir"
+
+section "do_full_scan() - SBOM follows the image, or the source when it is skipped"
+fs_sbom_dir="$(mktemp -d)"
+sbom_calls="$(mktemp)"
+sbom_sent="$(mktemp)"
+full_scan_report="$TEST_REPORT_DIR/full-scan-report.json"
+
+run_trivy_scan() { printf '{"Results":[]}' > "$3"; }
+trivy_failure_gate() { return 0; }
+send_report() { return 0; }
+send_sbom_report() { echo "$1" >> "$sbom_sent"; }
+generate_sbom() { echo "$1|$2|$4" >> "$sbom_calls"; echo '{"bomFormat":"CycloneDX"}' > "$4"; }
+
+reset_report_envs
+REPORT_URL="https://hub.example/reports"
+TRIVY_EXIT_CODE="0"
+FULL_SCAN_SKIP_SECRETS="true"
+FULL_SCAN_SKIP_LINT="true"
+
+assert_ok "full-scan --skip-image --sbom runs" do_full_scan --skip-image --sbom --path "$fs_sbom_dir"
+assert_eq "$(cat "$sbom_calls")" "filesystem|$fs_sbom_dir|$TEST_REPORT_DIR/trivy-filesystem.sbom.json" "skipped image -> SBOM from source (fs)"
+assert_eq "$(cat "$sbom_sent")"  "$TEST_REPORT_DIR/trivy-filesystem.sbom.json" "source SBOM is sent"
+assert_eq "$(jq -r .sbom_enabled "$full_scan_report")" "true" "envelope sbom_enabled matches"
+
+: > "$sbom_calls"; : > "$sbom_sent"
+assert_ok "full-scan --skip-image --sbom --scan-mode repo runs" do_full_scan --skip-image --sbom --scan-mode repo --path "$fs_sbom_dir"
+assert_eq "$(cat "$sbom_calls")" "repo|$fs_sbom_dir|$TEST_REPORT_DIR/trivy-repo.sbom.json" "skipped image -> SBOM from source (repo)"
+
+: > "$sbom_calls"; : > "$sbom_sent"
+FULL_SCAN_SKIP_IMAGE="true"
+assert_ok "FULL_SCAN_SKIP_IMAGE=true --sbom runs" do_full_scan --sbom --path "$fs_sbom_dir"
+assert_eq "$(cat "$sbom_calls")" "filesystem|$fs_sbom_dir|$TEST_REPORT_DIR/trivy-filesystem.sbom.json" "env skip -> SBOM from source"
+unset FULL_SCAN_SKIP_IMAGE
+
+: > "$sbom_calls"; : > "$sbom_sent"
+assert_ok "full-scan <image> --sbom runs" do_full_scan "example:latest" --sbom --path "$fs_sbom_dir"
+assert_eq "$(cat "$sbom_calls")" "image|example:latest|$TEST_REPORT_DIR/trivy-image.sbom.json" "with image -> SBOM from image only"
+assert_eq "$(cat "$sbom_sent")"  "$TEST_REPORT_DIR/trivy-image.sbom.json" "image SBOM is sent"
+
+: > "$sbom_calls"; : > "$sbom_sent"
+assert_ok "full-scan --skip-image without --sbom runs" do_full_scan --skip-image --path "$fs_sbom_dir"
+assert_eq "$(count_lines "$sbom_calls")" "0" "no --sbom -> no SBOM generated"
+assert_eq "$(count_lines "$sbom_sent")"  "0" "no --sbom -> no SBOM sent"
+
+## Sem destino configurado o SBOM é gerado, mas nada é enviado
+: > "$sbom_calls"; : > "$sbom_sent"
+reset_report_envs
+assert_ok "full-scan --skip-image --sbom without URL runs" do_full_scan --skip-image --sbom --path "$fs_sbom_dir"
+assert_eq "$(count_lines "$sbom_calls")" "1" "no URL -> SBOM still generated"
+assert_eq "$(count_lines "$sbom_sent")"  "0" "no URL -> SBOM not sent"
+
+unset TRIVY_EXIT_CODE FULL_SCAN_SKIP_SECRETS FULL_SCAN_SKIP_LINT
+reset_report_envs
+rm -rf "$fs_sbom_dir"
+rm -f "$sbom_calls" "$sbom_sent"
 
 # ===========================================================
 # Final report

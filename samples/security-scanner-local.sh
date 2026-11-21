@@ -19,9 +19,13 @@ export REPORT_TOKEN="${REPORT_TOKEN:-replace-me}"
 export REPORT_HEADERS="${REPORT_HEADERS:-X-Tenant: tooark}"
 export REPORT_METHOD="${REPORT_METHOD:-POST}"
 export REPORT_FAIL_ON_ERROR="${REPORT_FAIL_ON_ERROR:-false}"
-export REPORT_SEND_EACH_SCAN="${REPORT_SEND_EACH_SCAN:-false}"
+# Default "true": every scan command sends its report when REPORT_URL is set.
+export REPORT_SEND_EACH_SCAN="${REPORT_SEND_EACH_SCAN:-true}"
 
-# SBOM webhook override
+# SBOM webhook destination.
+# With REPORT_SBOM_URL the SBOM upload uses ONLY REPORT_SBOM_TOKEN/REPORT_SBOM_HEADERS;
+# REPORT_TOKEN/REPORT_HEADERS are never forwarded to it. Without it, the SBOM goes
+# to REPORT_URL with the report credentials (header X-Ark-Payload: sbom).
 export REPORT_SBOM_URL="${REPORT_SBOM_URL:-https://example.invalid/security-sbom}"
 export REPORT_SBOM_TOKEN="${REPORT_SBOM_TOKEN:-replace-me}"
 export REPORT_SBOM_HEADERS="${REPORT_SBOM_HEADERS:-X-Tenant: tooark}"
