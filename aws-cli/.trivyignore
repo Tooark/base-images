@@ -3,17 +3,5 @@
 # Usar somente para CVEs especificas com correção pendente/upstream.
 #
 # Revisão:
-# 2026-12-20 (ou antes, ao atualizar base/pacotes da imagem).
+# 2026-12-21 (ou antes, ao atualizar base/pacotes da imagem).
 
-# aws-cli:latest (debian 13.7) (debian) - zlib1g
-CVE-2026-85091
-
-# usr/local/bin/kubectl (gobinary) - golang.org/x/net
-CVE-2026-78661
-CVE-2026-78669
-
-# usr/local/bin/kubectl (gobinary) - golang.org/x/text
-CVE-2026-56851
-
-# usr/local/libexec/docker/cli-plugins/docker-buildx (gobinary) - github.com/moby/go-archive
-CVE-2026-17106
