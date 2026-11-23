@@ -11,6 +11,7 @@ Example: "Closes #42 — bump AWS CLI to 2.37.0 and refresh the aws-cli .trivyig
 - [ ] `dockerx`
 - [ ] `gcloud-cli`
 - [ ] `security-scanner`
+- [ ] `dast-scanner`
 - [ ] `sonar-scanner`
 - [ ] `tofu` / `tofu-aws` / `tofu-gcloud` / `tofu-aws-gcloud`
 - [ ] `terraform*` (deprecated images)

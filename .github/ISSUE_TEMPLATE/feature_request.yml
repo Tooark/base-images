@@ -25,6 +25,7 @@ body:
         - dockerx
         - gcloud-cli
         - security-scanner
+        - dast-scanner
         - sonar-scanner
         - tofu / tofu-aws / tofu-gcloud / tofu-aws-gcloud
         - New image / cross-cutting

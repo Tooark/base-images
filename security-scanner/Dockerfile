@@ -71,7 +71,7 @@ COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY --chmod=0755 ark-tools.sh /usr/local/bin/ark-tools
 
 # Copia o JSON Schema do relatório ark-report-tools (referência local)
-COPY schemas/ark-report-tools.schema.v1.3.json /usr/local/share/ark-tools/ark-report-tools.schema.v1.3.json
+COPY schemas/ark-report-tools.schema.v1.4.json /usr/local/share/ark-tools/ark-report-tools.schema.v1.4.json
 
 # Remove CR e BOM do wrapper e do entrypoint (proteção contra arquivos vindos de Windows)
 RUN sed -i '1s/^\xEF\xBB\xBF//' /usr/local/bin/ark-tools \
@@ -112,7 +112,7 @@ ENV LANG=C.UTF-8 \
     ARK_ENTRYPOINT_CMD=/usr/local/bin/ark-tools \
     TRIVY_CACHE_DIR=/home/app/.cache/trivy \
     REPORT_DIR=/reports \
-    ARK_REPORT_SCHEMA=/usr/local/share/ark-tools/ark-report-tools.schema.v1.3.json
+    ARK_REPORT_SCHEMA=/usr/local/share/ark-tools/ark-report-tools.schema.v1.4.json
 
 # Entrypoint auto-configura acesso ao Docker (ajusta GID do socket)
 # e faz o drop de privilégios para 'app' via gosu em runtime.

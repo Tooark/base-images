@@ -14,6 +14,7 @@ IMAGES=(
   gcloud-cli
   tofu
   security-scanner
+  dast-scanner
   sonar-scanner
   terraform
   terraform-aws
@@ -42,7 +43,7 @@ Exemplos:
 Imagens suportadas:
   aws-cli, dockerx, gcloud-cli,
   tofu, tofu-aws, tofu-gcloud, tofu-aws-gcloud,
-  security-scanner, sonar-scanner, trivy-hadolint
+  security-scanner, dast-scanner, sonar-scanner, trivy-hadolint
 EOF
 }
 
@@ -103,6 +104,15 @@ build_image() {
         --build-arg SECURITY_SCANNER_VERSION="${SECURITY_SCANNER_VERSION}" \
         -t security-scanner:latest \
         "${ROOT_DIR}/security-scanner"
+      ;;
+    dast-scanner)
+      docker build \
+        --build-arg ZAP_VERSION="${ZAP_VERSION}" \
+        --build-arg ZAP_SHA256="${ZAP_SHA256}" \
+        --build-arg NUCLEI_VERSION="${NUCLEI_VERSION}" \
+        --build-arg DAST_SCANNER_VERSION="${DAST_SCANNER_VERSION}" \
+        -t dast-scanner:latest \
+        "${ROOT_DIR}/dast-scanner"
       ;;
     sonar-scanner)
       docker build \

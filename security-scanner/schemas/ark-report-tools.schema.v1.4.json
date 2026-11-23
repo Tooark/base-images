@@ -1,0 +1,446 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tooark:schemas:ark-report-tools:1.4",
+  "title": "ark-report-tools",
+  "description": "Envelope padronizado para relatórios gerados pelas imagens da família ark-* (security-scanner, iac-scanner, trivy-hadolint, dast-scanner).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "version",
+    "timestamp",
+    "command",
+    "target",
+    "tool",
+    "report"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ark-report-tools",
+      "description": "Identificador fixo do envelope."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Versão do envelope (ex.: 1.4)."
+    },
+    "image_family": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "security-scanner",
+        "iac-scanner",
+        "trivy-hadolint",
+        "dast-scanner",
+        "unknown",
+        null
+      ],
+      "description": "Família/imagem que gerou o relatório. Útil para roteamento e analytics."
+    },
+    "image": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Imagem ark-* que EXECUTOU o scan (o scanner), não o alvo — o alvo fica em 'target'. Preenchida a partir de ARK_IMAGE_NAME / ARK_IMAGE_VERSION / ARK_IMAGE_TAG / ARK_IMAGE_DIGEST.",
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Nome/repositório da imagem que executou o scan."
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Versão da imagem gravada no build."
+        },
+        "tag": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Tag efetivamente usada na execução."
+        },
+        "digest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Digest da imagem, quando conhecido."
+        },
+        "reference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Referência completa da imagem do scanner."
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Momento da geração do relatório (ISO 8601 UTC)."
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "image-scan",
+        "filesystem-scan",
+        "config-scan",
+        "repo-scan",
+        "dockerfile-lint",
+        "secret-scan",
+        "full-scan",
+        "terraform-scan",
+        "kubernetes-scan",
+        "cloudformation-scan",
+        "checkov-scan",
+        "kics-scan",
+        "terrascan-scan",
+        "tflint-scan",
+        "yaml-lint",
+        "cloudformation-scan",
+        "nuclei-scan",
+        "zap-scan",
+        "dast-scan"
+      ],
+      "description": "Comando da imagem ark-* que gerou o relatório."
+    },
+    "target": {
+      "type": "string",
+      "description": "Alvo do scan (imagem:tag, path local ou URL)."
+    },
+    "tool": {
+      "type": "string",
+      "description": "Ferramenta ou combinação que gerou o relatório."
+    },
+    "sbom_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica se SBOM foi gerado."
+    },
+    "list_all_pkgs": {
+      "type": "boolean",
+      "default": false,
+      "description": "Indica se Trivy foi executado com --list-all-pkgs."
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Metadados de SCM/CI coletados na execução.",
+      "additionalProperties": true,
+      "properties": {
+        "scm": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "branch": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "commit": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{7,40}$"
+            },
+            "commit_short": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-fA-F]{7,12}$"
+            },
+            "repository": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tag": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "ci": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "platform": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "gitlab",
+                "github",
+                "azure",
+                "bitbucket",
+                "jenkins",
+                null,
+                ""
+              ]
+            },
+            "user": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "pipeline_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "job_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "scan_context": {
+          "type": "object",
+          "description": "Contexto adicional do scan.",
+          "additionalProperties": true,
+          "properties": {
+            "scan_path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "scan_mode": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "fs",
+                "repo",
+                "nuclei",
+                "zap-active",
+                "dast",
+                null,
+                ""
+              ]
+            },
+            "dockerfiles": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "report": {
+      "description": "Payload JSON da ferramenta. Para formatos nativos não JSON, use um artefato referenciado em artifacts.",
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "artifacts": {
+      "description": "Relatórios nativos preservados para consumo posterior.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "format",
+          "media_type",
+          "sha256",
+          "size_bytes"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "scan_status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "failed"
+      ]
+    },
+    "exit_code": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "results": {
+      "description": "Agregação de sub-relatórios de comandos compostos.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "full-scan"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "results": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "image_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "source_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "secret_scan": {
+                "type": [
+                  "object",
+                  "array",
+                  "null"
+                ]
+              },
+              "dockerfile_lints": {
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "terraform_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "kubernetes_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "kics_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "terrascan_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "tflint_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "yaml_lint": {
+                "type": [
+                  "object",
+                  "array",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "dast-scan"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "results",
+          "scan_status",
+          "exit_code"
+        ],
+        "properties": {
+          "results": {
+            "type": "object",
+            "required": [
+              "nuclei_scan",
+              "zap_scan"
+            ],
+            "properties": {
+              "nuclei_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "zap_scan": {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

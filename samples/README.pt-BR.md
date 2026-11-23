@@ -20,6 +20,7 @@ Exemplos de uso das imagens em três cenários:
 - ghcr.io/tooark/sonar-scanner:latest
 - ghcr.io/tooark/trivy-hadolint:latest
 - ghcr.io/tooark/security-scanner:latest
+- ghcr.io/tooark/dast-scanner:latest
 
 ## Exemplos dedicados: security-scanner
 
@@ -35,6 +36,13 @@ Esses exemplos cobrem:
 - Flags de metadata (`--branch`, `--commit`, `--user`, `--repository|--repo`, `--tag`)
 - Parâmetros específicos (`--sbom`, `--sbom-format`, `--no-git`, `--baseline`, `--path`, `--dockerfiles`, `--scan-mode`, `--skip-*`)
 - Variáveis de ambiente de Trivy, Hadolint, Betterleaks, SBOM, Full-scan e Webhook
+
+## DAST scanner
+
+Consulte [dast-scanner/README.pt-BR.md](../dast-scanner/README.pt-BR.md) para
+uso local, requisitos de autorização dos alvos e a diferença entre o
+reconhecimento do Nuclei e os scans ativos do ZAP. Nenhum scan DAST é iniciado
+automaticamente.
 
 ## 1) Uso local (docker run)
 

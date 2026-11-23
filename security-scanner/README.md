@@ -48,7 +48,7 @@ any repository.
 - Optional SBOM generation (CycloneDX/SPDX)
 - Full package inventory (`--list-all-pkgs`)
 - CI/SCM auto-detection (GitLab/GitHub/Azure/Bitbucket/Jenkins)
-- Standardized webhook envelope (`ark-report-tools v1.3`)
+- Standardized webhook envelope (`ark-report-tools v1.4`)
 - Trivy Server + local fallback
 - Failure gates configurable per severity
 
@@ -74,7 +74,7 @@ any repository.
 | Hadolint          | `/usr/local/bin/hadolint`                                      |
 | Betterleaks       | `/usr/local/bin/betterleaks`                                   |
 | CLI wrapper       | `/usr/local/bin/ark-tools`                                     |
-| JSON Schema       | `/usr/local/share/ark-tools/ark-report-tools.schema.v1.3.json` |
+| JSON Schema       | `/usr/local/share/ark-tools/ark-report-tools.schema.v1.4.json` |
 | Runtime deps      | `bash`, `curl`, `jq`, `git`, `ca-certificates`, `gosu`         |
 | Default user      | `app` (non-root)                                               |
 | `WORKDIR`         | `/workspace`                                                   |
@@ -555,11 +555,11 @@ These examples cover a broad set of commands, flags, and environment variables o
 
 ## JSON Schema (`ark-report-tools`)
 
-Every report follows the **`ark-report-tools v1.3`** envelope,
-formalized in [`schemas/ark-report-tools.schema.v1.3.json`](schemas/ark-report-tools.schema.v1.3.json).
+Every report follows the **`ark-report-tools v1.4`** envelope,
+formalized in [`schemas/ark-report-tools.schema.v1.4.json`](schemas/ark-report-tools.schema.v1.4.json).
 
 Inside the image, it is also available at
-`/usr/local/share/ark-tools/ark-report-tools.schema.v1.3.json`
+`/usr/local/share/ark-tools/ark-report-tools.schema.v1.4.json`
 (accessible via `ARK_REPORT_SCHEMA`).
 
 ### Structure
@@ -567,7 +567,7 @@ Inside the image, it is also available at
 ```json
 {
   "schema": "ark-report-tools",
-  "version": "1.3",
+  "version": "1.4",
   "image_family": "security-scanner",
   "image": {
     "name": "ghcr.io/tooark/security-scanner",
@@ -596,7 +596,7 @@ Inside the image, it is also available at
 ### `image_family` field
 
 Enables routing/analytics across **trivy-hadolint**, **security-scanner**,
-and **iac-scanner** in a single ingestion backend.
+**iac-scanner**, and **dast-scanner** in a single ingestion backend.
 
 ### `image` field
 
@@ -616,6 +616,13 @@ coming from an outdated scanner.
 Fields with no value are emitted as `null`. The object is optional in the
 schema, so reports generated before this field still validate.
 
+### Native artifacts
+
+The optional `artifacts` array references native report files preserved beside
+the JSON envelope. Each entry describes its relative path, format, media type,
+SHA-256 checksum, and size in bytes. DAST reports use these references for
+Nuclei JSONL and ZAP HTML output; the payload in `report` remains tool-specific.
+
 ### Validation
 
 ```bash
@@ -625,7 +632,7 @@ node -e "
   const fs = require('fs');
   const Ajv = require('ajv/dist/2020.js');
   const addFormats = require('ajv-formats');
-  const schema = JSON.parse(fs.readFileSync('schemas/ark-report-tools.schema.v1.3.json'));
+  const schema = JSON.parse(fs.readFileSync('schemas/ark-report-tools.schema.v1.4.json'));
   const report = JSON.parse(fs.readFileSync('full-scan-report.json'));
   const ajv = new Ajv({ strict: false }); addFormats(ajv);
   const validate = ajv.compile(schema);
@@ -638,7 +645,7 @@ pip install jsonschema
 python -c "
 import json
 from jsonschema import Draft202012Validator
-s = json.load(open('schemas/ark-report-tools.schema.v1.3.json'))
+s = json.load(open('schemas/ark-report-tools.schema.v1.4.json'))
 r = json.load(open('full-scan-report.json'))
 Draft202012Validator(s).validate(r)
 print('OK')
@@ -660,7 +667,7 @@ The suite covers:
 - `collect_metadata()` (auto-detect, precedence, null normalization)
 - `parse_metadata_flags()` (including the parent-shell bugfix with `REMAINING_ARGS`)
 - `collect_image_info()` (scanner image identity, fallbacks and `reference`)
-- `wrap_ark_report()` (v1.3 envelope + `image_family` + `image`)
+- `wrap_ark_report()` (v1.4 envelope + `image_family` + `image`)
 - `_report_file_or_null()`
 - `should_use_list_all_pkgs()` and `trivy_list_all_pkgs_flag()` (config does NOT receive it)
 - `resolve_trivy_ignorefile()`

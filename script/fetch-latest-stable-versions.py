@@ -124,6 +124,37 @@ if not betterleaks_tag:
 
 versions["BETTERLEAKS_VERSION"] = betterleaks_tag
 
+# OWASP ZAP (GitHub Releases - latest stable)
+response = fetch_text("https://api.github.com/repos/zaproxy/zaproxy/releases/latest", "application/vnd.github+json")
+zap_release = json.loads(response)
+zap_tag = zap_release.get("tag_name", "").lstrip("v")
+
+if not zap_tag:
+  raise RuntimeError("Could not parse ZAP_VERSION from OWASP ZAP releases")
+
+zap_archive = f"ZAP_{zap_tag}_Crossplatform.zip"
+zap_asset = next(
+    (asset for asset in zap_release.get("assets", []) if asset.get("name") == zap_archive),
+    None,
+)
+zap_digest = (zap_asset or {}).get("digest", "")
+
+if not zap_digest.startswith("sha256:"):
+  raise RuntimeError(f"Could not parse SHA-256 digest for {zap_archive}")
+
+versions["ZAP_VERSION"] = zap_tag
+versions["ZAP_SHA256"] = zap_digest.removeprefix("sha256:")
+
+# Nuclei (GitHub Releases - latest stable)
+response = fetch_text("https://api.github.com/repos/projectdiscovery/nuclei/releases/latest", "application/vnd.github+json")
+nuclei_release = json.loads(response)
+nuclei_tag = nuclei_release.get("tag_name", "").lstrip("v")
+
+if not nuclei_tag:
+  raise RuntimeError("Could not parse NUCLEI_VERSION from Nuclei releases")
+
+versions["NUCLEI_VERSION"] = nuclei_tag
+
 with open("latest_versions.json", "w", encoding="utf-8") as f:
   json.dump(versions, f, indent=2, sort_keys=True)
 

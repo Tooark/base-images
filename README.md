@@ -50,6 +50,7 @@ All images share the same base (`debian:13-slim`), run as the non-root user (`ap
 | `tofu-gcloud`          | OpenTofu + Google Cloud SDK + kubectl                                       | [tofu-gcloud/README.md](tofu-gcloud/README.md)                   |
 | `tofu-aws-gcloud`      | OpenTofu + AWS CLI v2 + Google Cloud SDK + kubectl                          | [tofu-aws-gcloud/README.md](tofu-aws-gcloud/README.md)           |
 | `security-scanner`     | Trivy + Hadolint + BetterLeaks + `ark-tools` wrapper for scans and reports  | [security-scanner/README.md](security-scanner/README.md)         |
+| `dast-scanner`         | OWASP ZAP + Nuclei for authorized dynamic application security testing      | [dast-scanner/README.md](dast-scanner/README.md)                 |
 | `sonar-scanner`        | Sonar Scanner CLI for analysis in CI/CD pipelines                           | [sonar-scanner/README.md](sonar-scanner/README.md)               |
 | `terraform`            | Terraform CLI (deprecated)                                                  | [terraform/README.md](terraform/README.md)                       |
 | `terraform-aws`        | Terraform + AWS CLI v2 + kubectl (deprecated)                               | [terraform-aws/README.md](terraform-aws/README.md)               |
@@ -72,6 +73,8 @@ Dedicated examples for security-scanner:
 - Full local run: [samples/security-scanner-local.sh](samples/security-scanner-local.sh)
 - Full GitHub Actions pipeline: [samples/security-scanner-github-actions.yml](samples/security-scanner-github-actions.yml)
 - Full GitLab CI pipeline: [samples/security-scanner-gitlab-ci.yml](samples/security-scanner-gitlab-ci.yml)
+
+DAST scanner usage, including authorization and active-scan guidance: [dast-scanner/README.md](dast-scanner/README.md)
 
 ---
 

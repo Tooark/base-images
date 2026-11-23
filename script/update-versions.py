@@ -142,6 +142,12 @@ COMPOSITE_VERSION_RULES = {
     "TOFU_AWS_GCLOUD_VERSION": ["OPENTOFU_VERSION", "AWSCLI_VERSION", "GCLOUD_VERSION"],
     "DOCKERX_VERSION": ["DOCKER_VERSION", "DOCKER_BUILDX_VERSION"],
     "SECURITY_SCANNER_VERSION": ["TRIVY_VERSION", "HADOLINT_VERSION", "BETTERLEAKS_VERSION"],
+    "DAST_SCANNER_VERSION": ["ZAP_VERSION", "NUCLEI_VERSION"],
+}
+
+# Non-semver tool metadata changes still need a new composite image tag.
+COMPOSITE_PATCH_TRIGGER_RULES = {
+    "DAST_SCANNER_VERSION": ["ZAP_SHA256"],
 }
 
 # Mapeamento de cada chave de versão para TODAS as imagens impactadas.
@@ -154,6 +160,9 @@ VERSION_KEY_TO_DIRS = {
     "TRIVY_VERSION": ["security-scanner"],
     "HADOLINT_VERSION": ["security-scanner"],
     "BETTERLEAKS_VERSION": ["security-scanner"],
+    "ZAP_VERSION": ["dast-scanner"],
+    "ZAP_SHA256": ["dast-scanner"],
+    "NUCLEI_VERSION": ["dast-scanner"],
     "DOCKER_VERSION": ["dockerx", "aws-cli", "gcloud-cli"],
     "DOCKER_BUILDX_VERSION": ["dockerx", "aws-cli", "gcloud-cli"],
     "SONAR_CLI_VERSION": ["sonar-scanner"],
@@ -166,6 +175,7 @@ COMPOSITE_KEY_TO_DIRS = {
     "TOFU_AWS_GCLOUD_VERSION": ["tofu-aws-gcloud"],
     "DOCKERX_VERSION": ["dockerx"],
     "SECURITY_SCANNER_VERSION": ["security-scanner"],
+    "DAST_SCANNER_VERSION": ["dast-scanner"],
 }
 
 with open("latest_versions.json", "r", encoding="utf-8") as f:
@@ -215,6 +225,11 @@ for composite_key, dependency_keys in COMPOSITE_VERSION_RULES.items():
       for dep_key in dependency_keys
       if dep_key in base_change_levels
   ]
+  triggered_levels.extend(
+      "patch"
+      for dep_key in COMPOSITE_PATCH_TRIGGER_RULES.get(composite_key, [])
+      if dep_key in base_change_levels
+  )
   bump_level = max_change_level(triggered_levels)
 
   if not bump_level:

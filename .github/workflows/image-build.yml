@@ -103,6 +103,7 @@ jobs:
           - sonar-scanner
           - dockerx
           - security-scanner
+          - dast-scanner
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -403,6 +404,8 @@ jobs:
                 DOCKER_VERSION)         TOOL_NAME="Docker CLI" ;;
                 DOCKER_BUILDX_VERSION)  TOOL_NAME="Docker Buildx" ;;
                 BETTERLEAKS_VERSION)    TOOL_NAME="Betterleaks" ;;
+                ZAP_VERSION)            TOOL_NAME="OWASP ZAP" ;;
+                NUCLEI_VERSION)         TOOL_NAME="Nuclei" ;;
                 *)                      continue ;;
               esac
               TOOLS_TABLE="${TOOLS_TABLE}| ${TOOL_NAME} | \`${val}\` |\n"
@@ -422,13 +425,13 @@ jobs:
           printf "### Included Tools\n\n" >> "$NOTES_FILE"
           printf "%b" "$TOOLS_TABLE" >> "$NOTES_FILE"
 
-          # Append 'Conteudo da imagem' section from image README when available
+          # Append the image contents section from image README when available
           README_FILE="./${{ matrix.image }}/README.md"
           IMAGE_CONTENT_SECTION=""
           if [ -f "$README_FILE" ]; then
             IMAGE_CONTENT_SECTION=$(awk '
               BEGIN { in_section=0 }
-              /^##[[:space:]]+Conte[úu]do da imagem[[:space:]]*$/ { in_section=1; print; next }
+              /^##[[:space:]]+(Conte[úu]do da imagem|Image contents)[[:space:]]*$/ { in_section=1; print; next }
               in_section && /^##[[:space:]]+/ { exit }
               in_section { print }
             ' "$README_FILE" | sed -e 's/\r$//')

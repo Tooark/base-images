@@ -32,6 +32,7 @@
 # scanner tooling shipped inside the images.
 **/.trivyignore                     @paulosfjunior
 /security-scanner/                  @paulosfjunior
+/dast-scanner/                      @stenio
 /trivy-hadolint/                    @paulosfjunior
 
 # Pipeline examples users copy into their own projects.

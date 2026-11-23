@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ark-tools - Security Scanner (Trivy + Hadolint + Betterleaks)
 # Família: security-scanner
-# Schema: ark-report-tools v1.3
+# Schema: ark-report-tools v1.4
 # Licença: MIT
 
 set -euo pipefail
@@ -698,7 +698,7 @@ _post_scan_artifacts() {
   fi
 }
 
-## --- Relatório padronizado ark-report-tools v1.3 -----------------------------
+## --- Relatório padronizado ark-report-tools v1.4 -----------------------------
 ## Envolve a saída bruta de uma ferramenta no schema ark-report-tools.
 ## Argumentos:
 ## $1 command (image-scan|secret-scan|terraform-scan|full-scan|...)
@@ -741,7 +741,7 @@ wrap_ark_report() {
   ## --slurpfile lê do arquivo sem passar pelo ARG_MAX do OS
   jq -n \
     --arg schema "ark-report-tools" \
-    --arg version "1.3" \
+    --arg version "1.4" \
     --arg image_family "${ARK_IMAGE_FAMILY:-unknown}" \
     --argjson image "$image_json" \
     --arg ts "$(now_iso)" \
@@ -2396,7 +2396,7 @@ do_full_scan() {
   ## Consolida os resultados em um único envelope usando o schema ark-report-tools
   jq -n \
     --arg schema "ark-report-tools" \
-    --arg version "1.3" \
+    --arg version "1.4" \
     --arg image_family "${ARK_IMAGE_FAMILY:-security-scanner}" \
     --argjson image "$image_json" \
     --arg ts "$(now_iso)" \

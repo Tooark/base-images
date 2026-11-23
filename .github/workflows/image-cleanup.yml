@@ -70,6 +70,7 @@ jobs:
           - trivy-hadolint
           - dockerx
           - security-scanner
+          - dast-scanner
           - terraform
           - terraform-aws
           - terraform-gcloud

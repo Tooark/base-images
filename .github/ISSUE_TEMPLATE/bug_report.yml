@@ -30,6 +30,7 @@ body:
         - dockerx
         - gcloud-cli
         - security-scanner
+        - dast-scanner
         - sonar-scanner
         - tofu
         - tofu-aws

@@ -184,7 +184,7 @@ reset_image_envs
 assert_eq "$(collect_image_info | jq -c .)" \
   '{"name":null,"version":null,"tag":null,"digest":null,"reference":null}' "all null without envs"
 
-section "wrap_ark_report() - envelope v1.3"
+section "wrap_ark_report() - envelope v1.4"
 reset_envs
 reset_image_envs
 export ARK_IMAGE_FAMILY="test-family"
@@ -197,7 +197,7 @@ metadata='{"scm":{"branch":"main"},"ci":{"platform":"github"}}'
 wrap_ark_report "image-scan" "nginx:latest" "trivy" "$raw_report" "$out_report" "false" "true" "$metadata" 2>/dev/null
 
 assert_eq "$(jq -r .schema                "$out_report")" "ark-report-tools"                    "schema"
-assert_eq "$(jq -r .version               "$out_report")" "1.3"                                 "version"
+assert_eq "$(jq -r .version               "$out_report")" "1.4"                                 "version"
 assert_eq "$(jq -r .image_family          "$out_report")" "test-family"                         "image_family"
 assert_eq "$(jq -r .image.name            "$out_report")" "ghcr.io/tooark/security-scanner"     "image.name"
 assert_eq "$(jq -r .image.version         "$out_report")" "1.9.0"                               "image.version"
